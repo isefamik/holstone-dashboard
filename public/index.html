@@ -5,210 +5,203 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Holstone Dashboard</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #222; }
-  .header { background: #fff200; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e0d800; }
-  .header h1 { font-size: 20px; font-weight: 700; color: #222; }
-  .header-right { display: flex; align-items: center; gap: 12px; }
-  .header span { font-size: 12px; color: #555; }
-  .refresh-btn { background: #222; color: #fff200; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
-  .refresh-btn:hover { background: #444; }
-  .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-  .metric { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .metric-label { font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .metric-value { font-size: 26px; font-weight: 700; color: #222; }
-  .metric-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
-  .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
-  .card-title { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
-  .item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-  .item-row:last-child { border-bottom: none; }
-  .item-title { flex: 1; color: #222; margin-right: 12px; }
-  .item-val { font-weight: 600; color: #222; white-space: nowrap; margin-left: 12px; }
-  .item-sub { color: #aaa; font-size: 12px; white-space: nowrap; margin-left: 8px; }
-  .badge { font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 600; margin-left: 8px; }
-  .badge-green { background: #e1f5ee; color: #0f6e56; }
-  .badge-amber { background: #faeeda; color: #854f0b; }
-  .badge-red { background: #fcebeb; color: #a32d2d; }
-  .loading { text-align: center; padding: 40px; color: #aaa; font-size: 15px; }
-  .error { background: #fcebeb; color: #a32d2d; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin: 12px 0; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-  .tab { background: #fff; border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500; color: #555; }
-  .tab.active { background: #222; color: #fff200; border-color: #222; }
-  .section { display: none; }
-  .section.active { display: block; }
-  .mes-selector { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
-  .mes-selector select { padding: 8px 12px; border-radius: 8px; border: 1.5px solid #e0e0e0; font-size: 14px; background: #fff; cursor: pointer; }
-  .mes-selector button { background: #222; color: #fff200; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
-  .mes-selector button:hover { background: #444; }
-  @media (max-width: 700px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
+.header{background:#fff200;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:20px;font-weight:700}
+.refresh-btn{background:#222;color:#fff200;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+.container{max-width:1200px;margin:24px auto;padding:0 16px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.metric{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.metric-label{font-size:12px;color:#888;margin-bottom:6px;text-transform:uppercase}
+.metric-value{font-size:26px;font-weight:700}
+.metric-sub{font-size:12px;color:#aaa;margin-top:4px}
+.card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:20px}
+.card-title{font-size:13px;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:16px}
+.item-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
+.item-row:last-child{border-bottom:none}
+.item-title{flex:1;color:#222;margin-right:12px;font-weight:500}
+.item-meta{display:flex;gap:16px;align-items:center;white-space:nowrap}
+.badge{font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600}
+.badge-pack{background:#e8f0fe;color:#1a56db}
+.loading{text-align:center;padding:40px;color:#aaa}
+.error{background:#fcebeb;color:#a32d2d;border-radius:8px;padding:12px 16px;font-size:13px;margin:12px 0}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab{background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:500;color:#555}
+.tab.active{background:#222;color:#fff200;border-color:#222}
+.section{display:none}.section.active{display:block}
+.mes-selector{display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+.mes-selector select{padding:8px 12px;border-radius:8px;border:1.5px solid #e0e0e0;font-size:14px;background:#fff;cursor:pointer}
+.mes-selector button{background:#222;color:#fff200;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+.stock-header{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 30px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
+.stock-row{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 30px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;align-items:center;cursor:pointer}
+.stock-row:hover{background:#fafafa}
+.variantes{display:none;background:#f9f9f9;border-radius:8px;margin:0 0 8px 0;padding:8px 16px}
+.variantes.open{display:block}
+.variante-row{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid #eee;color:#444}
+.variante-row:last-child{border-bottom:none}
+.variante-header{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:4px 0 8px 0;font-size:11px;color:#888;font-weight:600;text-transform:uppercase}
+.chevron{font-size:10px;color:#aaa;transition:transform 0.2s;text-align:center}
+.chevron.open{transform:rotate(180deg)}
 </style>
 </head>
 <body>
-
 <div class="header">
   <h1>🏬 Holstone Dashboard</h1>
-  <div class="header-right">
-    <span id="last-update"></span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span id="last-update" style="font-size:12px;color:#555"></span>
     <button class="refresh-btn" onclick="loadAll()">↻ Actualizar</button>
   </div>
 </div>
-
 <div class="container">
   <div class="tabs">
-    <div class="tab active" onclick="showTab('ventas', this)">📅 Ventas hoy</div>
-    <div class="tab" onclick="showTab('mes', this)">📆 Ventas por mes</div>
-    <div class="tab" onclick="showTab('stock', this)">📦 Stock</div>
+    <div class="tab active" onclick="showTab('ventas',this)">📅 Ventas hoy</div>
+    <div class="tab" onclick="showTab('mes',this)">📆 Ventas por mes</div>
+    <div class="tab" onclick="showTab('stock',this)">📦 Stock</div>
   </div>
 
-  <!-- VENTAS HOY -->
   <div id="ventas" class="section active">
-    <div id="ventas-metrics" class="grid-4">
-      <div class="metric"><div class="loading">Cargando...</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Top productos hoy</div>
-      <div id="ventas-top"><div class="loading">Cargando...</div></div>
-    </div>
+    <div id="ventas-metrics" class="grid-4"><div class="loading">Cargando...</div></div>
+    <div class="card"><div class="card-title">Top productos hoy</div><div id="ventas-top"><div class="loading">Cargando...</div></div></div>
   </div>
 
-  <!-- VENTAS POR MES -->
   <div id="mes" class="section">
     <div class="mes-selector">
       <select id="sel-mes">
-        <option value="1">Enero</option>
-        <option value="2">Febrero</option>
-        <option value="3">Marzo</option>
-        <option value="4">Abril</option>
-        <option value="5" selected>Mayo</option>
-        <option value="6">Junio</option>
-        <option value="7">Julio</option>
-        <option value="8">Agosto</option>
-        <option value="9">Septiembre</option>
-        <option value="10">Octubre</option>
-        <option value="11">Noviembre</option>
-        <option value="12">Diciembre</option>
+        <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+        <option value="4">Abril</option><option value="5" selected>Mayo</option><option value="6">Junio</option>
+        <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
       </select>
       <select id="sel-year">
-        <option value="2024">2024</option>
-        <option value="2025">2025</option>
-        <option value="2026" selected>2026</option>
+        <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
       </select>
       <button onclick="loadMes()">Ver mes</button>
     </div>
-    <div id="mes-metrics" class="grid-4">
-      <div class="metric"><div class="loading">Selecciona un mes y haz clic en "Ver mes"</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title"><span id="mes-titulo">Top productos del mes</span></div>
-      <div id="mes-top"><div class="loading">Selecciona un mes para ver los datos</div></div>
-    </div>
+    <div id="mes-metrics" class="grid-4"><div class="loading">Selecciona un mes</div></div>
+    <div class="card"><div class="card-title" id="mes-titulo">Top productos del mes</div><div id="mes-top"><div class="loading">Selecciona un mes</div></div></div>
   </div>
 
-  <!-- STOCK -->
   <div id="stock" class="section">
-    <div id="stock-metrics" class="grid-4">
-      <div class="metric"><div class="loading">Cargando...</div></div>
-    </div>
+    <div id="stock-metrics" class="grid-3"><div class="loading">Cargando...</div></div>
     <div class="card">
-      <div class="card-title">Publicaciones recientes</div>
+      <div class="card-title">Publicaciones activas — haz clic para ver variantes</div>
+      <div class="stock-header">
+        <span>Producto</span><span>Unidades ML</span><span>Piezas reales</span><span>Precio</span><span>Pack</span><span></span>
+      </div>
       <div id="stock-items"><div class="loading">Cargando...</div></div>
     </div>
   </div>
 </div>
 
 <script>
-function fmt(n) { return Number(n).toLocaleString('es-MX', {minimumFractionDigits:0, maximumFractionDigits:0}); }
-function fmtMXN(n) { return '$' + fmt(n); }
+function fmt(n){return Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0})}
+function fmtMXN(n){return'$'+fmt(n)}
 
-function showTab(name, el) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+function showTab(name,el){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(name).classList.add('active');
   el.classList.add('active');
 }
 
-function renderMetrics(containerId, data) {
-  document.getElementById(containerId).innerHTML = `
-    <div class="metric"><div class="metric-label">Venta bruta</div><div class="metric-value">${fmtMXN(data.ventaBruta)}</div><div class="metric-sub">${fmt(data.ordenes)} órdenes</div></div>
-    <div class="metric"><div class="metric-label">Unidades vendidas</div><div class="metric-value">${fmt(data.unidades)}</div><div class="metric-sub">piezas</div></div>
-    <div class="metric"><div class="metric-label">Ticket promedio</div><div class="metric-value">${fmtMXN(data.ticketPromedio)}</div><div class="metric-sub">por orden</div></div>
-    <div class="metric"><div class="metric-label">Descuentos</div><div class="metric-value">${fmtMXN(data.descuentos)}</div><div class="metric-sub">de ${fmtMXN(data.precioLista)} lista</div></div>
-  `;
+function renderMetrics(id,d){
+  document.getElementById(id).innerHTML=`
+  <div class="metric"><div class="metric-label">Venta bruta</div><div class="metric-value">${fmtMXN(d.ventaBruta)}</div><div class="metric-sub">${fmt(d.ordenes)} órdenes</div></div>
+  <div class="metric"><div class="metric-label">Unidades</div><div class="metric-value">${fmt(d.unidades)}</div><div class="metric-sub">piezas</div></div>
+  <div class="metric"><div class="metric-label">Ticket promedio</div><div class="metric-value">${fmtMXN(d.ticketPromedio)}</div><div class="metric-sub">por orden</div></div>
+  <div class="metric"><div class="metric-label">Descuentos</div><div class="metric-value">${fmtMXN(d.descuentos)}</div><div class="metric-sub">de ${fmtMXN(d.precioLista)} lista</div></div>`;
 }
 
-function renderTop(containerId, top) {
-  document.getElementById(containerId).innerHTML = top.map(p => `
-    <div class="item-row">
-      <span class="item-title">${p.title}</span>
-      <span class="item-sub">${p.orders} órdenes · ${p.units} uds</span>
-      <span class="item-val">${fmtMXN(p.revenue)}</span>
+function renderTop(id,top){
+  document.getElementById(id).innerHTML=top.map(p=>`
+  <div class="item-row">
+    <span class="item-title">${p.title}</span>
+    <div class="item-meta">
+      <span style="color:#aaa;font-size:12px">${p.orders} órdenes · ${p.units} uds</span>
+      <span style="font-weight:600">${fmtMXN(p.revenue)}</span>
     </div>
-  `).join('');
+  </div>`).join('');
 }
 
-async function loadVentas() {
-  try {
-    document.getElementById('ventas-metrics').innerHTML = '<div class="loading">Cargando ventas de hoy...</div>';
-    document.getElementById('ventas-top').innerHTML = '<div class="loading">Cargando...</div>';
-    const r = await fetch('/api/ventas-hoy');
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    renderMetrics('ventas-metrics', d);
-    renderTop('ventas-top', d.top);
-  } catch(e) {
-    document.getElementById('ventas-metrics').innerHTML = `<div class="error">Error: ${e.message}</div>`;
-  }
+function toggleVariantes(id){
+  const el=document.getElementById('var-'+id);
+  const ch=document.getElementById('ch-'+id);
+  if(el){el.classList.toggle('open');ch.classList.toggle('open')}
 }
 
-async function loadMes() {
-  try {
-    const mes = document.getElementById('sel-mes').value;
-    const year = document.getElementById('sel-year').value;
-    const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    document.getElementById('mes-metrics').innerHTML = '<div class="loading">Cargando datos del mes...</div>';
-    document.getElementById('mes-top').innerHTML = '<div class="loading">Cargando...</div>';
-    document.getElementById('mes-titulo').textContent = `Top productos — ${meses[mes]} ${year}`;
-    const r = await fetch(`/api/ventas-mes?month=${mes}&year=${year}`);
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    renderMetrics('mes-metrics', d);
-    renderTop('mes-top', d.top);
-  } catch(e) {
-    document.getElementById('mes-metrics').innerHTML = `<div class="error">Error: ${e.message}</div>`;
-  }
+async function loadVentas(){
+  try{
+    document.getElementById('ventas-metrics').innerHTML='<div class="loading">Cargando...</div>';
+    const r=await fetch('/api/ventas-hoy');
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    renderMetrics('ventas-metrics',d);
+    renderTop('ventas-top',d.top);
+  }catch(e){document.getElementById('ventas-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`}
 }
 
-async function loadStock() {
-  try {
-    document.getElementById('stock-metrics').innerHTML = '<div class="loading">Cargando stock...</div>';
-    document.getElementById('stock-items').innerHTML = '<div class="loading">Cargando...</div>';
-    const r = await fetch('/api/stock');
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    document.getElementById('stock-metrics').innerHTML = `
-      <div class="metric"><div class="metric-label">Stock disponible</div><div class="metric-value">${fmt(d.totalStock)}</div><div class="metric-sub">unidades</div></div>
-      <div class="metric"><div class="metric-label">Publicaciones activas</div><div class="metric-value">${fmt(d.activas)}</div><div class="metric-sub">de ${fmt(d.totalPublicaciones)} totales</div></div>
-    `;
-    document.getElementById('stock-items').innerHTML = d.items.map(i => `
-      <div class="item-row">
-        <span class="item-title">${i.title}</span>
-        <span class="item-sub">Stock: ${i.available_quantity}</span>
-        <span class="item-val">${fmtMXN(i.price)}</span>
-        <span class="badge ${i.status==='active'?'badge-green':i.status==='paused'?'badge-amber':'badge-red'}">${i.status==='active'?'Activa':i.status==='paused'?'Pausada':'Inactiva'}</span>
+async function loadMes(){
+  try{
+    const mes=document.getElementById('sel-mes').value;
+    const year=document.getElementById('sel-year').value;
+    const meses=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    document.getElementById('mes-metrics').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('mes-top').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('mes-titulo').textContent=`Top productos — ${meses[mes]} ${year}`;
+    const r=await fetch(`/api/ventas-mes?month=${mes}&year=${year}`);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    renderMetrics('mes-metrics',d);
+    renderTop('mes-top',d.top);
+  }catch(e){document.getElementById('mes-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`}
+}
+
+async function loadStock(){
+  try{
+    document.getElementById('stock-metrics').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('stock-items').innerHTML='<div class="loading">Cargando publicaciones activas...</div>';
+    const r=await fetch('/api/stock');
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    document.getElementById('stock-metrics').innerHTML=`
+      <div class="metric"><div class="metric-label">Publicaciones activas</div><div class="metric-value">${fmt(d.totalPublicaciones)}</div></div>
+      <div class="metric"><div class="metric-label">Unidades en ML</div><div class="metric-value">${fmt(d.totalStock)}</div><div class="metric-sub">unidades</div></div>
+      <div class="metric"><div class="metric-label">Piezas reales</div><div class="metric-value">${fmt(d.totalPiezas)}</div><div class="metric-sub">considerando packs</div></div>`;
+    document.getElementById('stock-items').innerHTML=d.items.map(item=>`
+      <div class="stock-row" onclick="toggleVariantes('${item.id}')">
+        <span style="display:flex;align-items:center;gap:8px">
+          ${item.pack>1?`<span class="badge badge-pack">${item.pack}P</span>`:''}
+          <span>${item.title}</span>
+        </span>
+        <span style="font-weight:600">${fmt(item.totalUnits)}</span>
+        <span style="font-weight:600;color:#0f6e56">${fmt(item.totalPiezas)}</span>
+        <span>${fmtMXN(item.price)}</span>
+        <span style="color:#aaa">x${item.pack}</span>
+        <span id="ch-${item.id}" class="chevron">▼</span>
       </div>
-    `).join('');
-  } catch(e) {
-    document.getElementById('stock-metrics').innerHTML = `<div class="error">Error: ${e.message}</div>`;
+      <div id="var-${item.id}" class="variantes">
+        ${item.variations.length>0?`
+        <div class="variante-header"><span>Color / Talla</span><span>Unidades ML</span><span>Piezas reales</span></div>
+        ${item.variations.map(v=>`
+          <div class="variante-row">
+            <span>${v.color}${v.color&&v.talla?' / ':''}${v.talla}</span>
+            <span>${fmt(v.stock)} uds</span>
+            <span style="color:#0f6e56;font-weight:600">${fmt(v.piezas)} piezas</span>
+          </div>`).join('')}`
+        :'<div style="color:#aaa;font-size:13px;padding:8px 0">Sin variantes registradas</div>'}
+      </div>`).join('');
+  }catch(e){
+    document.getElementById('stock-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
   }
 }
 
-function loadAll() {
-  document.getElementById('last-update').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit'});
+function loadAll(){
+  document.getElementById('last-update').textContent='Actualizado: '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   loadVentas();
   loadStock();
 }
-
 loadAll();
 </script>
 </body>

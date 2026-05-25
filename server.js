@@ -158,12 +158,41 @@ app.get('/api/stock', async (req, res) => {
     let items = [];
     for (let i = 0; i < allIds.length; i += 20) {
       const ids = allIds.slice(i, i + 20).join(',');
-      const details = await mlGet(`https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status`);
+      const details = await mlGet(`https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status,variations`);
       items = items.concat(details.filter(d => d.code === 200).map(d => d.body));
     }
-    const totalStock = items.reduce((s, i) => s + (i.available_quantity || 0), 0);
-    const activas = items.length;
-    res.json({ totalPublicaciones: total, totalStock, activas, items });
+    const getPack = (title) => {
+      const m = title.match(/(\d+)\s*pack/i);
+      return m ? parseInt(m[1]) : 1;
+    };
+    const result = items.map(item => {
+      const pack = getPack(item.title);
+      const totalUnits = item.available_quantity || 0;
+      const variations = (item.variations || []).map(v => {
+        const attrs = {};
+        (v.attribute_combinations || []).forEach(a => { attrs[a.name] = a.value_name; });
+        return {
+          id: v.id,
+          color: attrs['Color'] || attrs['color'] || '',
+          talla: attrs['Talla'] || attrs['talla'] || attrs['Size'] || '',
+          stock: v.available_quantity || 0,
+          piezas: (v.available_quantity || 0) * pack
+        };
+      });
+      return {
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        status: item.status,
+        pack,
+        totalUnits,
+        totalPiezas: totalUnits * pack,
+        variations
+      };
+    });
+    const totalStock = result.reduce((s, i) => s + i.totalUnits, 0);
+    const totalPiezas = result.reduce((s, i) => s + i.totalPiezas, 0);
+    res.json({ totalPublicaciones: result.length, totalStock, totalPiezas, items: result });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
