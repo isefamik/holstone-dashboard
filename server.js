@@ -146,13 +146,24 @@ app.get('/api/ventas-mes', async (req, res) => {
 
 app.get('/api/stock', async (req, res) => {
   try {
-    const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { limit: 50 });
-    const ids = r.results.slice(0, 20).join(',');
-    const details = await mlGet(`https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status`);
-    const items = details.filter(d => d.code === 200).map(d => d.body);
+    let allIds = [];
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status: 'active', limit: 50, offset });
+      total = r.paging.total;
+      allIds = allIds.concat(r.results);
+      offset += 50;
+    }
+    let items = [];
+    for (let i = 0; i < allIds.length; i += 20) {
+      const ids = allIds.slice(i, i + 20).join(',');
+      const details = await mlGet(`https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status`);
+      items = items.concat(details.filter(d => d.code === 200).map(d => d.body));
+    }
     const totalStock = items.reduce((s, i) => s + (i.available_quantity || 0), 0);
-    const activas = items.filter(i => i.status === 'active').length;
-    res.json({ totalPublicaciones: r.paging.total, totalStock, activas, items });
+    const activas = items.length;
+    res.json({ totalPublicaciones: total, totalStock, activas, items });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
