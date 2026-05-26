@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Holstone Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
@@ -13,6 +14,7 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
 .container{max-width:1200px;margin:24px auto;padding:0 16px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
 .metric{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .metric-label{font-size:12px;color:#888;margin-bottom:6px;text-transform:uppercase}
 .metric-value{font-size:26px;font-weight:700}
@@ -22,9 +24,11 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
 .item-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
 .item-row:last-child{border-bottom:none}
 .item-title{flex:1;color:#222;margin-right:12px;font-weight:500}
-.item-meta{display:flex;gap:16px;align-items:center;white-space:nowrap}
 .badge{font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600}
 .badge-pack{background:#e8f0fe;color:#1a56db}
+.badge-green{background:#e1f5ee;color:#0f6e56}
+.badge-yellow{background:#fef9e7;color:#b7770d}
+.badge-red{background:#fcebeb;color:#a32d2d}
 .loading{text-align:center;padding:40px;color:#aaa}
 .error{background:#fcebeb;color:#a32d2d;border-radius:8px;padding:12px 16px;font-size:13px;margin:12px 0}
 .tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
@@ -44,6 +48,16 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
 .variante-header{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:4px 0 8px 0;font-size:11px;color:#888;font-weight:600;text-transform:uppercase}
 .chevron{font-size:10px;color:#aaa;transition:transform 0.2s;text-align:center}
 .chevron.open{transform:rotate(180deg)}
+/* Publicidad */
+.upload-area{border:2px dashed #ddd;border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:20px}
+.upload-area:hover{border-color:#222}
+.upload-area h3{font-size:16px;font-weight:600;margin-bottom:8px}
+.upload-area p{font-size:13px;color:#888}
+.upload-btn{background:#222;color:#fff200;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-top:12px}
+.ads-header{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
+.ads-row{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px;align-items:center}
+.camp-header{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
+.camp-row{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;align-items:center}
 </style>
 </head>
 <body>
@@ -59,13 +73,16 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
     <div class="tab active" onclick="showTab('ventas',this)">📅 Ventas hoy</div>
     <div class="tab" onclick="showTab('mes',this)">📆 Ventas por mes</div>
     <div class="tab" onclick="showTab('stock',this)">📦 Stock</div>
+    <div class="tab" onclick="showTab('publicidad',this)">📢 Publicidad</div>
   </div>
 
+  <!-- VENTAS HOY -->
   <div id="ventas" class="section active">
     <div id="ventas-metrics" class="grid-4"><div class="loading">Cargando...</div></div>
     <div class="card"><div class="card-title">Top productos hoy</div><div id="ventas-top"><div class="loading">Cargando...</div></div></div>
   </div>
 
+  <!-- VENTAS POR MES -->
   <div id="mes" class="section">
     <div class="mes-selector">
       <select id="sel-mes">
@@ -83,6 +100,7 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
     <div class="card"><div class="card-title" id="mes-titulo">Top productos del mes</div><div id="mes-top"><div class="loading">Selecciona un mes</div></div></div>
   </div>
 
+  <!-- STOCK -->
   <div id="stock" class="section">
     <div id="stock-metrics" class="grid-3"><div class="loading">Cargando...</div></div>
     <div class="card">
@@ -93,11 +111,39 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
       <div id="stock-items"><div class="loading">Cargando...</div></div>
     </div>
   </div>
+
+  <!-- PUBLICIDAD -->
+  <div id="publicidad" class="section">
+    <div class="upload-area" onclick="document.getElementById('ads-file').click()">
+      <h3>📊 Subir reporte de ML Ads</h3>
+      <p>Descarga el reporte de Product Ads desde ads.mercadolibre.com.mx y súbelo aquí</p>
+      <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('ads-file').click()">Seleccionar archivo Excel</button>
+      <input type="file" id="ads-file" accept=".xlsx,.xls" style="display:none" onchange="processAdsFile(this)">
+    </div>
+    <div id="ads-content" style="display:none">
+      <div id="ads-periodo" style="font-size:13px;color:#888;margin-bottom:16px"></div>
+      <div id="ads-metrics" class="grid-4"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Por campaña</div>
+          <div class="camp-header"><span>Campaña</span><span>Inversión</span><span>Ingresos</span><span>ACOS</span><span>ROAS</span></div>
+          <div id="ads-campanas"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Top productos por ingresos</div>
+          <div class="ads-header"><span>Producto</span><span>Inversión</span><span>Ingresos</span><span>Ventas</span><span>ACOS</span><span>ROAS</span></div>
+          <div id="ads-top"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 function fmt(n){return Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0})}
 function fmtMXN(n){return'$'+fmt(n)}
+function fmtPct(n){return Number(n).toFixed(2)+'%'}
+function fmtX(n){return Number(n).toFixed(2)+'x'}
 
 function showTab(name,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
@@ -118,7 +164,7 @@ function renderTop(id,top){
   document.getElementById(id).innerHTML=top.map(p=>`
   <div class="item-row">
     <span class="item-title">${p.title}</span>
-    <div class="item-meta">
+    <div style="display:flex;gap:16px;align-items:center;white-space:nowrap">
       <span style="color:#aaa;font-size:12px">${p.orders} órdenes · ${p.units} uds</span>
       <span style="font-weight:600">${fmtMXN(p.revenue)}</span>
     </div>
@@ -195,6 +241,106 @@ async function loadStock(){
   }catch(e){
     document.getElementById('stock-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
   }
+}
+
+// PUBLICIDAD
+function processAdsFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result, {type:'binary'});
+      const sheet = wb.Sheets['Reporte por anuncios'];
+      if(!sheet){ alert('No se encontró la hoja "Reporte por anuncios"'); return; }
+      const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+      
+      // Find header row
+      let headerRow = -1;
+      for(let i=0;i<rows.length;i++){
+        if(rows[i] && rows[i].some(c=>String(c||'').includes('Campaña'))){
+          headerRow = i; break;
+        }
+      }
+      if(headerRow<0){ alert('No se encontró la estructura esperada'); return; }
+      
+      const headers = rows[headerRow].map(h=>String(h||'').replace(/\n/g,' ').trim());
+      const data = rows.slice(headerRow+1).filter(r=>r && r[0]).map(r=>{
+        const obj={};
+        headers.forEach((h,i)=>obj[h]=r[i]);
+        return obj;
+      });
+
+      // Get periodo from first data row
+      const periodo = data.length>0 ? `Período: ${data[0]['Desde']} — ${data[0]['Hasta']}` : '';
+      document.getElementById('ads-periodo').textContent = periodo;
+
+      // Column names (flexible)
+      const invCol = headers.find(h=>h.includes('nversi') && !h.includes('ndirec'));
+      const ingCol = headers.find(h=>h.includes('ngresos') && !h.includes('directas') && !h.includes('ndirec'));
+      const acosCol = headers.find(h=>h.includes('ACOS'));
+      const roasCol = headers.find(h=>h.includes('ROAS'));
+      const ventasCol = headers.find(h=>h.includes('Ventas por publicidad'));
+      const impCol = headers.find(h=>h.includes('mpresiones'));
+      const clicsCol = headers.find(h=>h.includes('lics'));
+
+      const activos = data.filter(r=>r['Estado']==='Activo');
+      const toNum = v => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
+
+      const totInv = activos.reduce((s,r)=>s+toNum(r[invCol]),0);
+      const totIng = activos.reduce((s,r)=>s+toNum(r[ingCol]),0);
+      const totVentas = activos.reduce((s,r)=>s+toNum(r[ventasCol]),0);
+      const totImp = activos.reduce((s,r)=>s+toNum(r[impCol]),0);
+      const totClics = activos.reduce((s,r)=>s+toNum(r[clicsCol]),0);
+      const acos = totIng>0 ? (totInv/totIng*100) : 0;
+      const roas = totInv>0 ? (totIng/totInv) : 0;
+
+      document.getElementById('ads-metrics').innerHTML=`
+        <div class="metric"><div class="metric-label">Inversión total</div><div class="metric-value">${fmtMXN(totInv)}</div><div class="metric-sub">MXN</div></div>
+        <div class="metric"><div class="metric-label">Ingresos por ads</div><div class="metric-value">${fmtMXN(totIng)}</div><div class="metric-sub">${fmt(totVentas)} ventas</div></div>
+        <div class="metric"><div class="metric-label">ACOS</div><div class="metric-value">${fmtPct(acos)}</div><div class="metric-sub">inversión / ingresos</div></div>
+        <div class="metric"><div class="metric-label">ROAS</div><div class="metric-value">${fmtX(roas)}</div><div class="metric-sub">${fmt(totImp)} imp · ${fmt(totClics)} clics</div></div>`;
+
+      // Por campaña
+      const campMap={};
+      activos.forEach(r=>{
+        const c=r['Campaña']||'Sin campaña';
+        if(!campMap[c])campMap[c]={inv:0,ing:0,ventas:0,clics:0};
+        campMap[c].inv+=toNum(r[invCol]);
+        campMap[c].ing+=toNum(r[ingCol]);
+        campMap[c].ventas+=toNum(r[ventasCol]);
+        campMap[c].clics+=toNum(r[clicsCol]);
+      });
+      document.getElementById('ads-campanas').innerHTML=Object.entries(campMap)
+        .sort((a,b)=>b[1].ing-a[1].ing)
+        .map(([camp,v])=>`
+        <div class="camp-row">
+          <span style="font-size:13px">${camp}</span>
+          <span>${fmtMXN(v.inv)}</span>
+          <span style="color:#0f6e56;font-weight:600">${fmtMXN(v.ing)}</span>
+          <span>${v.ing>0?fmtPct(v.inv/v.ing*100):'-'}</span>
+          <span>${v.inv>0?fmtX(v.ing/v.inv):'-'}</span>
+        </div>`).join('');
+
+      // Top productos
+      const top10 = activos.filter(r=>toNum(r[ingCol])>0)
+        .sort((a,b)=>toNum(b[ingCol])-toNum(a[ingCol])).slice(0,10);
+      document.getElementById('ads-top').innerHTML=top10.map(r=>`
+        <div class="ads-row">
+          <span style="font-size:12px">${(r['Título de anuncio']||'').substring(0,35)}...</span>
+          <span>${fmtMXN(toNum(r[invCol]))}</span>
+          <span style="color:#0f6e56;font-weight:600">${fmtMXN(toNum(r[ingCol]))}</span>
+          <span>${fmt(toNum(r[ventasCol]))}</span>
+          <span>${toNum(r[acosCol])>0?fmtPct(toNum(r[acosCol])):'-'}</span>
+          <span>${toNum(r[roasCol])>0?fmtX(toNum(r[roasCol])):'-'}</span>
+        </div>`).join('');
+
+      document.getElementById('ads-content').style.display='block';
+    }catch(err){
+      alert('Error procesando el archivo: '+err.message);
+    }
+  };
+  reader.readAsBinaryString(file);
 }
 
 function loadAll(){
