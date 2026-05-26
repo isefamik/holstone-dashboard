@@ -200,3 +200,83 @@ app.get('/api/stock', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
+app.get('/api/devoluciones', async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const y = year || new Date().getFullYear();
+    const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
+    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
+    let all = [];
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+        seller: SELLER_ID, 'order.status': 'cancelled',
+        'order.date_created.from': from, 'order.date_created.to': to,
+        limit: 50, offset
+      });
+      total = d.paging.total;
+      all = all.concat(d.results);
+      offset += 50;
+    }
+    const totalMonto = all.reduce((s,o) => s + (o.total_amount||0), 0);
+    const totalUnidades = all.reduce((s,o) => s + o.order_items.reduce((ss,i) => ss+i.quantity, 0), 0);
+    const byProduct = {};
+    all.forEach(o => {
+      o.order_items.forEach(i => {
+        const t = i.item.title;
+        if (!byProduct[t]) byProduct[t] = { monto: 0, unidades: 0, ordenes: 0 };
+        byProduct[t].monto += o.total_amount||0;
+        byProduct[t].unidades += i.quantity;
+        byProduct[t].ordenes += 1;
+      });
+    });
+    const top = Object.entries(byProduct).sort((a,b) => b[1].ordenes-a[1].ordenes).slice(0,10).map(([title,v]) => ({ title, ...v }));
+    res.json({ total, totalMonto, totalUnidades, top });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/devoluciones', async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const y = year || new Date().getFullYear();
+    const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
+    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
+    let all = [];
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+        seller: SELLER_ID, 'order.status': 'cancelled',
+        'order.date_created.from': from, 'order.date_created.to': to,
+        limit: 50, offset
+      });
+      total = d.paging.total;
+      all = all.concat(d.results);
+      offset += 50;
+    }
+    const totalMonto = all.reduce((s,o) => s + (o.total_amount||0), 0);
+    const totalUnidades = all.reduce((s,o) => s + o.order_items.reduce((ss,i) => ss+i.quantity, 0), 0);
+    const byProduct = {};
+    all.forEach(o => {
+      o.order_items.forEach(i => {
+        const t = i.item.title;
+        if (!byProduct[t]) byProduct[t] = { monto: 0, unidades: 0, ordenes: 0 };
+        byProduct[t].monto += o.total_amount||0;
+        byProduct[t].unidades += i.quantity;
+        byProduct[t].ordenes += 1;
+      });
+    });
+    const top = Object.entries(byProduct).sort((a,b) => b[1].ordenes-a[1].ordenes).slice(0,10).map(([title,v]) => ({ title, ...v }));
+    res.json({ total, totalMonto, totalUnidades, top });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
