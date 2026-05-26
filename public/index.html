@@ -26,8 +26,6 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
 .item-title{flex:1;color:#222;margin-right:12px;font-weight:500}
 .badge{font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600}
 .badge-pack{background:#e8f0fe;color:#1a56db}
-.badge-green{background:#e1f5ee;color:#0f6e56}
-.badge-yellow{background:#fef9e7;color:#b7770d}
 .badge-red{background:#fcebeb;color:#a32d2d}
 .loading{text-align:center;padding:40px;color:#aaa}
 .error{background:#fcebeb;color:#a32d2d;border-radius:8px;padding:12px 16px;font-size:13px;margin:12px 0}
@@ -48,7 +46,6 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
 .variante-header{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:4px 0 8px 0;font-size:11px;color:#888;font-weight:600;text-transform:uppercase}
 .chevron{font-size:10px;color:#aaa;transition:transform 0.2s;text-align:center}
 .chevron.open{transform:rotate(180deg)}
-/* Publicidad */
 .upload-area{border:2px dashed #ddd;border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:20px}
 .upload-area:hover{border-color:#222}
 .upload-area h3{font-size:16px;font-weight:600;margin-bottom:8px}
@@ -58,6 +55,8 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
 .ads-row{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px;align-items:center}
 .camp-header{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
 .camp-row{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;align-items:center}
+.dev-header{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
+.dev-row{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;align-items:center}
 </style>
 </head>
 <body>
@@ -74,15 +73,14 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
     <div class="tab" onclick="showTab('mes',this)">📆 Ventas por mes</div>
     <div class="tab" onclick="showTab('stock',this)">📦 Stock</div>
     <div class="tab" onclick="showTab('publicidad',this)">📢 Publicidad</div>
+    <div class="tab" onclick="showTab('devoluciones',this)">🔄 Devoluciones</div>
   </div>
 
-  <!-- VENTAS HOY -->
   <div id="ventas" class="section active">
     <div id="ventas-metrics" class="grid-4"><div class="loading">Cargando...</div></div>
     <div class="card"><div class="card-title">Top productos hoy</div><div id="ventas-top"><div class="loading">Cargando...</div></div></div>
   </div>
 
-  <!-- VENTAS POR MES -->
   <div id="mes" class="section">
     <div class="mes-selector">
       <select id="sel-mes">
@@ -100,7 +98,6 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
     <div class="card"><div class="card-title" id="mes-titulo">Top productos del mes</div><div id="mes-top"><div class="loading">Selecciona un mes</div></div></div>
   </div>
 
-  <!-- STOCK -->
   <div id="stock" class="section">
     <div id="stock-metrics" class="grid-3"><div class="loading">Cargando...</div></div>
     <div class="card">
@@ -112,7 +109,6 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
     </div>
   </div>
 
-  <!-- PUBLICIDAD -->
   <div id="publicidad" class="section">
     <div class="upload-area" onclick="document.getElementById('ads-file').click()">
       <h3>📊 Subir reporte de ML Ads</h3>
@@ -135,6 +131,27 @@ body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
           <div id="ads-top"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="devoluciones" class="section">
+    <div class="mes-selector">
+      <select id="dev-mes">
+        <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+        <option value="4">Abril</option><option value="5" selected>Mayo</option><option value="6">Junio</option>
+        <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+      </select>
+      <select id="dev-year">
+        <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+      </select>
+      <button onclick="loadDevoluciones()">Ver mes</button>
+    </div>
+    <div id="dev-metrics" class="grid-3"><div class="loading">Selecciona un mes</div></div>
+    <div class="card">
+      <div class="card-title" id="dev-titulo">Productos con más cancelaciones</div>
+      <div class="dev-header"><span>Producto</span><span>Órdenes</span><span>Monto</span><span>Unidades</span></div>
+      <div id="dev-top"><div class="loading">Selecciona un mes</div></div>
     </div>
   </div>
 </div>
@@ -207,7 +224,7 @@ async function loadMes(){
 async function loadStock(){
   try{
     document.getElementById('stock-metrics').innerHTML='<div class="loading">Cargando...</div>';
-    document.getElementById('stock-items').innerHTML='<div class="loading">Cargando publicaciones activas...</div>';
+    document.getElementById('stock-items').innerHTML='<div class="loading">Cargando...</div>';
     const r=await fetch('/api/stock');
     const d=await r.json();
     if(d.error)throw new Error(d.error);
@@ -236,84 +253,83 @@ async function loadStock(){
             <span>${fmt(v.stock)} uds</span>
             <span style="color:#0f6e56;font-weight:600">${fmt(v.piezas)} piezas</span>
           </div>`).join('')}`
-        :'<div style="color:#aaa;font-size:13px;padding:8px 0">Sin variantes registradas</div>'}
+        :'<div style="color:#aaa;font-size:13px;padding:8px 0">Sin variantes</div>'}
       </div>`).join('');
   }catch(e){
     document.getElementById('stock-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
   }
 }
 
-// PUBLICIDAD
+async function loadDevoluciones(){
+  try{
+    const mes=document.getElementById('dev-mes').value;
+    const year=document.getElementById('dev-year').value;
+    const meses=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    document.getElementById('dev-metrics').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('dev-top').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('dev-titulo').textContent=`Cancelaciones — ${meses[mes]} ${year}`;
+    const r=await fetch(`/api/devoluciones?month=${mes}&year=${year}`);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    document.getElementById('dev-metrics').innerHTML=`
+      <div class="metric"><div class="metric-label">Órdenes canceladas</div><div class="metric-value" style="color:#a32d2d">${fmt(d.total)}</div></div>
+      <div class="metric"><div class="metric-label">Monto cancelado</div><div class="metric-value" style="color:#a32d2d">${fmtMXN(d.totalMonto)}</div></div>
+      <div class="metric"><div class="metric-label">Unidades canceladas</div><div class="metric-value" style="color:#a32d2d">${fmt(d.totalUnidades)}</div></div>`;
+    document.getElementById('dev-top').innerHTML=d.top.length>0?d.top.map(p=>`
+      <div class="dev-row">
+        <span>${p.title}</span>
+        <span style="color:#a32d2d;font-weight:600">${fmt(p.ordenes)}</span>
+        <span>${fmtMXN(p.monto)}</span>
+        <span>${fmt(p.unidades)}</span>
+      </div>`).join(''):'<div style="color:#aaa;padding:20px;text-align:center">Sin cancelaciones este mes 🎉</div>';
+  }catch(e){
+    document.getElementById('dev-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
+}
+
 function processAdsFile(input){
-  const file = input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e){
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
     try{
-      const wb = XLSX.read(e.target.result, {type:'binary'});
-      const sheet = wb.Sheets['Reporte por anuncios'];
-      if(!sheet){ alert('No se encontró la hoja "Reporte por anuncios"'); return; }
-      const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
-      
-      // Find header row
-      let headerRow = -1;
+      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const sheet=wb.Sheets['Reporte por anuncios'];
+      if(!sheet){alert('No se encontró la hoja "Reporte por anuncios"');return;}
+      const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
+      let headerRow=-1;
       for(let i=0;i<rows.length;i++){
-        if(rows[i] && rows[i].some(c=>String(c||'').includes('Campaña'))){
-          headerRow = i; break;
-        }
+        if(rows[i]&&rows[i].some(c=>String(c||'').includes('Campaña'))){headerRow=i;break;}
       }
-      if(headerRow<0){ alert('No se encontró la estructura esperada'); return; }
-      
-      const headers = rows[headerRow].map(h=>String(h||'').replace(/\n/g,' ').trim());
-      const data = rows.slice(headerRow+1).filter(r=>r && r[0]).map(r=>{
-        const obj={};
-        headers.forEach((h,i)=>obj[h]=r[i]);
-        return obj;
-      });
-
-      // Get periodo from first data row
-      const periodo = data.length>0 ? `Período: ${data[0]['Desde']} — ${data[0]['Hasta']}` : '';
-      document.getElementById('ads-periodo').textContent = periodo;
-
-      // Column names (flexible)
-      const invCol = headers.find(h=>h.includes('nversi') && !h.includes('ndirec'));
-      const ingCol = headers.find(h=>h.includes('ngresos') && !h.includes('directas') && !h.includes('ndirec'));
-      const acosCol = headers.find(h=>h.includes('ACOS'));
-      const roasCol = headers.find(h=>h.includes('ROAS'));
-      const ventasCol = headers.find(h=>h.includes('Ventas por publicidad'));
-      const impCol = headers.find(h=>h.includes('mpresiones'));
-      const clicsCol = headers.find(h=>h.includes('lics'));
-
-      const activos = data.filter(r=>r['Estado']==='Activo');
-      const toNum = v => isNaN(parseFloat(v)) ? 0 : parseFloat(v);
-
-      const totInv = activos.reduce((s,r)=>s+toNum(r[invCol]),0);
-      const totIng = activos.reduce((s,r)=>s+toNum(r[ingCol]),0);
-      const totVentas = activos.reduce((s,r)=>s+toNum(r[ventasCol]),0);
-      const totImp = activos.reduce((s,r)=>s+toNum(r[impCol]),0);
-      const totClics = activos.reduce((s,r)=>s+toNum(r[clicsCol]),0);
-      const acos = totIng>0 ? (totInv/totIng*100) : 0;
-      const roas = totInv>0 ? (totIng/totInv) : 0;
-
+      if(headerRow<0){alert('Estructura no reconocida');return;}
+      const headers=rows[headerRow].map(h=>String(h||'').replace(/\n/g,' ').trim());
+      const data=rows.slice(headerRow+1).filter(r=>r&&r[0]).map(r=>{const obj={};headers.forEach((h,i)=>obj[h]=r[i]);return obj;});
+      const periodo=data.length>0?`Período: ${data[0]['Desde']} — ${data[0]['Hasta']}`:'';
+      document.getElementById('ads-periodo').textContent=periodo;
+      const invCol=headers.find(h=>h.includes('nversi')&&!h.includes('ndirec'));
+      const ingCol=headers.find(h=>h.includes('ngresos')&&!h.includes('directas')&&!h.includes('ndirec'));
+      const acosCol=headers.find(h=>h.includes('ACOS'));
+      const roasCol=headers.find(h=>h.includes('ROAS'));
+      const ventasCol=headers.find(h=>h.includes('Ventas por publicidad'));
+      const impCol=headers.find(h=>h.includes('mpresiones'));
+      const clicsCol=headers.find(h=>h.includes('lics'));
+      const activos=data.filter(r=>r['Estado']==='Activo');
+      const toNum=v=>isNaN(parseFloat(v))?0:parseFloat(v);
+      const totInv=activos.reduce((s,r)=>s+toNum(r[invCol]),0);
+      const totIng=activos.reduce((s,r)=>s+toNum(r[ingCol]),0);
+      const totVentas=activos.reduce((s,r)=>s+toNum(r[ventasCol]),0);
+      const totImp=activos.reduce((s,r)=>s+toNum(r[impCol]),0);
+      const totClics=activos.reduce((s,r)=>s+toNum(r[clicsCol]),0);
+      const acos=totIng>0?(totInv/totIng*100):0;
+      const roas=totInv>0?(totIng/totInv):0;
       document.getElementById('ads-metrics').innerHTML=`
         <div class="metric"><div class="metric-label">Inversión total</div><div class="metric-value">${fmtMXN(totInv)}</div><div class="metric-sub">MXN</div></div>
         <div class="metric"><div class="metric-label">Ingresos por ads</div><div class="metric-value">${fmtMXN(totIng)}</div><div class="metric-sub">${fmt(totVentas)} ventas</div></div>
         <div class="metric"><div class="metric-label">ACOS</div><div class="metric-value">${fmtPct(acos)}</div><div class="metric-sub">inversión / ingresos</div></div>
         <div class="metric"><div class="metric-label">ROAS</div><div class="metric-value">${fmtX(roas)}</div><div class="metric-sub">${fmt(totImp)} imp · ${fmt(totClics)} clics</div></div>`;
-
-      // Por campaña
       const campMap={};
-      activos.forEach(r=>{
-        const c=r['Campaña']||'Sin campaña';
-        if(!campMap[c])campMap[c]={inv:0,ing:0,ventas:0,clics:0};
-        campMap[c].inv+=toNum(r[invCol]);
-        campMap[c].ing+=toNum(r[ingCol]);
-        campMap[c].ventas+=toNum(r[ventasCol]);
-        campMap[c].clics+=toNum(r[clicsCol]);
-      });
-      document.getElementById('ads-campanas').innerHTML=Object.entries(campMap)
-        .sort((a,b)=>b[1].ing-a[1].ing)
-        .map(([camp,v])=>`
+      activos.forEach(r=>{const c=r['Campaña']||'Sin campaña';if(!campMap[c])campMap[c]={inv:0,ing:0};campMap[c].inv+=toNum(r[invCol]);campMap[c].ing+=toNum(r[ingCol]);});
+      document.getElementById('ads-campanas').innerHTML=Object.entries(campMap).sort((a,b)=>b[1].ing-a[1].ing).map(([camp,v])=>`
         <div class="camp-row">
           <span style="font-size:13px">${camp}</span>
           <span>${fmtMXN(v.inv)}</span>
@@ -321,10 +337,7 @@ function processAdsFile(input){
           <span>${v.ing>0?fmtPct(v.inv/v.ing*100):'-'}</span>
           <span>${v.inv>0?fmtX(v.ing/v.inv):'-'}</span>
         </div>`).join('');
-
-      // Top productos
-      const top10 = activos.filter(r=>toNum(r[ingCol])>0)
-        .sort((a,b)=>toNum(b[ingCol])-toNum(a[ingCol])).slice(0,10);
+      const top10=activos.filter(r=>toNum(r[ingCol])>0).sort((a,b)=>toNum(b[ingCol])-toNum(a[ingCol])).slice(0,10);
       document.getElementById('ads-top').innerHTML=top10.map(r=>`
         <div class="ads-row">
           <span style="font-size:12px">${(r['Título de anuncio']||'').substring(0,35)}...</span>
@@ -334,11 +347,8 @@ function processAdsFile(input){
           <span>${toNum(r[acosCol])>0?fmtPct(toNum(r[acosCol])):'-'}</span>
           <span>${toNum(r[roasCol])>0?fmtX(toNum(r[roasCol])):'-'}</span>
         </div>`).join('');
-
       document.getElementById('ads-content').style.display='block';
-    }catch(err){
-      alert('Error procesando el archivo: '+err.message);
-    }
+    }catch(err){alert('Error: '+err.message);}
   };
   reader.readAsBinaryString(file);
 }
