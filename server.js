@@ -2,7 +2,6 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -22,16 +21,20 @@ let tokenData = {
 async function refreshToken() {
   try {
     console.log('Renovando token de ML...');
-    const response = await axios.post('https://api.mercadolibre.com/oauth/token',
-      'grant_type=refresh_token&client_id=' + CLIENT_ID + '&client_secret=' + CLIENT_SECRET + '&redirect_uri=https://www.google.com&refresh_token=' + process.env.ML_REFRESH_TOKEN,
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    );
+    const params = new URLSearchParams();
+    params.append('grant_type', 'refresh_token');
+    params.append('client_id', CLIENT_ID);
+    params.append('client_secret', CLIENT_SECRET);
+    params.append('refresh_token', process.env.ML_REFRESH_TOKEN);
+    const response = await axios.post('https://api.mercadolibre.com/oauth/token', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
     tokenData.access_token = response.data.access_token;
     tokenData.expires_at = Date.now() + ((response.data.expires_in - 300) * 1000);
     console.log('Token renovado exitosamente');
     return tokenData.access_token;
   } catch (e) {
-    console.error('Error renovando token:', e.message);
+    console.error('Error renovando token:', e.response?.data || e.message);
     return tokenData.access_token;
   }
 }
@@ -176,16 +179,7 @@ app.get('/api/stock', async (req, res) => {
           piezas: (v.available_quantity || 0) * pack
         };
       });
-      return {
-        id: item.id,
-        title: item.title,
-        price: item.price,
-        status: item.status,
-        pack,
-        totalUnits,
-        totalPiezas: totalUnits * pack,
-        variations
-      };
+      return { id: item.id, title: item.title, price: item.price, status: item.status, pack, totalUnits, totalPiezas: totalUnits * pack, variations };
     });
     const totalStock = result.reduce((s, i) => s + i.totalUnits, 0);
     const totalPiezas = result.reduce((s, i) => s + i.totalPiezas, 0);
@@ -195,85 +189,45 @@ app.get('/api/stock', async (req, res) => {
   }
 });
 
+app.get('/api/devoluciones', async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const y = year || new Date().getFullYear();
+    const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
+    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
+    let all = [];
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+        seller: SELLER_ID, 'order.status': 'cancelled',
+        'order.date_created.from': from, 'order.date_created.to': to,
+        limit: 50, offset
+      });
+      total = d.paging.total;
+      all = all.concat(d.results);
+      offset += 50;
+    }
+    const totalMonto = all.reduce((s, o) => s + (o.total_amount || 0), 0);
+    const totalUnidades = all.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
+    const byProduct = {};
+    all.forEach(o => {
+      o.order_items.forEach(i => {
+        const t = i.item.title;
+        if (!byProduct[t]) byProduct[t] = { monto: 0, unidades: 0, ordenes: 0 };
+        byProduct[t].monto += o.total_amount || 0;
+        byProduct[t].unidades += i.quantity;
+        byProduct[t].ordenes += 1;
+      });
+    });
+    const top = Object.entries(byProduct).sort((a, b) => b[1].ordenes - a[1].ordenes).slice(0, 10).map(([title, v]) => ({ title, ...v }));
+    res.json({ total, totalMonto, totalUnidades, top });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
-
-app.get('/api/devoluciones', async (req, res) => {
-  try {
-    const { year, month } = req.query;
-    const y = year || new Date().getFullYear();
-    const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
-    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
-    let all = [];
-    let offset = 0;
-    let total = 1;
-    while (offset < total) {
-      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-        seller: SELLER_ID, 'order.status': 'cancelled',
-        'order.date_created.from': from, 'order.date_created.to': to,
-        limit: 50, offset
-      });
-      total = d.paging.total;
-      all = all.concat(d.results);
-      offset += 50;
-    }
-    const totalMonto = all.reduce((s,o) => s + (o.total_amount||0), 0);
-    const totalUnidades = all.reduce((s,o) => s + o.order_items.reduce((ss,i) => ss+i.quantity, 0), 0);
-    const byProduct = {};
-    all.forEach(o => {
-      o.order_items.forEach(i => {
-        const t = i.item.title;
-        if (!byProduct[t]) byProduct[t] = { monto: 0, unidades: 0, ordenes: 0 };
-        byProduct[t].monto += o.total_amount||0;
-        byProduct[t].unidades += i.quantity;
-        byProduct[t].ordenes += 1;
-      });
-    });
-    const top = Object.entries(byProduct).sort((a,b) => b[1].ordenes-a[1].ordenes).slice(0,10).map(([title,v]) => ({ title, ...v }));
-    res.json({ total, totalMonto, totalUnidades, top });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/api/devoluciones', async (req, res) => {
-  try {
-    const { year, month } = req.query;
-    const y = year || new Date().getFullYear();
-    const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
-    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
-    let all = [];
-    let offset = 0;
-    let total = 1;
-    while (offset < total) {
-      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-        seller: SELLER_ID, 'order.status': 'cancelled',
-        'order.date_created.from': from, 'order.date_created.to': to,
-        limit: 50, offset
-      });
-      total = d.paging.total;
-      all = all.concat(d.results);
-      offset += 50;
-    }
-    const totalMonto = all.reduce((s,o) => s + (o.total_amount||0), 0);
-    const totalUnidades = all.reduce((s,o) => s + o.order_items.reduce((ss,i) => ss+i.quantity, 0), 0);
-    const byProduct = {};
-    all.forEach(o => {
-      o.order_items.forEach(i => {
-        const t = i.item.title;
-        if (!byProduct[t]) byProduct[t] = { monto: 0, unidades: 0, ordenes: 0 };
-        byProduct[t].monto += o.total_amount||0;
-        byProduct[t].unidades += i.quantity;
-        byProduct[t].ordenes += 1;
-      });
-    });
-    const top = Object.entries(byProduct).sort((a,b) => b[1].ordenes-a[1].ordenes).slice(0,10).map(([title,v]) => ({ title, ...v }));
-    res.json({ total, totalMonto, totalUnidades, top });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
