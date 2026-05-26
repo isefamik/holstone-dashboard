@@ -24,9 +24,10 @@ async function refreshToken() {
     console.log('Renovando token de ML...');
     const response = await axios.post('https://api.mercadolibre.com/oauth/token', null, {
       params: {
-        grant_type: 'client_credentials',
+        grant_type: 'refresh_token',
         client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET
+        client_secret: CLIENT_SECRET,
+        refresh_token: process.env.ML_REFRESH_TOKEN
       }
     });
     tokenData.access_token = response.data.access_token;
