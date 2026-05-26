@@ -22,14 +22,10 @@ let tokenData = {
 async function refreshToken() {
   try {
     console.log('Renovando token de ML...');
-    const response = await axios.post('https://api.mercadolibre.com/oauth/token', null, {
-      params: {
-        grant_type: 'refresh_token',
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        refresh_token: process.env.ML_REFRESH_TOKEN
-      }
-    });
+    const response = await axios.post('https://api.mercadolibre.com/oauth/token',
+      'grant_type=refresh_token&client_id=' + CLIENT_ID + '&client_secret=' + CLIENT_SECRET + '&redirect_uri=https://www.google.com&refresh_token=' + process.env.ML_REFRESH_TOKEN,
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
     tokenData.access_token = response.data.access_token;
     tokenData.expires_at = Date.now() + ((response.data.expires_in - 300) * 1000);
     console.log('Token renovado exitosamente');
