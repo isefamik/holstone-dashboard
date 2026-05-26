@@ -47,6 +47,7 @@ async function getToken() {
 }
 
 setInterval(refreshToken, 5 * 60 * 60 * 1000);
+refreshToken();
 
 function today() {
   const now = new Date();
