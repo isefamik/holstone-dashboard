@@ -232,3 +232,24 @@ app.get('/api/devoluciones', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+
+app.get('/api/reclamos', async (req, res) => {
+  try {
+    const { year, month } = req.query;
+    const y = year || new Date().getFullYear();
+    const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
+    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
+    const token = await getToken();
+    const r = await axios.get(`https://api.mercadolibre.com/post-purchase/v1/claims/search`, {
+      params: { seller_id: SELLER_ID, type: 'returns', limit: 50, date_created_from: from, date_created_to: to },
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const claims = r.data.data || [];
+    const total = r.data.meta?.total || claims.length;
+    res.json({ total, claims: claims.slice(0, 20) });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data || e.message });
+  }
+});
