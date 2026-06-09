@@ -244,11 +244,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="grid-3">
         <div class="card">
-          <div class="ic-header">
-            <div class="card-title" style="margin-bottom:0">💬 Preguntas sin responder</div>
-            <div id="msg-badge" class="ic-badge ic-badge-red">—</div>
-          </div>
-          <div id="msg-list"><div class="loading"><div class="spin"></div></div></div>
+          <div class="card-title">🛡️ Salud de la cuenta</div>
+          <div id="ov-salud"><div class="loading"><div class="spin"></div></div></div>
         </div>
         <div class="card">
           <div class="card-title">🏷️ Publicaciones</div>
@@ -621,6 +618,28 @@ async function loadReputacion(){
     document.getElementById('ov-rep-val').style.color=c;
     document.getElementById('ov-rep-sub').textContent=`${fmt(d.transacciones)} transacciones`;
     renderRepDetail(d,document.getElementById('ov-rep-detail'));
+    // salud card
+    document.getElementById('ov-salud').innerHTML=`
+      <div style="margin-bottom:14px">
+        <span class="rep-badge" style="background:${c}1a;color:${c};border:1px solid ${c}44">${lbl}</span>
+        ${d.powerSeller?`<span style="font-size:11px;color:var(--muted);margin-left:8px;text-transform:capitalize">${d.powerSeller} Seller</span>`:''}
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label">Cancelaciones</span>
+        <span class="ic-stat-val" style="color:${rateColor(d.cancelaciones,2,5)}">${fmtPct(d.cancelaciones)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label">Reclamos</span>
+        <span class="ic-stat-val" style="color:${rateColor(d.reclamos,2,5)}">${fmtPct(d.reclamos)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label">Envíos demorados</span>
+        <span class="ic-stat-val" style="color:${rateColor(d.enviosDemorados,5,10)}">${fmtPct(d.enviosDemorados)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label" style="color:var(--muted)">Transacciones totales</span>
+        <span class="ic-stat-val" style="color:var(--green)">${fmt(d.transacciones)}</span>
+      </div>`;
     // full section
     document.getElementById('rep-content').innerHTML=`
       <div class="grid-2" style="margin-bottom:0">
@@ -769,27 +788,6 @@ function processAdsFile(input){
 
 function errStr(e){return typeof e==='string'?e:e?.message||e?.error||JSON.stringify(e)}
 
-async function loadMensajes(){
-  try{
-    const r=await fetch('/api/mensajes');
-    const d=await r.json();
-    if(d.error)throw new Error(errStr(d.error));
-    const badge=document.getElementById('msg-badge');
-    badge.textContent=d.total;
-    badge.className='ic-badge '+(d.total>0?'ic-badge-red':'ic-badge-green');
-    document.getElementById('msg-list').innerHTML=d.total===0
-      ?'<div style="text-align:center;padding:20px;color:var(--green);font-size:13px;font-weight:600">¡Sin preguntas pendientes! 🎉</div>'
-      :d.preguntas.map(q=>`
-        <div class="ic-q-item">
-          <div class="ic-q-text">${q.text||'Sin texto'}</div>
-          <div class="ic-q-meta">${q.item_id||''} · ${q.date_created?new Date(q.date_created).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}):''}</div>
-        </div>`).join('');
-  }catch(e){
-    document.getElementById('msg-list').innerHTML=`<div class="error">${e.message}</div>`;
-    document.getElementById('msg-badge').textContent='—';
-  }
-}
-
 async function loadPublicaciones(){
   try{
     const r=await fetch('/api/publicaciones');
@@ -844,7 +842,6 @@ function loadAll(){
   loadVentas();
   loadStock();
   loadReputacion();
-  loadMensajes();
   loadPublicaciones();
   loadPerformance();
 }

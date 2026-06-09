@@ -276,21 +276,6 @@ app.get('/api/reputacion', async (req, res) => {
   }
 });
 
-app.get('/api/mensajes', async (req, res) => {
-  try {
-    const token = await getToken();
-    const resp = await axios.get(`https://api.mercadolibre.com/questions/search?seller_id=${SELLER_ID}&status=UNANSWERED`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const r = resp.data;
-    const preguntas = r.questions || [];
-    const total = r.total ?? r.paging?.total ?? preguntas.length;
-    res.json({ total, preguntas: preguntas.slice(0, 10) });
-  } catch (e) {
-    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
-    res.status(500).json({ error: msg });
-  }
-});
 
 app.get('/api/publicaciones', async (req, res) => {
   try {
