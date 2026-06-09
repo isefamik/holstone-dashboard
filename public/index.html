@@ -543,7 +543,9 @@ async function loadMes(){
     renderMetrics('mes-metrics',d);
     renderTop('mes-top',d.top);
   }catch(e){
-    document.getElementById('mes-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
+    const msg=e.message||'Error desconocido';
+    document.getElementById('mes-metrics').innerHTML=`<div class="error">Error: ${msg}</div>`;
+    document.getElementById('mes-top').innerHTML=`<div class="error" style="padding:16px">Error al cargar: ${msg}</div>`;
   }
 }
 
