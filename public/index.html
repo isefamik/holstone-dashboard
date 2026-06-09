@@ -653,8 +653,8 @@ async function loadReputacion(){
         <span class="ic-stat-val" style="color:${rateColor(d.enviosDemorados,5,10)}">${fmtPct(d.enviosDemorados)}</span>
       </div>
       <div class="ic-stat-row">
-        <span class="ic-stat-label">Tiempo de respuesta (envíos demorados, ${d.tiempoRespuesta?.periodo||'60 days'})</span>
-        <span class="ic-stat-val" style="color:${rateColor(d.tiempoRespuesta?.envioDemoradoRate||0,5,10)}">${fmtPct(d.tiempoRespuesta?.envioDemoradoRate||0)} · ${fmt(d.tiempoRespuesta?.envioDemoradoNum||0)}</span>
+        <span class="ic-stat-label" style="color:var(--muted)">Período evaluado</span>
+        <span class="ic-stat-val" style="color:var(--muted)">${d.tiempoRespuesta?.periodo||'—'}</span>
       </div>
       <div class="ic-stat-row">
         <span class="ic-stat-label" style="color:var(--muted)">Transacciones totales</span>
