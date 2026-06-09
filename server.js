@@ -312,7 +312,12 @@ app.get('/api/reputacion', async (req, res) => {
       reclamos: (metrics.claims?.rate || 0) * 100,
       reclamosNum: metrics.claims?.value || 0,
       enviosDemorados: (metrics.delayed_handling_time?.rate || 0) * 100,
-      periodo: metrics.cancellations?.period || ''
+      periodo: metrics.cancellations?.period || '',
+      tiempoRespuesta: {
+        periodo: metrics.sales?.period || '',
+        envioDemoradoRate: (metrics.delayed_handling_time?.rate || 0) * 100,
+        envioDemoradoNum: metrics.delayed_handling_time?.value || 0
+      }
     });
   } catch (e) {
     res.status(500).json({ error: e.response?.data || e.message });
