@@ -274,7 +274,7 @@ app.get('/api/devoluciones', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Servidor Holstone corriendo en http://localhost:${PORT}`));
 
 app.get('/api/reclamos', async (req, res) => {
   try {
