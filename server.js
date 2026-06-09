@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -12,11 +13,44 @@ app.use(express.static(path.join(__dirname, 'public')));
 const CLIENT_ID = process.env.ML_CLIENT_ID;
 const CLIENT_SECRET = process.env.ML_CLIENT_SECRET;
 const SELLER_ID = process.env.SELLER_ID;
+const TOKEN_FILE = path.join(__dirname, '.token.json');
 
-let tokenData = {
-  access_token: process.env.ML_TOKEN,
-  expires_at: Date.now() + (5 * 60 * 60 * 1000)
-};
+// ── Token persistence ──────────────────────────────────────────────────────
+
+function saveTokenFile(data) {
+  try {
+    fs.writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error('No se pudo guardar .token.json:', e.message);
+  }
+}
+
+function loadTokenFile() {
+  try {
+    if (fs.existsSync(TOKEN_FILE)) {
+      return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error('No se pudo leer .token.json:', e.message);
+  }
+  return null;
+}
+
+// Initialize tokenData: prefer .token.json, fall back to env vars
+const saved = loadTokenFile();
+let tokenData = saved && saved.access_token
+  ? { ...saved }
+  : {
+      access_token: process.env.ML_TOKEN,
+      refresh_token: process.env.ML_REFRESH_TOKEN,
+      expires_at: Date.now() + (5 * 60 * 60 * 1000)
+    };
+
+if (saved) {
+  console.log('Token cargado desde .token.json, expira:', new Date(tokenData.expires_at).toLocaleString('es-MX'));
+} else {
+  console.log('Token cargado desde variables de entorno');
+}
 
 async function refreshToken() {
   try {
@@ -25,13 +59,16 @@ async function refreshToken() {
     params.append('grant_type', 'refresh_token');
     params.append('client_id', CLIENT_ID);
     params.append('client_secret', CLIENT_SECRET);
-    params.append('refresh_token', process.env.ML_REFRESH_TOKEN);
+    // Always use the most current refresh_token (may have rotated)
+    params.append('refresh_token', tokenData.refresh_token || process.env.ML_REFRESH_TOKEN);
     const response = await axios.post('https://api.mercadolibre.com/oauth/token', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     tokenData.access_token = response.data.access_token;
+    tokenData.refresh_token = response.data.refresh_token || tokenData.refresh_token;
     tokenData.expires_at = Date.now() + ((response.data.expires_in - 300) * 1000);
-    console.log('Token renovado exitosamente');
+    saveTokenFile(tokenData);
+    console.log('Token renovado y guardado en .token.json, expira:', new Date(tokenData.expires_at).toLocaleString('es-MX'));
     return tokenData.access_token;
   } catch (e) {
     console.error('Error renovando token:', e.response?.data || e.message);
@@ -46,8 +83,14 @@ async function getToken() {
   return tokenData.access_token;
 }
 
+// Refresh at startup if token is expired or about to expire (< 10 min)
+if (Date.now() >= tokenData.expires_at - 10 * 60 * 1000) {
+  refreshToken();
+} else {
+  console.log('Token vigente, no es necesario renovar al arrancar');
+}
+
 setInterval(refreshToken, 5 * 60 * 60 * 1000);
-refreshToken();
 
 function today() {
   const now = new Date();
