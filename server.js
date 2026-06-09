@@ -332,3 +332,151 @@ app.get('/api/performance', async (req, res) => {
     res.status(500).json({ error: msg });
   }
 });
+
+app.get('/api/stock-inteligente', async (req, res) => {
+  try {
+    // 1. Get all active item IDs (paginated)
+    let allIds = [];
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, {
+        status: 'active', limit: 50, offset
+      });
+      total = r.paging.total;
+      allIds = allIds.concat(r.results);
+      offset += 50;
+    }
+
+    // 2. Get item details in batches of 20
+    let items = [];
+    for (let i = 0; i < allIds.length; i += 20) {
+      const ids = allIds.slice(i, i + 20).join(',');
+      const details = await mlGet(
+        `https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status,variations`
+      );
+      items = items.concat(details.filter(d => d.code === 200).map(d => d.body));
+    }
+
+    // 3. Build 3-month window ending today
+    const now = new Date();
+    const cy = now.getFullYear();
+    const cm = now.getMonth() + 1;
+    const months = [];
+    for (let i = 2; i >= 0; i--) {
+      let m = cm - i; let y = cy;
+      if (m <= 0) { m += 12; y -= 1; }
+      months.push({ year: y, month: m });
+    }
+    const startDate = new Date(months[0].year, months[0].month - 1, 1);
+    const totalDays = Math.max(1, Math.round((now - startDate) / 86400000));
+
+    // 4. Fetch 3 months of paid orders concurrently
+    const allMonthOrders = await Promise.all(months.map(async ({ year, month }) => {
+      const mm = String(month).padStart(2, '0');
+      const from = `${year}-${mm}-01T00:00:00.000-06:00`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const isCurrent = year === cy && month === cm;
+      const dayTo = isCurrent ? String(now.getDate()).padStart(2, '0') : String(lastDay).padStart(2, '0');
+      const to = `${year}-${mm}-${dayTo}T23:59:59.000-06:00`;
+      let orders = []; let off = 0; let tot = 1;
+      while (off < tot) {
+        const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+          seller: SELLER_ID, 'order.status': 'paid',
+          'order.date_created.from': from, 'order.date_created.to': to,
+          limit: 50, offset: off
+        });
+        tot = d.paging.total;
+        orders = orders.concat(d.results);
+        off += 50;
+      }
+      return orders;
+    }));
+    const allOrders = allMonthOrders.flat();
+
+    // 5. Build sales map: itemId -> { total, byVariant: { variantId: qty } }
+    const salesMap = {};
+    allOrders.forEach(order => {
+      order.order_items.forEach(oi => {
+        const iid = oi.item.id;
+        const vid = oi.item.variation_id || 0;
+        const qty = oi.quantity;
+        if (!salesMap[iid]) salesMap[iid] = { total: 0, byVariant: {} };
+        salesMap[iid].total += qty;
+        salesMap[iid].byVariant[vid] = (salesMap[iid].byVariant[vid] || 0) + qty;
+      });
+    });
+
+    // 6. Compute per-item and per-variant metrics
+    const getPack = t => { const m = t.match(/(\d+)\s*pack/i); return m ? parseInt(m[1]) : 1; };
+    const calcAlert = (days, stock) => {
+      if (stock === 0) return 'out';
+      if (days === null) return 'ok';
+      if (days <= 7) return 'critical';
+      if (days <= 15) return 'low';
+      return 'ok';
+    };
+    const calcDate = days => {
+      if (days === null || days === undefined) return null;
+      return new Date(now.getTime() + days * 86400000).toISOString().split('T')[0];
+    };
+
+    const result = items.map(item => {
+      const pack = getPack(item.title);
+      const totalStock = item.available_quantity || 0;
+      const sales = salesMap[item.id] || { total: 0, byVariant: {} };
+      const dailyAvg = sales.total / totalDays;
+      const daysRemaining = dailyAvg > 0 ? Math.round(totalStock / dailyAvg) : null;
+      const variations = (item.variations || []).map(v => {
+        const attrs = {};
+        (v.attribute_combinations || []).forEach(a => { attrs[a.name] = a.value_name; });
+        const vs = v.available_quantity || 0;
+        const vd = (sales.byVariant[v.id] || 0) / totalDays;
+        const vDays = vd > 0 ? Math.round(vs / vd) : null;
+        return {
+          id: v.id,
+          color: attrs['Color'] || attrs['color'] || '',
+          talla: attrs['Talla'] || attrs['talla'] || attrs['Size'] || '',
+          stock: vs, piezas: vs * pack,
+          sales3m: sales.byVariant[v.id] || 0,
+          monthlyAvg: Math.round(vd * 30 * 10) / 10,
+          daysRemaining: vDays,
+          depletionDate: calcDate(vDays),
+          needed30: Math.ceil(vd * 30),
+          alertLevel: calcAlert(vDays, vs)
+        };
+      });
+      return {
+        id: item.id, title: item.title, price: item.price, pack,
+        totalStock, totalPiezas: totalStock * pack,
+        sales3m: sales.total,
+        monthlyAvg: Math.round(dailyAvg * 30 * 10) / 10,
+        daysRemaining,
+        depletionDate: calcDate(daysRemaining),
+        needed30: Math.ceil(dailyAvg * 30),
+        needed60: Math.ceil(dailyAvg * 60),
+        alertLevel: calcAlert(daysRemaining, totalStock),
+        variations
+      };
+    });
+
+    result.sort((a, b) => b.sales3m - a.sales3m);
+
+    const summary = {
+      total: result.length,
+      agotados: result.filter(i => i.alertLevel === 'out').length,
+      criticos: result.filter(i => i.alertLevel === 'critical').length,
+      bajos: result.filter(i => i.alertLevel === 'low').length,
+      ok: result.filter(i => i.alertLevel === 'ok').length
+    };
+
+    res.json({
+      items: result, summary, totalDays,
+      periodoDesde: startDate.toISOString().split('T')[0],
+      periodoHasta: now.toISOString().split('T')[0]
+    });
+  } catch (e) {
+    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
+    res.status(500).json({ error: msg });
+  }
+});

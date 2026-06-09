@@ -150,6 +150,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ic-q-meta{font-size:11px;color:var(--muted);margin-top:2px}
 .grid-3 .card,.grid-2 .card{margin-bottom:0}
 
+/* ── STOCK INTELIGENTE ── */
+.si-table{width:100%;border-collapse:collapse}
+.si-table th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-weight:600;padding:10px 12px;text-align:left;white-space:nowrap;border-bottom:2px solid var(--border)}
+.si-table th.si-r{text-align:right}
+.si-prod-row td{padding:12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;cursor:pointer;transition:background .1s}
+.si-prod-row:hover td{background:#f9fafb}
+.si-var-tr{display:none}
+.si-var-tr.open{display:table-row}
+.days-bar-outer{background:#f3f4f6;border-radius:4px;height:5px;width:80px;display:inline-block;vertical-align:middle;overflow:hidden;flex-shrink:0}
+.days-bar-inner{height:100%;border-radius:4px}
+.si-chevron{font-size:9px;color:var(--dim);transition:transform .2s;display:inline-block;width:12px;text-align:center;line-height:1}
+.si-chevron.open{transform:rotate(90deg)}
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -178,7 +191,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span class="nav-icon">📆</span><span>Ventas por mes</span>
     </div>
     <div class="nav-group">Catálogo</div>
-    <div class="nav-item" onclick="showSection('stock',this)">
+    <div class="nav-item" onclick="showSection('stock',this);loadStockInteligente()">
       <span class="nav-icon">📦</span><span>Stock</span>
     </div>
     <div class="nav-item" onclick="showSection('publicidad',this)">
@@ -300,13 +313,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
     <!-- ── STOCK ── -->
     <div id="stock" class="section">
-      <div id="stock-metrics" class="grid-3"><div class="loading"><div class="spin"></div></div></div>
+      <div id="si-alertas" class="grid-4">
+        <div style="grid-column:1/-1"><div class="loading"><div class="spin"></div>Cargando análisis de inventario...</div></div>
+      </div>
       <div class="card">
-        <div class="card-title">Publicaciones activas — haz clic para ver variantes</div>
-        <div class="stock-header">
-          <span>Producto</span><span>Unidades ML</span><span>Piezas reales</span><span>Precio</span><span>Pack</span><span></span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <span class="card-title" style="margin-bottom:0">Inventario inteligente — últimos 3 meses</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span id="si-periodo" style="font-size:11px;color:var(--muted)"></span>
+            <button type="button" onclick="siReload()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;transition:all .15s">↻ Actualizar</button>
+          </div>
         </div>
-        <div id="stock-items"><div class="loading"><div class="spin"></div></div></div>
+        <div style="overflow-x:auto">
+          <table class="si-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="si-r">Ventas/mes</th>
+                <th class="si-r">Stock</th>
+                <th>Días restantes</th>
+                <th class="si-r">Agotamiento</th>
+                <th class="si-r">Pedir 30d</th>
+              </tr>
+            </thead>
+            <tbody id="si-tbody">
+              <tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -552,61 +586,14 @@ async function loadMes(){
 
 async function loadStock(){
   try{
-    document.getElementById('stock-metrics').innerHTML=spin();
-    document.getElementById('stock-items').innerHTML=spin();
     const r=await fetch('/api/stock');
     const d=await r.json();
-    if(d.error)throw new Error(d.error);
-    document.getElementById('stock-metrics').innerHTML=`
-      <div class="metric">
-        <div class="mi mi-b">🏷️</div>
-        <div class="metric-label">Publicaciones activas</div>
-        <div class="metric-value" style="color:var(--blue)">${fmt(d.totalPublicaciones)}</div>
-        <div class="metric-sub">publicaciones</div>
-      </div>
-      <div class="metric">
-        <div class="mi mi-g">📦</div>
-        <div class="metric-label">Unidades en ML</div>
-        <div class="metric-value">${fmt(d.totalStock)}</div>
-        <div class="metric-sub">unidades</div>
-      </div>
-      <div class="metric">
-        <div class="mi mi-y">📊</div>
-        <div class="metric-label">Piezas reales</div>
-        <div class="metric-value" style="color:var(--green)">${fmt(d.totalPiezas)}</div>
-        <div class="metric-sub">considerando packs</div>
-      </div>`;
-    // overview cards
+    if(d.error)return;
     document.getElementById('ov-stock-val').textContent=fmt(d.totalPiezas);
-    document.getElementById('ov-stock-sub').textContent=`${fmt(d.totalStock)} uds ML · ${fmt(d.totalPublicaciones)} pub.`;
+    document.getElementById('ov-stock-sub').textContent=fmt(d.totalStock)+' uds ML · '+fmt(d.totalPublicaciones)+' pub.';
     document.getElementById('ov-pubs-val').textContent=fmt(d.totalPublicaciones);
-    document.getElementById('ov-pubs-sub').textContent=`${fmt(d.totalStock)} unidades en stock`;
-    document.getElementById('stock-items').innerHTML=d.items.map(item=>`
-      <div class="stock-row" onclick="toggleVariantes('${item.id}')">
-        <span style="display:flex;align-items:center;gap:8px">
-          ${item.pack>1?`<span class="badge badge-pack">${item.pack}P</span>`:''}
-          <span>${item.title}</span>
-        </span>
-        <span style="font-weight:600">${fmt(item.totalUnits)}</span>
-        <span style="font-weight:700;color:var(--green)">${fmt(item.totalPiezas)}</span>
-        <span style="color:var(--accent)">${fmtMXN(item.price)}</span>
-        <span style="color:var(--muted)">x${item.pack}</span>
-        <span id="ch-${item.id}" class="chevron">▼</span>
-      </div>
-      <div id="var-${item.id}" class="variantes">
-        ${item.variations.length>0?`
-          <div class="variante-header"><span>Color / Talla</span><span>Unidades ML</span><span>Piezas reales</span></div>
-          ${item.variations.map(v=>`
-            <div class="variante-row">
-              <span>${v.color}${v.color&&v.talla?' / ':''}${v.talla}</span>
-              <span>${fmt(v.stock)} uds</span>
-              <span style="color:var(--green);font-weight:600">${fmt(v.piezas)} piezas</span>
-            </div>`).join('')}`
-        :'<div style="color:var(--muted);font-size:13px;padding:8px 0">Sin variantes</div>'}
-      </div>`).join('');
-  }catch(e){
-    document.getElementById('stock-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
-  }
+    document.getElementById('ov-pubs-sub').textContent=fmt(d.totalStock)+' unidades en stock';
+  }catch(e){}
 }
 
 async function loadReputacion(){
@@ -838,6 +825,109 @@ async function loadPerformance(){
   }catch(e){
     document.getElementById('perf-stats').innerHTML=`<div class="error">${e.message}</div>`;
   }
+}
+
+// ── Stock Inteligente ─────────────────────────────
+let siLoaded=false;
+async function loadStockInteligente(force){
+  if(siLoaded&&!force)return;
+  siLoaded=true;
+  const alertasEl=document.getElementById('si-alertas');
+  const tbodyEl=document.getElementById('si-tbody');
+  try{
+    alertasEl.innerHTML='<div style="grid-column:1/-1"><div class="loading"><div class="spin"></div>Calculando ventas de los últimos 3 meses... (puede tardar 20-40s)</div></div>';
+    tbodyEl.innerHTML='<tr><td colspan="6"><div class="loading"><div class="spin"></div></div></td></tr>';
+
+    const r=await fetch('/api/stock-inteligente');
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+
+    // Alert panel
+    const aInfo={
+      agotados:{bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados'},
+      criticos:{bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (<7 días)'},
+      bajos:{bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Stock bajo (<15 días)'},
+      ok:{bg:'#f0fdf4',bd:'#bbf7d0',c:'#15803d',icon:'✅',lbl:'Saludables'}
+    };
+    alertasEl.innerHTML=Object.entries(aInfo).map(([k,a])=>
+      '<div style="background:'+a.bg+';border:1px solid '+a.bd+';border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05)">'+
+      '<div style="font-size:12px;color:'+a.c+';font-weight:600;margin-bottom:10px">'+a.icon+' '+a.lbl+'</div>'+
+      '<div style="font-size:30px;font-weight:800;color:'+a.c+';line-height:1">'+d.summary[k]+'</div>'+
+      '<div style="font-size:11px;color:'+a.c+';opacity:.65;margin-top:4px">de '+d.summary.total+' productos</div>'+
+      '</div>'
+    ).join('');
+    document.getElementById('si-periodo').textContent=d.totalDays+'d · '+d.periodoDesde+' → '+d.periodoHasta;
+
+    // Row helpers
+    const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d'})[lv]||'#6b7280');
+    const bc=lv=>(({out:'#ef4444',critical:'#f97316',low:'#f59e0b',ok:'#10b981'})[lv]||'#d1d5db');
+    const bp=days=>days===null?0:Math.min(Math.round(days/90*100),100);
+    const sl=(lv,days)=>{if(lv==='out')return'Agotado';if(lv==='critical')return days+'d ⚠';if(lv==='low')return days+'d';return days===null?'Sin ventas':days+'d ✓';};
+    const fd=s=>{if(!s)return'—';const p=s.split('-');const dt=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));return dt.toLocaleDateString('es-MX',{month:'short',day:'numeric'});};
+    const bar=(lv,days)=>'<div style="display:flex;align-items:center;gap:6px"><div class="days-bar-outer"><div class="days-bar-inner" style="width:'+bp(days)+'%;background:'+bc(lv)+'"></div></div><span style="font-size:12px;color:'+ac(lv)+';white-space:nowrap">'+sl(lv,days)+'</span></div>';
+    const thS='font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap';
+
+    tbodyEl.innerHTML=d.items.map(item=>{
+      const hasV=item.variations&&item.variations.length>0;
+      let varHtml='';
+      if(hasV){
+        const vRows=item.variations.map(v=>{
+          const lbl=[v.color,v.talla].filter(Boolean).join(' / ')||'Sin variante';
+          return'<tr>'+
+            '<td style="padding:8px 12px 8px 40px;font-size:12px;color:var(--muted)">'+lbl+'</td>'+
+            '<td style="padding:8px 12px;text-align:right;font-size:12px">'+v.monthlyAvg+'</td>'+
+            '<td style="padding:8px 12px;text-align:right;font-size:12px;font-weight:600;color:'+(v.stock===0?'var(--red)':'var(--text)')+'">'+fmt(v.stock)+'</td>'+
+            '<td style="padding:8px 12px">'+bar(v.alertLevel,v.daysRemaining)+'</td>'+
+            '<td style="padding:8px 12px;text-align:right;font-size:12px;color:var(--muted)">'+fd(v.depletionDate)+'</td>'+
+            '<td style="padding:8px 12px;text-align:right;font-size:12px;color:var(--muted)">'+(v.needed30>0?fmt(v.needed30):'—')+'</td>'+
+          '</tr>';
+        }).join('');
+        varHtml='<tr id="si-var-'+item.id+'" class="si-var-tr">'+
+          '<td colspan="6" style="padding:0">'+
+          '<div style="background:#f8fafc">'+
+          '<table style="width:100%;border-collapse:collapse">'+
+          '<thead><tr>'+
+          '<th style="'+thS+';padding-left:40px;text-align:left">Variante</th>'+
+          '<th style="'+thS+';text-align:right">Ventas/mes</th>'+
+          '<th style="'+thS+';text-align:right">Stock</th>'+
+          '<th style="'+thS+';text-align:left">Días restantes</th>'+
+          '<th style="'+thS+';text-align:right">Agotamiento</th>'+
+          '<th style="'+thS+';text-align:right">Pedir 30d</th>'+
+          '</tr></thead>'+
+          '<tbody>'+vRows+'</tbody>'+
+          '</table></div></td></tr>';
+      }
+      return'<tr class="si-prod-row" onclick="siToggle(\''+item.id+'\')">'+
+        '<td><div style="display:flex;align-items:center;gap:6px">'+
+          '<span id="si-ch-'+item.id+'" class="si-chevron">'+(hasV?'▶':'')+'</span>'+
+          (item.pack>1?'<span class="badge badge-pack">'+item.pack+'P</span>':'')+
+          '<span style="font-weight:500">'+item.title+'</span>'+
+        '</div></td>'+
+        '<td style="text-align:right">'+item.monthlyAvg+'</td>'+
+        '<td style="text-align:right;font-weight:600;color:'+(item.totalStock===0?'var(--red)':'var(--text)')+'">'+fmt(item.totalStock)+'</td>'+
+        '<td>'+bar(item.alertLevel,item.daysRemaining)+'</td>'+
+        '<td style="text-align:right;font-size:12px;color:var(--muted)">'+fd(item.depletionDate)+'</td>'+
+        '<td style="text-align:right;color:var(--muted)">'+(item.needed30>0?fmt(item.needed30):'—')+'</td>'+
+      '</tr>'+varHtml;
+    }).join('');
+  }catch(e){
+    siLoaded=false;
+    alertasEl.innerHTML='<div style="grid-column:1/-1"><div class="error">Error: '+e.message+'</div></div>';
+    tbodyEl.innerHTML='<tr><td colspan="6"><div class="error" style="margin:16px">Error al cargar: '+e.message+'</div></td></tr>';
+  }
+}
+
+function siToggle(id){
+  const row=document.getElementById('si-var-'+id);
+  const ch=document.getElementById('si-ch-'+id);
+  if(!row)return;
+  row.classList.toggle('open');
+  ch.classList.toggle('open');
+}
+
+function siReload(){
+  siLoaded=false;
+  loadStockInteligente(true);
 }
 
 function loadAll(){
