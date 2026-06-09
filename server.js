@@ -275,3 +275,68 @@ app.get('/api/reputacion', async (req, res) => {
     res.status(500).json({ error: e.response?.data || e.message });
   }
 });
+
+app.get('/api/mensajes', async (req, res) => {
+  try {
+    const r = await mlGet('https://api.mercadolibre.com/my/questions/search', {
+      role: 'seller', status: 'UNANSWERED', limit: 20,
+      sort_fields: 'DATE_CREATED', sort_types: 'DESC'
+    });
+    const preguntas = r.questions || [];
+    const total = r.paging?.total ?? preguntas.length;
+    res.json({ total, preguntas: preguntas.slice(0, 10) });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data || e.message });
+  }
+});
+
+app.get('/api/publicaciones', async (req, res) => {
+  try {
+    const [actR, pausR] = await Promise.all([
+      mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status: 'active', limit: 1 }),
+      mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status: 'paused', limit: 1 })
+    ]);
+    const activas = actR.paging.total;
+    const pausadas = pausR.paging.total;
+    res.json({ activas, pausadas, total: activas + pausadas });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data || e.message });
+  }
+});
+
+app.get('/api/performance', async (req, res) => {
+  try {
+    const now = new Date();
+    const toDate = now.toISOString().split('T')[0];
+    const fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const itemsData = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, {
+      status: 'active', limit: 50, offset: 0
+    });
+    const itemIds = itemsData.results;
+    const totalPublicaciones = itemsData.paging.total;
+
+    let totalVisitas = 0;
+    if (itemIds.length > 0) {
+      const visitsData = await mlGet('https://api.mercadolibre.com/visits/items', {
+        ids: itemIds.join(','), date_from: fromDate, date_to: toDate
+      });
+      if (visitsData && typeof visitsData === 'object') {
+        totalVisitas = Object.values(visitsData).reduce((s, v) => s + (v.total_visits || 0), 0);
+      }
+    }
+
+    const from = `${fromDate}T00:00:00.000-06:00`;
+    const to = `${toDate}T23:59:59.000-06:00`;
+    const ordersData = await mlGet('https://api.mercadolibre.com/orders/search', {
+      seller: SELLER_ID, 'order.status': 'paid',
+      'order.date_created.from': from, 'order.date_created.to': to, limit: 1
+    });
+    const totalOrdenes = ordersData.paging.total;
+    const conversion = totalVisitas > 0 ? (totalOrdenes / totalVisitas * 100) : 0;
+
+    res.json({ visitas: totalVisitas, ordenes: totalOrdenes, conversion, periodo: '7 días', itemsConsultados: itemIds.length, totalPublicaciones });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data || e.message });
+  }
+});

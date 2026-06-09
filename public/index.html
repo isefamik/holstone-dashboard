@@ -134,6 +134,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ov-header h2{font-size:20px;font-weight:800;color:var(--text)}
 .ov-header p{font-size:13px;color:var(--muted);margin-top:3px}
 
+/* ── INFO CARDS (overview) ── */
+.ic-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.ic-badge{display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;min-width:32px}
+.ic-badge-red{background:#fee2e2;color:var(--red)}
+.ic-badge-green{background:#d1fae5;color:var(--green)}
+.ic-stat-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.ic-stat-row:last-child{border-bottom:none}
+.ic-stat-label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.ic-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ic-stat-val{font-size:16px;font-weight:700;color:var(--text)}
+.ic-q-item{padding:9px 0;border-bottom:1px solid var(--border)}
+.ic-q-item:last-child{border-bottom:none}
+.ic-q-text{font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ic-q-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.grid-3 .card,.grid-2 .card{margin-bottom:0}
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -224,6 +240,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div class="metric-label">Reputación</div>
           <div class="metric-value" id="ov-rep-val">—</div>
           <div class="metric-sub" id="ov-rep-sub">cargando...</div>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="ic-header">
+            <div class="card-title" style="margin-bottom:0">💬 Preguntas sin responder</div>
+            <div id="msg-badge" class="ic-badge ic-badge-red">—</div>
+          </div>
+          <div id="msg-list"><div class="loading"><div class="spin"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🏷️ Publicaciones</div>
+          <div id="pub-stats"><div class="loading"><div class="spin"></div></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📈 Performance — 7 días</div>
+          <div id="perf-stats"><div class="loading"><div class="spin"></div></div></div>
         </div>
       </div>
       <div class="grid-2">
@@ -734,11 +767,84 @@ function processAdsFile(input){
   reader.readAsBinaryString(file);
 }
 
+async function loadMensajes(){
+  try{
+    const r=await fetch('/api/mensajes');
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    const badge=document.getElementById('msg-badge');
+    badge.textContent=d.total;
+    badge.className='ic-badge '+(d.total>0?'ic-badge-red':'ic-badge-green');
+    document.getElementById('msg-list').innerHTML=d.total===0
+      ?'<div style="text-align:center;padding:20px;color:var(--green);font-size:13px;font-weight:600">¡Sin preguntas pendientes! 🎉</div>'
+      :d.preguntas.map(q=>`
+        <div class="ic-q-item">
+          <div class="ic-q-text">${q.text||'Sin texto'}</div>
+          <div class="ic-q-meta">${q.item_id||''} · ${q.date_created?new Date(q.date_created).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}):''}</div>
+        </div>`).join('');
+  }catch(e){
+    document.getElementById('msg-list').innerHTML=`<div class="error">${e.message}</div>`;
+    document.getElementById('msg-badge').textContent='—';
+  }
+}
+
+async function loadPublicaciones(){
+  try{
+    const r=await fetch('/api/publicaciones');
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    document.getElementById('ov-pubs-val').textContent=fmt(d.activas);
+    document.getElementById('ov-pubs-sub').textContent=`${fmt(d.pausadas)} pausadas · ${fmt(d.total)} total`;
+    document.getElementById('pub-stats').innerHTML=`
+      <div class="ic-stat-row">
+        <span class="ic-stat-label"><span class="ic-dot" style="background:var(--green)"></span>Activas</span>
+        <span class="ic-stat-val" style="color:var(--green)">${fmt(d.activas)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label"><span class="ic-dot" style="background:#f59e0b"></span>Pausadas</span>
+        <span class="ic-stat-val" style="color:#f59e0b">${fmt(d.pausadas)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label" style="font-weight:600;color:var(--text)">Total</span>
+        <span class="ic-stat-val">${fmt(d.total)}</span>
+      </div>`;
+  }catch(e){
+    document.getElementById('pub-stats').innerHTML=`<div class="error">${e.message}</div>`;
+  }
+}
+
+async function loadPerformance(){
+  try{
+    const r=await fetch('/api/performance');
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    document.getElementById('perf-stats').innerHTML=`
+      <div class="ic-stat-row">
+        <span class="ic-stat-label">👁️ Visitas totales</span>
+        <span class="ic-stat-val" style="color:var(--accent)">${fmt(d.visitas)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label">🛒 Órdenes</span>
+        <span class="ic-stat-val">${fmt(d.ordenes)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label">📊 Conversión</span>
+        <span class="ic-stat-val" style="color:${d.conversion>=1?'var(--green)':'var(--muted)'}">${fmtPct(d.conversion)}</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">${fmt(d.itemsConsultados)} publicaciones consultadas de ${fmt(d.totalPublicaciones)}</div>`;
+  }catch(e){
+    document.getElementById('perf-stats').innerHTML=`<div class="error">${e.message}</div>`;
+  }
+}
+
 function loadAll(){
   document.getElementById('last-update').textContent='Actualizado: '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   loadVentas();
   loadStock();
   loadReputacion();
+  loadMensajes();
+  loadPublicaciones();
+  loadPerformance();
 }
 
 loadAll();
