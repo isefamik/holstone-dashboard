@@ -767,11 +767,13 @@ function processAdsFile(input){
   reader.readAsBinaryString(file);
 }
 
+function errStr(e){return typeof e==='string'?e:e?.message||e?.error||JSON.stringify(e)}
+
 async function loadMensajes(){
   try{
     const r=await fetch('/api/mensajes');
     const d=await r.json();
-    if(d.error)throw new Error(d.error);
+    if(d.error)throw new Error(errStr(d.error));
     const badge=document.getElementById('msg-badge');
     badge.textContent=d.total;
     badge.className='ic-badge '+(d.total>0?'ic-badge-red':'ic-badge-green');
@@ -792,7 +794,7 @@ async function loadPublicaciones(){
   try{
     const r=await fetch('/api/publicaciones');
     const d=await r.json();
-    if(d.error)throw new Error(d.error);
+    if(d.error)throw new Error(errStr(d.error));
     document.getElementById('ov-pubs-val').textContent=fmt(d.activas);
     document.getElementById('ov-pubs-sub').textContent=`${fmt(d.pausadas)} pausadas · ${fmt(d.total)} total`;
     document.getElementById('pub-stats').innerHTML=`
@@ -817,7 +819,7 @@ async function loadPerformance(){
   try{
     const r=await fetch('/api/performance');
     const d=await r.json();
-    if(d.error)throw new Error(d.error);
+    if(d.error)throw new Error(errStr(d.error));
     document.getElementById('perf-stats').innerHTML=`
       <div class="ic-stat-row">
         <span class="ic-stat-label">👁️ Visitas totales</span>

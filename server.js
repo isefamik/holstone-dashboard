@@ -278,15 +278,16 @@ app.get('/api/reputacion', async (req, res) => {
 
 app.get('/api/mensajes', async (req, res) => {
   try {
-    const r = await mlGet('https://api.mercadolibre.com/my/questions/search', {
-      role: 'seller', status: 'UNANSWERED', limit: 20,
+    const r = await mlGet('https://api.mercadolibre.com/questions/search', {
+      seller_id: SELLER_ID, status: 'UNANSWERED', limit: 20,
       sort_fields: 'DATE_CREATED', sort_types: 'DESC'
     });
     const preguntas = r.questions || [];
-    const total = r.paging?.total ?? preguntas.length;
+    const total = r.total ?? r.paging?.total ?? preguntas.length;
     res.json({ total, preguntas: preguntas.slice(0, 10) });
   } catch (e) {
-    res.status(500).json({ error: e.response?.data || e.message });
+    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -300,7 +301,8 @@ app.get('/api/publicaciones', async (req, res) => {
     const pausadas = pausR.paging.total;
     res.json({ activas, pausadas, total: activas + pausadas });
   } catch (e) {
-    res.status(500).json({ error: e.response?.data || e.message });
+    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -316,13 +318,20 @@ app.get('/api/performance', async (req, res) => {
     const itemIds = itemsData.results;
     const totalPublicaciones = itemsData.paging.total;
 
+    // IDs embedded directly en URL para evitar que axios codifique la coma
     let totalVisitas = 0;
     if (itemIds.length > 0) {
-      const visitsData = await mlGet('https://api.mercadolibre.com/visits/items', {
-        ids: itemIds.join(','), date_from: fromDate, date_to: toDate
-      });
-      if (visitsData && typeof visitsData === 'object') {
-        totalVisitas = Object.values(visitsData).reduce((s, v) => s + (v.total_visits || 0), 0);
+      try {
+        const visitsData = await mlGet(
+          `https://api.mercadolibre.com/visits/items?ids=${itemIds.join(',')}&date_from=${fromDate}&date_to=${toDate}`
+        );
+        if (Array.isArray(visitsData)) {
+          totalVisitas = visitsData.reduce((s, v) => s + (v.total_visits || 0), 0);
+        } else if (visitsData && typeof visitsData === 'object') {
+          totalVisitas = Object.values(visitsData).reduce((s, v) => s + (v.total_visits || 0), 0);
+        }
+      } catch (visErr) {
+        console.error('Visits API error:', visErr.response?.data?.message || visErr.message);
       }
     }
 
@@ -337,6 +346,7 @@ app.get('/api/performance', async (req, res) => {
 
     res.json({ visitas: totalVisitas, ordenes: totalOrdenes, conversion, periodo: '7 días', itemsConsultados: itemIds.length, totalPublicaciones });
   } catch (e) {
-    res.status(500).json({ error: e.response?.data || e.message });
+    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
+    res.status(500).json({ error: msg });
   }
 });
