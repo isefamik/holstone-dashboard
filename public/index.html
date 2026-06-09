@@ -150,6 +150,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ic-q-meta{font-size:11px;color:var(--muted);margin-top:2px}
 .grid-3 .card,.grid-2 .card{margin-bottom:0}
 
+/* ── FILTROS ── */
+.si-filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.si-filter-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:500;transition:all .14s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.si-filter-btn:hover{border-color:var(--accent);color:var(--accent)}
+.si-filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.si-filter-count{font-size:10px;opacity:.8;background:rgba(255,255,255,.25);padding:1px 5px;border-radius:8px;min-width:16px;text-align:center}
+.si-filter-btn:not(.active) .si-filter-count{background:var(--accent-dim);color:var(--accent);opacity:1}
+.si-search{padding:7px 14px 7px 32px;border:1px solid var(--border);border-radius:20px;font-size:12px;outline:none;color:var(--text);background:var(--card);width:220px;transition:border-color .14s}
+.si-search:focus{border-color:var(--accent)}
+.si-search-wrap{position:relative;display:inline-flex;align-items:center}
+.si-search-wrap::before{content:'🔍';position:absolute;left:10px;font-size:11px;pointer-events:none}
+
 /* ── STOCK INTELIGENTE ── */
 .si-table{width:100%;border-collapse:collapse}
 .si-table th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;font-weight:600;padding:10px 12px;text-align:left;white-space:nowrap;border-bottom:2px solid var(--border)}
@@ -313,15 +325,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
     <!-- ── STOCK ── -->
     <div id="stock" class="section">
-      <div id="si-alertas" class="grid-4">
+      <div id="si-alertas" style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px">
         <div style="grid-column:1/-1"><div class="loading"><div class="spin"></div>Cargando análisis de inventario...</div></div>
       </div>
       <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
           <span class="card-title" style="margin-bottom:0">Inventario inteligente — últimos 3 meses</span>
-          <div style="display:flex;align-items:center;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
             <span id="si-periodo" style="font-size:11px;color:var(--muted)"></span>
-            <button type="button" onclick="siReload()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;transition:all .15s">↻ Actualizar</button>
+            <button type="button" onclick="siExport()" style="background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600">⬇ Excel</button>
+            <button type="button" onclick="siReload()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer;font-size:12px">↻ Actualizar</button>
+          </div>
+        </div>
+        <div class="si-filter-bar" id="si-filter-bar">
+          <button type="button" class="si-filter-btn active" onclick="siFilter('all',this)">Todos <span class="si-filter-count" id="fc-all">—</span></button>
+          <button type="button" class="si-filter-btn" onclick="siFilter('out',this)" style="--fc:#dc2626">Agotados <span class="si-filter-count" id="fc-out">—</span></button>
+          <button type="button" class="si-filter-btn" onclick="siFilter('critical',this)">Críticos <span class="si-filter-count" id="fc-critical">—</span></button>
+          <button type="button" class="si-filter-btn" onclick="siFilter('low',this)">Bajos <span class="si-filter-count" id="fc-low">—</span></button>
+          <button type="button" class="si-filter-btn" onclick="siFilter('no_sales',this)">Sin ventas <span class="si-filter-count" id="fc-no_sales">—</span></button>
+          <button type="button" class="si-filter-btn" onclick="siFilter('ok',this)">Saludables <span class="si-filter-count" id="fc-ok">—</span></button>
+          <div class="si-search-wrap">
+            <input class="si-search" id="si-search" type="text" placeholder="Buscar producto..." oninput="siSearch(this.value)">
           </div>
         </div>
         <div style="overflow-x:auto">
@@ -331,13 +355,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
                 <th>Producto</th>
                 <th class="si-r">Ventas/mes</th>
                 <th class="si-r">Stock</th>
-                <th>Días restantes</th>
+                <th style="min-width:160px">Días restantes</th>
+                <th class="si-r">30d</th>
+                <th class="si-r">60d</th>
+                <th class="si-r">90d</th>
                 <th class="si-r">Agotamiento</th>
-                <th class="si-r">Pedir 30d</th>
               </tr>
             </thead>
             <tbody id="si-tbody">
-              <tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+              <tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -828,7 +854,8 @@ async function loadPerformance(){
 }
 
 // ── Stock Inteligente ─────────────────────────────
-let siLoaded=false;
+let siLoaded=false,siData=null,siActiveFilter='all',siSearchTerm='';
+
 async function loadStockInteligente(force){
   if(siLoaded&&!force)return;
   siLoaded=true;
@@ -836,85 +863,137 @@ async function loadStockInteligente(force){
   const tbodyEl=document.getElementById('si-tbody');
   try{
     alertasEl.innerHTML='<div style="grid-column:1/-1"><div class="loading"><div class="spin"></div>Calculando ventas de los últimos 3 meses... (puede tardar 20-40s)</div></div>';
-    tbodyEl.innerHTML='<tr><td colspan="6"><div class="loading"><div class="spin"></div></div></td></tr>';
-
+    tbodyEl.innerHTML='<tr><td colspan="8"><div class="loading"><div class="spin"></div></div></td></tr>';
     const r=await fetch('/api/stock-inteligente');
     const d=await r.json();
     if(d.error)throw new Error(d.error);
+    siData=d;
 
-    // Alert panel
-    const aInfo={
-      agotados:{bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados'},
-      criticos:{bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (<7 días)'},
-      bajos:{bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Stock bajo (<15 días)'},
-      ok:{bg:'#f0fdf4',bd:'#bbf7d0',c:'#15803d',icon:'✅',lbl:'Saludables'}
-    };
-    alertasEl.innerHTML=Object.entries(aInfo).map(([k,a])=>
+    // ── Alert panel (5 cards) ──
+    const cards=[
+      {bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados',val:d.summary.agotados},
+      {bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (<7d)',val:d.summary.criticos},
+      {bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Bajos (<15d)',val:d.summary.bajos},
+      {bg:'#f0fdf4',bd:'#bbf7d0',c:'#15803d',icon:'✅',lbl:'Saludables',val:d.summary.ok},
+      {bg:'#eff6ff',bd:'#bfdbfe',c:'#2563eb',icon:'💰',lbl:'Valor inventario',val:fmtMXN(d.summary.valorInventario),big:true}
+    ];
+    alertasEl.innerHTML=cards.map(a=>
       '<div style="background:'+a.bg+';border:1px solid '+a.bd+';border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05)">'+
       '<div style="font-size:12px;color:'+a.c+';font-weight:600;margin-bottom:10px">'+a.icon+' '+a.lbl+'</div>'+
-      '<div style="font-size:30px;font-weight:800;color:'+a.c+';line-height:1">'+d.summary[k]+'</div>'+
-      '<div style="font-size:11px;color:'+a.c+';opacity:.65;margin-top:4px">de '+d.summary.total+' productos</div>'+
+      '<div style="font-size:'+(a.big?'20':'30')+'px;font-weight:800;color:'+a.c+';line-height:1">'+a.val+'</div>'+
+      '<div style="font-size:11px;color:'+a.c+';opacity:.65;margin-top:4px">'+d.summary.total+' productos</div>'+
       '</div>'
     ).join('');
+
+    // ── Filter counts ──
+    document.getElementById('fc-all').textContent=d.summary.total;
+    document.getElementById('fc-out').textContent=d.summary.agotados;
+    document.getElementById('fc-critical').textContent=d.summary.criticos;
+    document.getElementById('fc-low').textContent=d.summary.bajos;
+    document.getElementById('fc-no_sales').textContent=d.summary.sinVentas;
+    document.getElementById('fc-ok').textContent=d.summary.ok;
     document.getElementById('si-periodo').textContent=d.totalDays+'d · '+d.periodoDesde+' → '+d.periodoHasta;
 
-    // Row helpers
-    const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d'})[lv]||'#6b7280');
-    const bc=lv=>(({out:'#ef4444',critical:'#f97316',low:'#f59e0b',ok:'#10b981'})[lv]||'#d1d5db');
-    const bp=days=>days===null?0:Math.min(Math.round(days/90*100),100);
-    const sl=(lv,days)=>{if(lv==='out')return'Agotado';if(lv==='critical')return days+'d ⚠';if(lv==='low')return days+'d';return days===null?'Sin ventas':days+'d ✓';};
-    const fd=s=>{if(!s)return'—';const p=s.split('-');const dt=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));return dt.toLocaleDateString('es-MX',{month:'short',day:'numeric'});};
-    const bar=(lv,days)=>'<div style="display:flex;align-items:center;gap:6px"><div class="days-bar-outer"><div class="days-bar-inner" style="width:'+bp(days)+'%;background:'+bc(lv)+'"></div></div><span style="font-size:12px;color:'+ac(lv)+';white-space:nowrap">'+sl(lv,days)+'</span></div>';
-    const thS='font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap';
-
-    tbodyEl.innerHTML=d.items.map(item=>{
-      const hasV=item.variations&&item.variations.length>0;
-      let varHtml='';
-      if(hasV){
-        const vRows=item.variations.map(v=>{
-          const lbl=[v.color,v.talla].filter(Boolean).join(' / ')||'Sin variante';
-          return'<tr>'+
-            '<td style="padding:8px 12px 8px 40px;font-size:12px;color:var(--muted)">'+lbl+'</td>'+
-            '<td style="padding:8px 12px;text-align:right;font-size:12px">'+v.monthlyAvg+'</td>'+
-            '<td style="padding:8px 12px;text-align:right;font-size:12px;font-weight:600;color:'+(v.stock===0?'var(--red)':'var(--text)')+'">'+fmt(v.stock)+'</td>'+
-            '<td style="padding:8px 12px">'+bar(v.alertLevel,v.daysRemaining)+'</td>'+
-            '<td style="padding:8px 12px;text-align:right;font-size:12px;color:var(--muted)">'+fd(v.depletionDate)+'</td>'+
-            '<td style="padding:8px 12px;text-align:right;font-size:12px;color:var(--muted)">'+(v.needed30>0?fmt(v.needed30):'—')+'</td>'+
-          '</tr>';
-        }).join('');
-        varHtml='<tr id="si-var-'+item.id+'" class="si-var-tr">'+
-          '<td colspan="6" style="padding:0">'+
-          '<div style="background:#f8fafc">'+
-          '<table style="width:100%;border-collapse:collapse">'+
-          '<thead><tr>'+
-          '<th style="'+thS+';padding-left:40px;text-align:left">Variante</th>'+
-          '<th style="'+thS+';text-align:right">Ventas/mes</th>'+
-          '<th style="'+thS+';text-align:right">Stock</th>'+
-          '<th style="'+thS+';text-align:left">Días restantes</th>'+
-          '<th style="'+thS+';text-align:right">Agotamiento</th>'+
-          '<th style="'+thS+';text-align:right">Pedir 30d</th>'+
-          '</tr></thead>'+
-          '<tbody>'+vRows+'</tbody>'+
-          '</table></div></td></tr>';
-      }
-      return'<tr class="si-prod-row" onclick="siToggle(\''+item.id+'\')">'+
-        '<td><div style="display:flex;align-items:center;gap:6px">'+
-          '<span id="si-ch-'+item.id+'" class="si-chevron">'+(hasV?'▶':'')+'</span>'+
-          (item.pack>1?'<span class="badge badge-pack">'+item.pack+'P</span>':'')+
-          '<span style="font-weight:500">'+item.title+'</span>'+
-        '</div></td>'+
-        '<td style="text-align:right">'+item.monthlyAvg+'</td>'+
-        '<td style="text-align:right;font-weight:600;color:'+(item.totalStock===0?'var(--red)':'var(--text)')+'">'+fmt(item.totalStock)+'</td>'+
-        '<td>'+bar(item.alertLevel,item.daysRemaining)+'</td>'+
-        '<td style="text-align:right;font-size:12px;color:var(--muted)">'+fd(item.depletionDate)+'</td>'+
-        '<td style="text-align:right;color:var(--muted)">'+(item.needed30>0?fmt(item.needed30):'—')+'</td>'+
-      '</tr>'+varHtml;
-    }).join('');
+    siActiveFilter='all'; siSearchTerm='';
+    document.getElementById('si-search').value='';
+    document.querySelectorAll('.si-filter-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelector('.si-filter-btn').classList.add('active');
+    siRender(d.items);
   }catch(e){
     siLoaded=false;
     alertasEl.innerHTML='<div style="grid-column:1/-1"><div class="error">Error: '+e.message+'</div></div>';
-    tbodyEl.innerHTML='<tr><td colspan="6"><div class="error" style="margin:16px">Error al cargar: '+e.message+'</div></td></tr>';
+    tbodyEl.innerHTML='<tr><td colspan="8"><div class="error" style="margin:16px">Error: '+e.message+'</div></td></tr>';
   }
+}
+
+function siGetFiltered(){
+  if(!siData)return[];
+  let items=siData.items;
+  if(siActiveFilter==='out') items=items.filter(i=>i.alertLevel==='out');
+  else if(siActiveFilter==='critical') items=items.filter(i=>i.alertLevel==='critical');
+  else if(siActiveFilter==='low') items=items.filter(i=>i.alertLevel==='low');
+  else if(siActiveFilter==='no_sales') items=items.filter(i=>i.daysRemaining===null&&i.totalStock>0);
+  else if(siActiveFilter==='ok') items=items.filter(i=>i.alertLevel==='ok'&&i.daysRemaining!==null);
+  if(siSearchTerm){const s=siSearchTerm.toLowerCase();items=items.filter(i=>i.title.toLowerCase().includes(s));}
+  return items;
+}
+
+function siFilter(level,btn){
+  siActiveFilter=level;
+  document.querySelectorAll('.si-filter-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  siRender(siGetFiltered());
+}
+
+function siSearch(term){
+  siSearchTerm=term;
+  siRender(siGetFiltered());
+}
+
+function siRender(items){
+  const tbodyEl=document.getElementById('si-tbody');
+  if(!items||items.length===0){
+    tbodyEl.innerHTML='<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Sin productos para mostrar</td></tr>';
+    return;
+  }
+  const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d'})[lv]||'#6b7280');
+  const bc=lv=>(({out:'#ef4444',critical:'#f97316',low:'#f59e0b',ok:'#10b981'})[lv]||'#d1d5db');
+  const bp=days=>days===null?0:Math.min(Math.round(days/90*100),100);
+  const sl=(lv,days)=>{if(lv==='out')return'Agotado';if(lv==='critical')return days+'d ⚠';if(lv==='low')return days+'d';return days===null?'Sin ventas':days+'d ✓';};
+  const fd=s=>{if(!s)return'—';const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('es-MX',{month:'short',day:'numeric'});};
+  const bar=(lv,days)=>'<div style="display:flex;align-items:center;gap:6px"><div class="days-bar-outer"><div class="days-bar-inner" style="width:'+bp(days)+'%;background:'+bc(lv)+'"></div></div><span style="font-size:12px;color:'+ac(lv)+';white-space:nowrap">'+sl(lv,days)+'</span></div>';
+  const nd=v=>v>0?fmt(v):'—';
+  const thS='font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;padding:7px 10px;border-bottom:1px solid var(--border);font-weight:600;white-space:nowrap';
+
+  tbodyEl.innerHTML=items.map(item=>{
+    const hasV=item.variations&&item.variations.length>0;
+    let varHtml='';
+    if(hasV){
+      const vRows=item.variations.map(v=>{
+        const lbl=[v.color,v.talla].filter(Boolean).join(' / ')||'Sin variante';
+        return'<tr>'+
+          '<td style="padding:7px 10px 7px 36px;font-size:12px;color:var(--muted)">'+lbl+'</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-size:12px">'+v.monthlyAvg+'</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:600;color:'+(v.stock===0?'var(--red)':'var(--text)')+'">'+fmt(v.stock)+'</td>'+
+          '<td style="padding:7px 10px">'+bar(v.alertLevel,v.daysRemaining)+'</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--muted)">'+nd(v.needed30)+'</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--muted)">'+nd(v.needed60)+'</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--muted)">'+nd(v.needed90)+'</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--muted)">'+fd(v.depletionDate)+'</td>'+
+        '</tr>';
+      }).join('');
+      varHtml='<tr id="si-var-'+item.id+'" class="si-var-tr">'+
+        '<td colspan="8" style="padding:0">'+
+        '<div style="background:#f8fafc">'+
+        '<table style="width:100%;border-collapse:collapse">'+
+        '<thead><tr>'+
+        '<th style="'+thS+';padding-left:36px;text-align:left">Variante</th>'+
+        '<th style="'+thS+';text-align:right">Ventas/mes</th>'+
+        '<th style="'+thS+';text-align:right">Stock</th>'+
+        '<th style="'+thS+';text-align:left">Días restantes</th>'+
+        '<th style="'+thS+';text-align:right">30d</th>'+
+        '<th style="'+thS+';text-align:right">60d</th>'+
+        '<th style="'+thS+';text-align:right">90d</th>'+
+        '<th style="'+thS+';text-align:right">Agotamiento</th>'+
+        '</tr></thead>'+
+        '<tbody>'+vRows+'</tbody>'+
+        '</table></div></td></tr>';
+    }
+    return'<tr class="si-prod-row" onclick="siToggle(\''+item.id+'\')">'+
+      '<td style="max-width:260px"><div style="display:flex;align-items:center;gap:6px">'+
+        '<span id="si-ch-'+item.id+'" class="si-chevron">'+(hasV?'▶':'')+'</span>'+
+        (item.pack>1?'<span class="badge badge-pack">'+item.pack+'P</span>':'')+
+        '<span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.title+'</span>'+
+      '</div></td>'+
+      '<td style="text-align:right">'+item.monthlyAvg+'</td>'+
+      '<td style="text-align:right;font-weight:700;color:'+(item.totalStock===0?'var(--red)':'var(--text)')+'">'+fmt(item.totalStock)+'</td>'+
+      '<td>'+bar(item.alertLevel,item.daysRemaining)+'</td>'+
+      '<td style="text-align:right;color:var(--muted)">'+nd(item.needed30)+'</td>'+
+      '<td style="text-align:right;color:var(--muted)">'+nd(item.needed60)+'</td>'+
+      '<td style="text-align:right;color:var(--muted)">'+nd(item.needed90)+'</td>'+
+      '<td style="text-align:right;font-size:12px;color:var(--muted)">'+fd(item.depletionDate)+'</td>'+
+    '</tr>'+varHtml;
+  }).join('');
 }
 
 function siToggle(id){
@@ -925,9 +1004,25 @@ function siToggle(id){
   ch.classList.toggle('open');
 }
 
-function siReload(){
-  siLoaded=false;
-  loadStockInteligente(true);
+function siReload(){siLoaded=false;loadStockInteligente(true);}
+
+function siExport(){
+  if(!siData)return;
+  const sl=(lv,days)=>{if(lv==='out')return'Agotado';if(lv==='critical')return days+'d crítico';if(lv==='low')return days+'d bajo';return days===null?'Sin ventas':days+'d';};
+  const rows=[['Producto','Variante','Ventas/mes','Stock actual','Días restantes','Pedir 30d','Pedir 60d','Pedir 90d','Fecha agotamiento','Estado']];
+  siData.items.forEach(item=>{
+    rows.push([item.title,'(total)',item.monthlyAvg,item.totalStock,item.daysRemaining===null?'Sin ventas':item.daysRemaining,item.needed30,item.needed60,item.needed90,item.depletionDate||'—',sl(item.alertLevel,item.daysRemaining)]);
+    item.variations.forEach(v=>{
+      const lbl=[v.color,v.talla].filter(Boolean).join(' / ')||'Sin variante';
+      rows.push([item.title,lbl,v.monthlyAvg,v.stock,v.daysRemaining===null?'Sin ventas':v.daysRemaining,v.needed30,v.needed60,v.needed90,v.depletionDate||'—',sl(v.alertLevel,v.daysRemaining)]);
+    });
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:45},{wch:20},{wch:12},{wch:12},{wch:14},{wch:10},{wch:10},{wch:10},{wch:15},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Stock');
+  const fecha=new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb,'stock-holstone-'+fecha+'.xlsx');
 }
 
 function loadAll(){

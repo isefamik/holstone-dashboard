@@ -443,18 +443,22 @@ app.get('/api/stock-inteligente', async (req, res) => {
           daysRemaining: vDays,
           depletionDate: calcDate(vDays),
           needed30: Math.ceil(vd * 30),
+          needed60: Math.ceil(vd * 60),
+          needed90: Math.ceil(vd * 90),
           alertLevel: calcAlert(vDays, vs)
         };
       });
       return {
-        id: item.id, title: item.title, price: item.price, pack,
+        id: item.id, title: item.title, price: item.price || 0, pack,
         totalStock, totalPiezas: totalStock * pack,
+        valorInventario: Math.round(totalStock * (item.price || 0)),
         sales3m: sales.total,
         monthlyAvg: Math.round(dailyAvg * 30 * 10) / 10,
         daysRemaining,
         depletionDate: calcDate(daysRemaining),
         needed30: Math.ceil(dailyAvg * 30),
         needed60: Math.ceil(dailyAvg * 60),
+        needed90: Math.ceil(dailyAvg * 90),
         alertLevel: calcAlert(daysRemaining, totalStock),
         variations
       };
@@ -467,7 +471,9 @@ app.get('/api/stock-inteligente', async (req, res) => {
       agotados: result.filter(i => i.alertLevel === 'out').length,
       criticos: result.filter(i => i.alertLevel === 'critical').length,
       bajos: result.filter(i => i.alertLevel === 'low').length,
-      ok: result.filter(i => i.alertLevel === 'ok').length
+      sinVentas: result.filter(i => i.daysRemaining === null && i.totalStock > 0).length,
+      ok: result.filter(i => i.alertLevel === 'ok' && i.daysRemaining !== null).length,
+      valorInventario: Math.round(result.reduce((s, i) => s + i.valorInventario, 0))
     };
 
     res.json({
