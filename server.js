@@ -468,7 +468,7 @@ app.get('/api/stock-inteligente', async (req, res) => {
 
     const summary = {
       total: result.length,
-      agotados: result.filter(i => i.alertLevel === 'out').length,
+      agotados: result.filter(i => i.totalStock === 0 || (i.variations && i.variations.some(v => v.stock === 0))).length,
       criticos: result.filter(i => i.alertLevel === 'critical').length,
       bajos: result.filter(i => i.alertLevel === 'low').length,
       sinVentas: result.filter(i => i.daysRemaining === null && i.totalStock > 0).length,

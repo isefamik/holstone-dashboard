@@ -909,7 +909,7 @@ async function loadStockInteligente(force){
 function siGetFiltered(){
   if(!siData)return[];
   let items=siData.items;
-  if(siActiveFilter==='out') items=items.filter(i=>i.alertLevel==='out');
+  if(siActiveFilter==='out') items=items.filter(i=>i.totalStock===0||(i.variations&&i.variations.some(v=>v.stock===0)));
   else if(siActiveFilter==='critical') items=items.filter(i=>i.alertLevel==='critical');
   else if(siActiveFilter==='low') items=items.filter(i=>i.alertLevel==='low');
   else if(siActiveFilter==='no_sales') items=items.filter(i=>i.daysRemaining===null&&i.totalStock>0);
