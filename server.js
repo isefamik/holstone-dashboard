@@ -278,7 +278,11 @@ app.get('/api/reputacion', async (req, res) => {
 
 app.get('/api/mensajes', async (req, res) => {
   try {
-    const r = await mlGet(`https://api.mercadolibre.com/questions/search?seller_id=${SELLER_ID}&status=UNANSWERED&limit=20&sort_fields=DATE_CREATED&sort_types=DESC`);
+    const token = await getToken();
+    const resp = await axios.get(`https://api.mercadolibre.com/questions/search?seller_id=${SELLER_ID}&status=UNANSWERED`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const r = resp.data;
     const preguntas = r.questions || [];
     const total = r.total ?? r.paging?.total ?? preguntas.length;
     res.json({ total, preguntas: preguntas.slice(0, 10) });
@@ -316,22 +320,16 @@ app.get('/api/performance', async (req, res) => {
     const totalPublicaciones = itemsData.paging.total;
 
     let totalVisitas = 0;
-    if (itemIds.length > 0) {
-      try {
-        const visitsUrl = `https://api.mercadolibre.com/visits/items?ids=${itemIds.join(',')}&date_from=${fromDate}&date_to=${toDate}`;
-        console.log('[visits] URL:', visitsUrl);
-        const visitsData = await mlGet(visitsUrl);
-        console.log('[visits] response type:', typeof visitsData, Array.isArray(visitsData) ? 'array len=' + visitsData.length : '');
-        console.log('[visits] response:', JSON.stringify(visitsData).slice(0, 500));
-        if (Array.isArray(visitsData)) {
-          totalVisitas = visitsData.reduce((s, v) => s + (v.total_visits || 0), 0);
-        } else if (visitsData && typeof visitsData === 'object') {
-          totalVisitas = Object.values(visitsData).reduce((s, v) => s + (v.total_visits || 0), 0);
-        }
-        console.log('[visits] totalVisitas calculado:', totalVisitas);
-      } catch (visErr) {
-        console.error('[visits] error:', visErr.response?.status, JSON.stringify(visErr.response?.data || visErr.message));
-      }
+    const top10 = itemIds.slice(0, 10);
+    if (top10.length > 0) {
+      const visitResults = await Promise.all(
+        top10.map(id =>
+          mlGet(`https://api.mercadolibre.com/items/${id}/visits/time_window?last=7&unit=day`)
+            .then(v => v.total_visits || 0)
+            .catch(() => 0)
+        )
+      );
+      totalVisitas = visitResults.reduce((s, v) => s + v, 0);
     }
 
     const from = `${fromDate}T00:00:00.000-06:00`;
