@@ -410,10 +410,10 @@ app.get('/api/stock-inteligente', async (req, res) => {
     // 6. Compute per-item and per-variant metrics
     const getPack = t => { const m = t.match(/(\d+)\s*pack/i); return m ? parseInt(m[1]) : 1; };
     const calcAlert = (days, stock) => {
-      if (stock === 0) return 'out';
+      if (stock <= 0 || (days !== null && days <= 1)) return 'out';
       if (days === null) return 'ok';
-      if (days <= 7) return 'critical';
-      if (days <= 15) return 'low';
+      if (days < 7) return 'critical';
+      if (days < 15) return 'low';
       return 'ok';
     };
     const calcDate = days => {
