@@ -253,3 +253,25 @@ app.get('/api/reclamos', async (req, res) => {
     res.status(500).json({ error: e.response?.data || e.message });
   }
 });
+
+app.get('/api/reputacion', async (req, res) => {
+  try {
+    const data = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}`);
+    const rep = data.seller_reputation || {};
+    const metrics = rep.metrics || {};
+    const transactions = rep.transactions || {};
+    res.json({
+      reputacion: rep.level_id,
+      powerSeller: rep.power_seller_status,
+      transacciones: transactions.completed || 0,
+      cancelaciones: (metrics.cancellations?.rate || 0) * 100,
+      cancelacionesNum: metrics.cancellations?.value || 0,
+      reclamos: (metrics.claims?.rate || 0) * 100,
+      reclamosNum: metrics.claims?.value || 0,
+      enviosDemorados: (metrics.delayed_handling_time?.rate || 0) * 100,
+      periodo: metrics.cancellations?.period || ''
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data || e.message });
+  }
+});

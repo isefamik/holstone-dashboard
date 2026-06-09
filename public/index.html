@@ -6,186 +6,470 @@
 <title>Holstone Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
+:root{
+  --bg:#0d0d1a;
+  --sidebar:#1a1a2e;
+  --card:#1e1e35;
+  --accent:#fff200;
+  --accent-dim:rgba(255,242,0,.09);
+  --text:#e8e8f0;
+  --muted:#6b6b8a;
+  --dim:#3a3a5a;
+  --border:#252545;
+  --green:#00d68f;
+  --red:#ff4d6d;
+  --blue:#4d8bff;
+  --sw:244px;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,sans-serif;background:#f5f5f5;color:#222}
-.header{background:#fff200;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
-.header h1{font-size:20px;font-weight:700}
-.refresh-btn{background:#222;color:#fff200;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
-.container{max-width:1200px;margin:24px auto;padding:0 16px}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
-.metric{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.metric-label{font-size:12px;color:#888;margin-bottom:6px;text-transform:uppercase}
-.metric-value{font-size:26px;font-weight:700}
-.metric-sub{font-size:12px;color:#aaa;margin-top:4px}
-.card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:20px}
-.card-title{font-size:13px;font-weight:600;color:#888;text-transform:uppercase;margin-bottom:16px}
-.item-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sw);background:var(--sidebar);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;border-right:1px solid var(--border);z-index:100}
+.sl-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
+.sl-brand{font-size:21px;font-weight:900;color:var(--accent);letter-spacing:2.5px;line-height:1}
+.sl-sub{font-size:10.5px;color:var(--muted);margin-top:4px;letter-spacing:.4px}
+.sl-nav{padding:10px 0;flex:1;overflow-y:auto}
+.nav-group{font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1.4px;padding:14px 20px 4px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:10px 14px 10px 20px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);transition:all .14s;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-item.active{color:var(--accent);background:var(--accent-dim);border-left-color:var(--accent);font-weight:600}
+.nav-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
+.sl-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0}
+.sl-foot span{font-size:11px;color:var(--muted)}
+
+/* ── MAIN ── */
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--sidebar);border-bottom:1px solid var(--border);padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.tb-title{font-size:15px;font-weight:700;color:var(--text)}
+.tb-right{display:flex;align-items:center;gap:14px}
+.tb-time{font-size:11.5px;color:var(--muted)}
+.btn-refresh{background:var(--accent);color:#111;border:none;padding:7px 16px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.3px;transition:opacity .14s}
+.btn-refresh:hover{opacity:.82}
+.content{padding:26px 28px;flex:1}
+
+/* ── SECTIONS ── */
+.section{display:none}
+.section.active{display:block}
+
+/* ── GRIDS ── */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:22px}
+
+/* ── METRIC CARDS ── */
+.metric{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;transition:border-color .15s}
+.metric:hover{border-color:var(--dim)}
+.mi{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:14px}
+.mi-y{background:rgba(255,242,0,.13)}
+.mi-g{background:rgba(0,214,143,.12)}
+.mi-b{background:rgba(77,139,255,.13)}
+.mi-r{background:rgba(255,77,109,.12)}
+.metric-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;font-weight:600;margin-bottom:7px}
+.metric-value{font-size:26px;font-weight:800;line-height:1;color:var(--text)}
+.metric-sub{font-size:11.5px;color:var(--muted);margin-top:6px}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px}
+.card-title{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:16px}
+
+/* ── ITEM ROWS ── */
+.item-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
 .item-row:last-child{border-bottom:none}
-.item-title{flex:1;color:#222;margin-right:12px;font-weight:500}
-.badge{font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600}
-.badge-pack{background:#e8f0fe;color:#1a56db}
-.badge-red{background:#fcebeb;color:#a32d2d}
-.loading{text-align:center;padding:40px;color:#aaa}
-.error{background:#fcebeb;color:#a32d2d;border-radius:8px;padding:12px 16px;font-size:13px;margin:12px 0}
-.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
-.tab{background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:500;color:#555}
-.tab.active{background:#222;color:#fff200;border-color:#222}
-.section{display:none}.section.active{display:block}
-.mes-selector{display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
-.mes-selector select{padding:8px 12px;border-radius:8px;border:1.5px solid #e0e0e0;font-size:14px;background:#fff;cursor:pointer}
-.mes-selector button{background:#222;color:#fff200;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
-.stock-header{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 30px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
-.stock-row{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 30px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;align-items:center;cursor:pointer}
-.stock-row:hover{background:#fafafa}
-.variantes{display:none;background:#f9f9f9;border-radius:8px;margin:0 0 8px 0;padding:8px 16px}
+.item-title{flex:1;color:var(--text);margin-right:14px;font-size:13px}
+.item-meta{font-size:11px;color:var(--muted);margin-right:16px;white-space:nowrap}
+.item-rev{font-weight:700;color:var(--accent);white-space:nowrap;font-size:14px}
+
+/* ── STOCK TABLE ── */
+.stock-header{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 28px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:.6px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.stock-row{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 28px;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center;cursor:pointer;transition:background .1s}
+.stock-row:hover{background:rgba(255,255,255,.025)}
+.variantes{display:none;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;margin:4px 0 8px;padding:8px 16px}
 .variantes.open{display:block}
-.variante-row{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid #eee;color:#444}
+.variante-header{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:4px 0 8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase}
+.variante-row{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:7px 0;font-size:13px;border-bottom:1px solid var(--border);color:var(--muted)}
 .variante-row:last-child{border-bottom:none}
-.variante-header{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:4px 0 8px 0;font-size:11px;color:#888;font-weight:600;text-transform:uppercase}
-.chevron{font-size:10px;color:#aaa;transition:transform 0.2s;text-align:center}
+.chevron{font-size:10px;color:var(--dim);transition:transform .2s;text-align:center}
 .chevron.open{transform:rotate(180deg)}
-.upload-area{border:2px dashed #ddd;border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:border-color 0.2s;margin-bottom:20px}
-.upload-area:hover{border-color:#222}
-.upload-area h3{font-size:16px;font-weight:600;margin-bottom:8px}
-.upload-area p{font-size:13px;color:#888}
-.upload-btn{background:#222;color:#fff200;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-top:12px}
-.ads-header{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
-.ads-row{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px;align-items:center}
-.camp-header{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
-.camp-row{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;align-items:center}
-.dev-header{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:8px;padding:8px 0;font-size:11px;color:#888;text-transform:uppercase;font-weight:600;border-bottom:2px solid #eee;margin-bottom:4px}
-.dev-row{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;align-items:center}
+
+/* ── SELECTORS ── */
+.mes-selector{display:flex;gap:10px;align-items:center;margin-bottom:22px;flex-wrap:wrap}
+.mes-selector select{padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--card);color:var(--text);cursor:pointer;outline:none}
+.mes-selector select:focus{border-color:var(--accent)}
+.mes-selector button{background:var(--accent);color:#111;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700}
+
+/* ── BADGES ── */
+.badge{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600}
+.badge-pack{background:rgba(77,139,255,.15);color:var(--blue)}
+
+/* ── LOADING / ERROR ── */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;color:var(--muted);font-size:12px;gap:12px}
+.spin{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{background:rgba(255,77,109,.1);color:var(--red);border:1px solid rgba(255,77,109,.22);border-radius:8px;padding:12px 16px;font-size:13px;margin:8px 0}
+
+/* ── ADS ── */
+.upload-area{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:22px}
+.upload-area:hover{border-color:var(--accent);background:var(--accent-dim)}
+.upload-area h3{font-size:16px;font-weight:600;margin-bottom:8px;color:var(--text)}
+.upload-area p{font-size:13px;color:var(--muted)}
+.upload-btn{background:var(--accent);color:#111;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;margin-top:14px}
+.ads-header{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px}
+.ads-row{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center}
+.camp-header{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px}
+.camp-row{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;align-items:center}
+.dev-header{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px}
+.dev-row{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;align-items:center}
+
+/* ── REPUTATION ── */
+.rep-badge{display:inline-flex;align-items:center;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.rep-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}
+.rep-stat-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.rep-stat-val{font-size:19px;font-weight:800}
+.rep-stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px}
+
+/* ── OVERVIEW HEADER ── */
+.ov-header{margin-bottom:26px}
+.ov-header h2{font-size:20px;font-weight:800;color:var(--text)}
+.ov-header p{font-size:13px;color:var(--muted);margin-top:3px}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--dim)}
 </style>
 </head>
 <body>
-<div class="header">
-  <h1>🏬 Holstone Dashboard</h1>
-  <div style="display:flex;align-items:center;gap:12px">
-    <span id="last-update" style="font-size:12px;color:#555"></span>
-    <button class="refresh-btn" onclick="loadAll()">↻ Actualizar</button>
-  </div>
-</div>
-<div class="container">
-  <div class="tabs">
-    <div class="tab active" onclick="showTab('ventas',this)">📅 Ventas hoy</div>
-    <div class="tab" onclick="showTab('mes',this)">📆 Ventas por mes</div>
-    <div class="tab" onclick="showTab('stock',this)">📦 Stock</div>
-    <div class="tab" onclick="showTab('publicidad',this)">📢 Publicidad</div>
-    <div class="tab" onclick="showTab('devoluciones',this)">🔄 Devoluciones</div>
-  </div>
 
-  <div id="ventas" class="section active">
-    <div id="ventas-metrics" class="grid-4"><div class="loading">Cargando...</div></div>
-    <div class="card"><div class="card-title">Top productos hoy</div><div id="ventas-top"><div class="loading">Cargando...</div></div></div>
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<aside class="sidebar">
+  <div class="sl-logo">
+    <div class="sl-brand">HOLSTONE</div>
+    <div class="sl-sub">MercadoLibre Analytics</div>
   </div>
-
-  <div id="mes" class="section">
-    <div class="mes-selector">
-      <select id="sel-mes">
-        <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-        <option value="4">Abril</option><option value="5" selected>Mayo</option><option value="6">Junio</option>
-        <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-      </select>
-      <select id="sel-year">
-        <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
-      </select>
-      <button onclick="loadMes()">Ver mes</button>
+  <nav class="sl-nav">
+    <div class="nav-group">Principal</div>
+    <div class="nav-item active" onclick="showSection('inicio',this)">
+      <span class="nav-icon">⊞</span><span>Inicio</span>
     </div>
-    <div id="mes-metrics" class="grid-4"><div class="loading">Selecciona un mes</div></div>
-    <div class="card"><div class="card-title" id="mes-titulo">Top productos del mes</div><div id="mes-top"><div class="loading">Selecciona un mes</div></div></div>
+    <div class="nav-group">Ventas</div>
+    <div class="nav-item" onclick="showSection('ventas',this)">
+      <span class="nav-icon">📅</span><span>Ventas hoy</span>
+    </div>
+    <div class="nav-item" onclick="showSection('mes',this)">
+      <span class="nav-icon">📆</span><span>Ventas por mes</span>
+    </div>
+    <div class="nav-group">Catálogo</div>
+    <div class="nav-item" onclick="showSection('stock',this)">
+      <span class="nav-icon">📦</span><span>Stock</span>
+    </div>
+    <div class="nav-item" onclick="showSection('publicidad',this)">
+      <span class="nav-icon">📢</span><span>Publicidad</span>
+    </div>
+    <div class="nav-group">Gestión</div>
+    <div class="nav-item" onclick="showSection('devoluciones',this)">
+      <span class="nav-icon">🔄</span><span>Devoluciones</span>
+    </div>
+    <div class="nav-item" onclick="showSection('reputacion',this)">
+      <span class="nav-icon">⭐</span><span>Reputación</span>
+    </div>
+  </nav>
+  <div class="sl-foot">
+    <div class="dot"></div>
+    <span>Conectado a MercadoLibre</span>
+  </div>
+</aside>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<div class="main">
+  <div class="topbar">
+    <div class="tb-title" id="page-title">Inicio</div>
+    <div class="tb-right">
+      <span class="tb-time" id="last-update"></span>
+      <button class="btn-refresh" onclick="loadAll()">↻ Actualizar</button>
+    </div>
   </div>
 
-  <div id="stock" class="section">
-    <div id="stock-metrics" class="grid-3"><div class="loading">Cargando...</div></div>
-    <div class="card">
-      <div class="card-title">Publicaciones activas — haz clic para ver variantes</div>
-      <div class="stock-header">
-        <span>Producto</span><span>Unidades ML</span><span>Piezas reales</span><span>Precio</span><span>Pack</span><span></span>
+  <div class="content">
+
+    <!-- ── INICIO ── -->
+    <div id="inicio" class="section active">
+      <div class="ov-header">
+        <h2>Panel de control</h2>
+        <p>Resumen general de tu tienda en MercadoLibre</p>
       </div>
-      <div id="stock-items"><div class="loading">Cargando...</div></div>
-    </div>
-  </div>
-
-  <div id="publicidad" class="section">
-    <div class="upload-area" onclick="document.getElementById('ads-file').click()">
-      <h3>📊 Subir reporte de ML Ads</h3>
-      <p>Descarga el reporte de Product Ads desde ads.mercadolibre.com.mx y súbelo aquí</p>
-      <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('ads-file').click()">Seleccionar archivo Excel</button>
-      <input type="file" id="ads-file" accept=".xlsx,.xls" style="display:none" onchange="processAdsFile(this)">
-    </div>
-    <div id="ads-content" style="display:none">
-      <div id="ads-periodo" style="font-size:13px;color:#888;margin-bottom:16px"></div>
-      <div id="ads-metrics" class="grid-4"></div>
+      <div class="grid-4">
+        <div class="metric">
+          <div class="mi mi-y">💰</div>
+          <div class="metric-label">Ventas hoy</div>
+          <div class="metric-value" id="ov-venta-val" style="color:var(--accent)">—</div>
+          <div class="metric-sub" id="ov-venta-sub">cargando...</div>
+        </div>
+        <div class="metric">
+          <div class="mi mi-b">📦</div>
+          <div class="metric-label">Stock disponible</div>
+          <div class="metric-value" id="ov-stock-val">—</div>
+          <div class="metric-sub" id="ov-stock-sub">cargando...</div>
+        </div>
+        <div class="metric">
+          <div class="mi mi-g">🏷️</div>
+          <div class="metric-label">Publicaciones activas</div>
+          <div class="metric-value" id="ov-pubs-val" style="color:var(--green)">—</div>
+          <div class="metric-sub" id="ov-pubs-sub">cargando...</div>
+        </div>
+        <div class="metric">
+          <div class="mi mi-y">⭐</div>
+          <div class="metric-label">Reputación</div>
+          <div class="metric-value" id="ov-rep-val">—</div>
+          <div class="metric-sub" id="ov-rep-sub">cargando...</div>
+        </div>
+      </div>
       <div class="grid-2">
         <div class="card">
-          <div class="card-title">Por campaña</div>
-          <div class="camp-header"><span>Campaña</span><span>Inversión</span><span>Ingresos</span><span>ACOS</span><span>ROAS</span></div>
-          <div id="ads-campanas"></div>
+          <div class="card-title">Top productos hoy</div>
+          <div id="ov-top"><div class="loading"><div class="spin"></div>Cargando...</div></div>
         </div>
         <div class="card">
-          <div class="card-title">Top productos por ingresos</div>
-          <div class="ads-header"><span>Producto</span><span>Inversión</span><span>Ingresos</span><span>Ventas</span><span>ACOS</span><span>ROAS</span></div>
-          <div id="ads-top"></div>
+          <div class="card-title">Reputación del vendedor</div>
+          <div id="ov-rep-detail"><div class="loading"><div class="spin"></div>Cargando...</div></div>
         </div>
       </div>
     </div>
-  </div>
 
-  <div id="devoluciones" class="section">
-    <div class="mes-selector">
-      <select id="dev-mes">
-        <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-        <option value="4">Abril</option><option value="5" selected>Mayo</option><option value="6">Junio</option>
-        <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-        <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-      </select>
-      <select id="dev-year">
-        <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
-      </select>
-      <button onclick="loadDevoluciones()">Ver mes</button>
+    <!-- ── VENTAS HOY ── -->
+    <div id="ventas" class="section">
+      <div id="ventas-metrics" class="grid-4"><div class="loading"><div class="spin"></div></div></div>
+      <div class="card">
+        <div class="card-title">Top productos hoy</div>
+        <div id="ventas-top"><div class="loading"><div class="spin"></div></div></div>
+      </div>
     </div>
-    <div id="dev-metrics" class="grid-3"><div class="loading">Selecciona un mes</div></div>
-    <div class="card">
-      <div class="card-title" id="dev-titulo">Productos con más cancelaciones</div>
-      <div class="dev-header"><span>Producto</span><span>Órdenes</span><span>Monto</span><span>Unidades</span></div>
-      <div id="dev-top"><div class="loading">Selecciona un mes</div></div>
+
+    <!-- ── VENTAS MES ── -->
+    <div id="mes" class="section">
+      <div class="mes-selector">
+        <select id="sel-mes">
+          <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+          <option value="4">Abril</option><option value="5">Mayo</option><option value="6" selected>Junio</option>
+          <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+        <select id="sel-year">
+          <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+        </select>
+        <button onclick="loadMes()">Ver mes</button>
+      </div>
+      <div id="mes-metrics" class="grid-4"><div class="loading"><div class="spin"></div>Selecciona un mes</div></div>
+      <div class="card">
+        <div class="card-title" id="mes-titulo">Top productos del mes</div>
+        <div id="mes-top"><div class="loading"><div class="spin"></div>Selecciona un mes</div></div>
+      </div>
     </div>
-  </div>
-</div>
+
+    <!-- ── STOCK ── -->
+    <div id="stock" class="section">
+      <div id="stock-metrics" class="grid-3"><div class="loading"><div class="spin"></div></div></div>
+      <div class="card">
+        <div class="card-title">Publicaciones activas — haz clic para ver variantes</div>
+        <div class="stock-header">
+          <span>Producto</span><span>Unidades ML</span><span>Piezas reales</span><span>Precio</span><span>Pack</span><span></span>
+        </div>
+        <div id="stock-items"><div class="loading"><div class="spin"></div></div></div>
+      </div>
+    </div>
+
+    <!-- ── PUBLICIDAD ── -->
+    <div id="publicidad" class="section">
+      <div class="upload-area" onclick="document.getElementById('ads-file').click()">
+        <h3>📊 Subir reporte de ML Ads</h3>
+        <p>Descarga el reporte de Product Ads desde ads.mercadolibre.com.mx y súbelo aquí</p>
+        <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('ads-file').click()">Seleccionar archivo Excel</button>
+        <input type="file" id="ads-file" accept=".xlsx,.xls" style="display:none" onchange="processAdsFile(this)">
+      </div>
+      <div id="ads-content" style="display:none">
+        <div id="ads-periodo" style="font-size:12px;color:var(--muted);margin-bottom:16px"></div>
+        <div id="ads-metrics" class="grid-4"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Por campaña</div>
+            <div class="camp-header"><span>Campaña</span><span>Inversión</span><span>Ingresos</span><span>ACOS</span><span>ROAS</span></div>
+            <div id="ads-campanas"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Top productos por ingresos</div>
+            <div class="ads-header"><span>Producto</span><span>Inversión</span><span>Ingresos</span><span>Ventas</span><span>ACOS</span><span>ROAS</span></div>
+            <div id="ads-top"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DEVOLUCIONES ── -->
+    <div id="devoluciones" class="section">
+      <div class="mes-selector">
+        <select id="dev-mes">
+          <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+          <option value="4">Abril</option><option value="5">Mayo</option><option value="6" selected>Junio</option>
+          <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+        </select>
+        <select id="dev-year">
+          <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+        </select>
+        <button onclick="loadDevoluciones()">Ver mes</button>
+      </div>
+      <div id="dev-metrics" class="grid-3"><div class="loading"><div class="spin"></div>Selecciona un mes</div></div>
+      <div class="card">
+        <div class="card-title" id="dev-titulo">Cancelaciones del mes</div>
+        <div class="dev-header"><span>Producto</span><span>Órdenes</span><span>Monto</span><span>Unidades</span></div>
+        <div id="dev-top"><div class="loading"><div class="spin"></div>Selecciona un mes</div></div>
+      </div>
+    </div>
+
+    <!-- ── REPUTACIÓN ── -->
+    <div id="reputacion" class="section">
+      <div id="rep-content"><div class="loading"><div class="spin"></div>Cargando reputación...</div></div>
+    </div>
+
+  </div><!-- .content -->
+</div><!-- .main -->
 
 <script>
+// ── Formatters ──────────────────────────────────
 function fmt(n){return Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0})}
 function fmtMXN(n){return'$'+fmt(n)}
 function fmtPct(n){return Number(n).toFixed(2)+'%'}
 function fmtX(n){return Number(n).toFixed(2)+'x'}
 
-function showTab(name,el){
+const PAGE_TITLES={
+  inicio:'Inicio',ventas:'Ventas hoy',mes:'Ventas por mes',
+  stock:'Stock',publicidad:'Publicidad',devoluciones:'Devoluciones',reputacion:'Reputación'
+};
+
+function showSection(name,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(t=>t.classList.remove('active'));
   document.getElementById(name).classList.add('active');
   el.classList.add('active');
+  document.getElementById('page-title').textContent=PAGE_TITLES[name]||name;
 }
 
+function spin(){return'<div class="loading"><div class="spin"></div></div>'}
+
+// ── Reputation helpers ────────────────────────────
+function repColor(level){
+  if(!level)return'var(--muted)';
+  if(level==='5_green')return'var(--green)';
+  if(level==='4_light_green')return'#66e0b0';
+  if(level==='3_yellow')return'#ffcc00';
+  if(level==='2_orange')return'#ff8c42';
+  return'var(--red)';
+}
+function repLabel(level,ps){
+  if(ps==='platinum')return'Platinum';
+  if(ps==='gold')return'Gold';
+  if(ps==='silver')return'Silver';
+  if(!level)return'Desconocido';
+  if(level==='5_green')return'Excelente';
+  if(level==='4_light_green')return'Muy bueno';
+  if(level==='3_yellow')return'Bueno';
+  if(level==='2_orange')return'Regular';
+  return'Bajo';
+}
+function repBarPct(level){
+  if(!level)return 10;
+  const m={'5_green':100,'4_light_green':80,'3_yellow':60,'2_orange':40,'1_red':20};
+  return m[level]||10;
+}
+function rateColor(rate,warn,bad){
+  if(rate>=bad)return'var(--red)';
+  if(rate>=warn)return'#ffcc00';
+  return'var(--green)';
+}
+
+function renderRepDetail(d,container){
+  if(!container)return;
+  const c=repColor(d.reputacion);
+  const lbl=repLabel(d.reputacion,d.powerSeller);
+  const pct=repBarPct(d.reputacion);
+  container.innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="rep-badge" style="background:${c}1a;color:${c};border:1px solid ${c}44">${lbl}</div>
+      ${d.powerSeller?`<span style="font-size:12px;color:var(--muted);text-transform:capitalize">${d.powerSeller} Seller</span>`:''}
+    </div>
+    <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:18px">
+      <div style="width:${pct}%;height:100%;background:${c};border-radius:3px;transition:width .6s ease"></div>
+    </div>
+    <div class="rep-stats-grid">
+      <div class="rep-stat-card">
+        <div class="rep-stat-val" style="color:var(--green)">${fmt(d.transacciones)}</div>
+        <div class="rep-stat-lbl">Transacciones</div>
+      </div>
+      <div class="rep-stat-card">
+        <div class="rep-stat-val" style="color:${rateColor(d.cancelaciones,2,5)}">${fmtPct(d.cancelaciones)}</div>
+        <div class="rep-stat-lbl">Cancelaciones</div>
+      </div>
+      <div class="rep-stat-card">
+        <div class="rep-stat-val" style="color:${rateColor(d.reclamos,2,5)}">${fmtPct(d.reclamos)}</div>
+        <div class="rep-stat-lbl">Reclamos</div>
+      </div>
+      <div class="rep-stat-card">
+        <div class="rep-stat-val" style="color:${rateColor(d.enviosDemorados,5,10)}">${fmtPct(d.enviosDemorados)}</div>
+        <div class="rep-stat-lbl">Envíos demorados</div>
+      </div>
+      <div class="rep-stat-card">
+        <div class="rep-stat-val" style="color:var(--muted)">${fmt(d.cancelacionesNum||0)}</div>
+        <div class="rep-stat-lbl">Cant. cancelaciones</div>
+      </div>
+      <div class="rep-stat-card">
+        <div class="rep-stat-val" style="color:var(--muted)">${fmt(d.reclamosNum||0)}</div>
+        <div class="rep-stat-lbl">Cant. reclamos</div>
+      </div>
+    </div>`;
+}
+
+// ── Metrics renderer ─────────────────────────────
 function renderMetrics(id,d){
   document.getElementById(id).innerHTML=`
-  <div class="metric"><div class="metric-label">Venta bruta</div><div class="metric-value">${fmtMXN(d.ventaBruta)}</div><div class="metric-sub">${fmt(d.ordenes)} órdenes</div></div>
-  <div class="metric"><div class="metric-label">Unidades</div><div class="metric-value">${fmt(d.unidades)}</div><div class="metric-sub">piezas</div></div>
-  <div class="metric"><div class="metric-label">Ticket promedio</div><div class="metric-value">${fmtMXN(d.ticketPromedio)}</div><div class="metric-sub">por orden</div></div>
-  <div class="metric"><div class="metric-label">Descuentos</div><div class="metric-value">${fmtMXN(d.descuentos)}</div><div class="metric-sub">de ${fmtMXN(d.precioLista)} lista</div></div>`;
+    <div class="metric">
+      <div class="mi mi-y">💰</div>
+      <div class="metric-label">Venta bruta</div>
+      <div class="metric-value" style="color:var(--accent)">${fmtMXN(d.ventaBruta)}</div>
+      <div class="metric-sub">${fmt(d.ordenes)} órdenes</div>
+    </div>
+    <div class="metric">
+      <div class="mi mi-b">📦</div>
+      <div class="metric-label">Unidades</div>
+      <div class="metric-value">${fmt(d.unidades)}</div>
+      <div class="metric-sub">piezas vendidas</div>
+    </div>
+    <div class="metric">
+      <div class="mi mi-g">🎯</div>
+      <div class="metric-label">Ticket promedio</div>
+      <div class="metric-value">${fmtMXN(d.ticketPromedio)}</div>
+      <div class="metric-sub">por orden</div>
+    </div>
+    <div class="metric">
+      <div class="mi mi-r">🏷️</div>
+      <div class="metric-label">Descuentos</div>
+      <div class="metric-value" style="color:var(--red)">${fmtMXN(d.descuentos)}</div>
+      <div class="metric-sub">de ${fmtMXN(d.precioLista)} lista</div>
+    </div>`;
 }
 
 function renderTop(id,top){
+  if(!top||top.length===0){
+    document.getElementById(id).innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Sin ventas registradas</div>';
+    return;
+  }
   document.getElementById(id).innerHTML=top.map(p=>`
-  <div class="item-row">
-    <span class="item-title">${p.title}</span>
-    <div style="display:flex;gap:16px;align-items:center;white-space:nowrap">
-      <span style="color:#aaa;font-size:12px">${p.orders} órdenes · ${p.units} uds</span>
-      <span style="font-weight:600">${fmtMXN(p.revenue)}</span>
-    </div>
-  </div>`).join('');
+    <div class="item-row">
+      <span class="item-title">${p.title}</span>
+      <span class="item-meta">${p.orders} órdenes · ${p.units} uds</span>
+      <span class="item-rev">${fmtMXN(p.revenue)}</span>
+    </div>`).join('');
 }
 
 function toggleVariantes(id){
@@ -194,15 +478,25 @@ function toggleVariantes(id){
   if(el){el.classList.toggle('open');ch.classList.toggle('open')}
 }
 
+// ── Data loaders ──────────────────────────────────
 async function loadVentas(){
   try{
-    document.getElementById('ventas-metrics').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('ventas-metrics').innerHTML=spin();
+    document.getElementById('ventas-top').innerHTML=spin();
     const r=await fetch('/api/ventas-hoy');
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     renderMetrics('ventas-metrics',d);
     renderTop('ventas-top',d.top);
-  }catch(e){document.getElementById('ventas-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`}
+    // overview cards
+    document.getElementById('ov-venta-val').textContent=fmtMXN(d.ventaBruta);
+    document.getElementById('ov-venta-sub').textContent=`${fmt(d.ordenes)} órdenes · ${fmt(d.unidades)} uds`;
+    renderTop('ov-top',d.top.slice(0,5));
+  }catch(e){
+    document.getElementById('ventas-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
+    document.getElementById('ov-venta-val').textContent='Error';
+    document.getElementById('ov-top').innerHTML=`<div class="error">${e.message}</div>`;
+  }
 }
 
 async function loadMes(){
@@ -210,28 +504,50 @@ async function loadMes(){
     const mes=document.getElementById('sel-mes').value;
     const year=document.getElementById('sel-year').value;
     const meses=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    document.getElementById('mes-metrics').innerHTML='<div class="loading">Cargando...</div>';
-    document.getElementById('mes-top').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('mes-metrics').innerHTML=spin();
+    document.getElementById('mes-top').innerHTML=spin();
     document.getElementById('mes-titulo').textContent=`Top productos — ${meses[mes]} ${year}`;
     const r=await fetch(`/api/ventas-mes?month=${mes}&year=${year}`);
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     renderMetrics('mes-metrics',d);
     renderTop('mes-top',d.top);
-  }catch(e){document.getElementById('mes-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`}
+  }catch(e){
+    document.getElementById('mes-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
 }
 
 async function loadStock(){
   try{
-    document.getElementById('stock-metrics').innerHTML='<div class="loading">Cargando...</div>';
-    document.getElementById('stock-items').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('stock-metrics').innerHTML=spin();
+    document.getElementById('stock-items').innerHTML=spin();
     const r=await fetch('/api/stock');
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     document.getElementById('stock-metrics').innerHTML=`
-      <div class="metric"><div class="metric-label">Publicaciones activas</div><div class="metric-value">${fmt(d.totalPublicaciones)}</div></div>
-      <div class="metric"><div class="metric-label">Unidades en ML</div><div class="metric-value">${fmt(d.totalStock)}</div><div class="metric-sub">unidades</div></div>
-      <div class="metric"><div class="metric-label">Piezas reales</div><div class="metric-value">${fmt(d.totalPiezas)}</div><div class="metric-sub">considerando packs</div></div>`;
+      <div class="metric">
+        <div class="mi mi-b">🏷️</div>
+        <div class="metric-label">Publicaciones activas</div>
+        <div class="metric-value" style="color:var(--blue)">${fmt(d.totalPublicaciones)}</div>
+        <div class="metric-sub">publicaciones</div>
+      </div>
+      <div class="metric">
+        <div class="mi mi-g">📦</div>
+        <div class="metric-label">Unidades en ML</div>
+        <div class="metric-value">${fmt(d.totalStock)}</div>
+        <div class="metric-sub">unidades</div>
+      </div>
+      <div class="metric">
+        <div class="mi mi-y">📊</div>
+        <div class="metric-label">Piezas reales</div>
+        <div class="metric-value" style="color:var(--green)">${fmt(d.totalPiezas)}</div>
+        <div class="metric-sub">considerando packs</div>
+      </div>`;
+    // overview cards
+    document.getElementById('ov-stock-val').textContent=fmt(d.totalPiezas);
+    document.getElementById('ov-stock-sub').textContent=`${fmt(d.totalStock)} uds ML · ${fmt(d.totalPublicaciones)} pub.`;
+    document.getElementById('ov-pubs-val').textContent=fmt(d.totalPublicaciones);
+    document.getElementById('ov-pubs-sub').textContent=`${fmt(d.totalStock)} unidades en stock`;
     document.getElementById('stock-items').innerHTML=d.items.map(item=>`
       <div class="stock-row" onclick="toggleVariantes('${item.id}')">
         <span style="display:flex;align-items:center;gap:8px">
@@ -239,24 +555,75 @@ async function loadStock(){
           <span>${item.title}</span>
         </span>
         <span style="font-weight:600">${fmt(item.totalUnits)}</span>
-        <span style="font-weight:600;color:#0f6e56">${fmt(item.totalPiezas)}</span>
-        <span>${fmtMXN(item.price)}</span>
-        <span style="color:#aaa">x${item.pack}</span>
+        <span style="font-weight:700;color:var(--green)">${fmt(item.totalPiezas)}</span>
+        <span style="color:var(--accent)">${fmtMXN(item.price)}</span>
+        <span style="color:var(--muted)">x${item.pack}</span>
         <span id="ch-${item.id}" class="chevron">▼</span>
       </div>
       <div id="var-${item.id}" class="variantes">
         ${item.variations.length>0?`
-        <div class="variante-header"><span>Color / Talla</span><span>Unidades ML</span><span>Piezas reales</span></div>
-        ${item.variations.map(v=>`
-          <div class="variante-row">
-            <span>${v.color}${v.color&&v.talla?' / ':''}${v.talla}</span>
-            <span>${fmt(v.stock)} uds</span>
-            <span style="color:#0f6e56;font-weight:600">${fmt(v.piezas)} piezas</span>
-          </div>`).join('')}`
-        :'<div style="color:#aaa;font-size:13px;padding:8px 0">Sin variantes</div>'}
+          <div class="variante-header"><span>Color / Talla</span><span>Unidades ML</span><span>Piezas reales</span></div>
+          ${item.variations.map(v=>`
+            <div class="variante-row">
+              <span>${v.color}${v.color&&v.talla?' / ':''}${v.talla}</span>
+              <span>${fmt(v.stock)} uds</span>
+              <span style="color:var(--green);font-weight:600">${fmt(v.piezas)} piezas</span>
+            </div>`).join('')}`
+        :'<div style="color:var(--muted);font-size:13px;padding:8px 0">Sin variantes</div>'}
       </div>`).join('');
   }catch(e){
     document.getElementById('stock-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
+}
+
+async function loadReputacion(){
+  try{
+    const r=await fetch('/api/reputacion');
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    // overview card
+    const lbl=repLabel(d.reputacion,d.powerSeller);
+    const c=repColor(d.reputacion);
+    document.getElementById('ov-rep-val').textContent=lbl;
+    document.getElementById('ov-rep-val').style.color=c;
+    document.getElementById('ov-rep-sub').textContent=`${fmt(d.transacciones)} transacciones`;
+    renderRepDetail(d,document.getElementById('ov-rep-detail'));
+    // full section
+    document.getElementById('rep-content').innerHTML=`
+      <div class="grid-2" style="margin-bottom:0">
+        <div class="card">
+          <div class="card-title">Nivel de reputación</div>
+          <div id="rep-detail-full"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Métricas detalladas</div>
+          <div>
+            <div class="item-row">
+              <span class="item-title">Transacciones completadas</span>
+              <span style="font-weight:700;color:var(--green)">${fmt(d.transacciones)}</span>
+            </div>
+            <div class="item-row">
+              <span class="item-title">Tasa de cancelaciones</span>
+              <span style="font-weight:700;color:${rateColor(d.cancelaciones,2,5)}">${fmtPct(d.cancelaciones)} · ${fmt(d.cancelacionesNum||0)} casos</span>
+            </div>
+            <div class="item-row">
+              <span class="item-title">Tasa de reclamos</span>
+              <span style="font-weight:700;color:${rateColor(d.reclamos,2,5)}">${fmtPct(d.reclamos)} · ${fmt(d.reclamosNum||0)} casos</span>
+            </div>
+            <div class="item-row">
+              <span class="item-title">Envíos demorados</span>
+              <span style="font-weight:700;color:${rateColor(d.enviosDemorados,5,10)}">${fmtPct(d.enviosDemorados)}</span>
+            </div>
+            ${d.periodo?`<div class="item-row"><span class="item-title" style="color:var(--muted)">Período evaluado</span><span style="color:var(--muted);font-size:12px;text-transform:capitalize">${d.periodo}</span></div>`:''}
+          </div>
+        </div>
+      </div>`;
+    renderRepDetail(d,document.getElementById('rep-detail-full'));
+  }catch(e){
+    const errHtml=`<div class="error">Error cargando reputación: ${e.message}</div>`;
+    document.getElementById('rep-content').innerHTML=errHtml;
+    document.getElementById('ov-rep-detail').innerHTML=errHtml;
+    document.getElementById('ov-rep-val').textContent='Error';
   }
 }
 
@@ -265,23 +632,37 @@ async function loadDevoluciones(){
     const mes=document.getElementById('dev-mes').value;
     const year=document.getElementById('dev-year').value;
     const meses=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    document.getElementById('dev-metrics').innerHTML='<div class="loading">Cargando...</div>';
-    document.getElementById('dev-top').innerHTML='<div class="loading">Cargando...</div>';
+    document.getElementById('dev-metrics').innerHTML=spin();
+    document.getElementById('dev-top').innerHTML=spin();
     document.getElementById('dev-titulo').textContent=`Cancelaciones — ${meses[mes]} ${year}`;
     const r=await fetch(`/api/devoluciones?month=${mes}&year=${year}`);
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     document.getElementById('dev-metrics').innerHTML=`
-      <div class="metric"><div class="metric-label">Órdenes canceladas</div><div class="metric-value" style="color:#a32d2d">${fmt(d.total)}</div></div>
-      <div class="metric"><div class="metric-label">Monto cancelado</div><div class="metric-value" style="color:#a32d2d">${fmtMXN(d.totalMonto)}</div></div>
-      <div class="metric"><div class="metric-label">Unidades canceladas</div><div class="metric-value" style="color:#a32d2d">${fmt(d.totalUnidades)}</div></div>`;
-    document.getElementById('dev-top').innerHTML=d.top.length>0?d.top.map(p=>`
-      <div class="dev-row">
-        <span>${p.title}</span>
-        <span style="color:#a32d2d;font-weight:600">${fmt(p.ordenes)}</span>
-        <span>${fmtMXN(p.monto)}</span>
-        <span>${fmt(p.unidades)}</span>
-      </div>`).join(''):'<div style="color:#aaa;padding:20px;text-align:center">Sin cancelaciones este mes 🎉</div>';
+      <div class="metric">
+        <div class="mi mi-r">🔄</div>
+        <div class="metric-label">Órdenes canceladas</div>
+        <div class="metric-value" style="color:var(--red)">${fmt(d.total)}</div>
+      </div>
+      <div class="metric">
+        <div class="mi mi-r">💸</div>
+        <div class="metric-label">Monto cancelado</div>
+        <div class="metric-value" style="color:var(--red)">${fmtMXN(d.totalMonto)}</div>
+      </div>
+      <div class="metric">
+        <div class="mi mi-r">📦</div>
+        <div class="metric-label">Unidades canceladas</div>
+        <div class="metric-value" style="color:var(--red)">${fmt(d.totalUnidades)}</div>
+      </div>`;
+    document.getElementById('dev-top').innerHTML=d.top.length>0
+      ?d.top.map(p=>`
+        <div class="dev-row">
+          <span style="color:var(--text)">${p.title}</span>
+          <span style="color:var(--red);font-weight:700">${fmt(p.ordenes)}</span>
+          <span style="color:var(--muted)">${fmtMXN(p.monto)}</span>
+          <span style="color:var(--muted)">${fmt(p.unidades)}</span>
+        </div>`).join('')
+      :'<div style="text-align:center;padding:28px;color:var(--green);font-size:14px;font-weight:600">Sin cancelaciones este mes 🎉</div>';
   }catch(e){
     document.getElementById('dev-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
   }
@@ -323,29 +704,29 @@ function processAdsFile(input){
       const acos=totIng>0?(totInv/totIng*100):0;
       const roas=totInv>0?(totIng/totInv):0;
       document.getElementById('ads-metrics').innerHTML=`
-        <div class="metric"><div class="metric-label">Inversión total</div><div class="metric-value">${fmtMXN(totInv)}</div><div class="metric-sub">MXN</div></div>
-        <div class="metric"><div class="metric-label">Ingresos por ads</div><div class="metric-value">${fmtMXN(totIng)}</div><div class="metric-sub">${fmt(totVentas)} ventas</div></div>
-        <div class="metric"><div class="metric-label">ACOS</div><div class="metric-value">${fmtPct(acos)}</div><div class="metric-sub">inversión / ingresos</div></div>
-        <div class="metric"><div class="metric-label">ROAS</div><div class="metric-value">${fmtX(roas)}</div><div class="metric-sub">${fmt(totImp)} imp · ${fmt(totClics)} clics</div></div>`;
+        <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión total</div><div class="metric-value" style="color:var(--red)">${fmtMXN(totInv)}</div><div class="metric-sub">MXN</div></div>
+        <div class="metric"><div class="mi mi-g">💰</div><div class="metric-label">Ingresos por ads</div><div class="metric-value" style="color:var(--green)">${fmtMXN(totIng)}</div><div class="metric-sub">${fmt(totVentas)} ventas</div></div>
+        <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS</div><div class="metric-value">${fmtPct(acos)}</div><div class="metric-sub">inversión / ingresos</div></div>
+        <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS</div><div class="metric-value" style="color:var(--accent)">${fmtX(roas)}</div><div class="metric-sub">${fmt(totImp)} imp · ${fmt(totClics)} clics</div></div>`;
       const campMap={};
       activos.forEach(r=>{const c=r['Campaña']||'Sin campaña';if(!campMap[c])campMap[c]={inv:0,ing:0};campMap[c].inv+=toNum(r[invCol]);campMap[c].ing+=toNum(r[ingCol]);});
       document.getElementById('ads-campanas').innerHTML=Object.entries(campMap).sort((a,b)=>b[1].ing-a[1].ing).map(([camp,v])=>`
         <div class="camp-row">
-          <span style="font-size:13px">${camp}</span>
-          <span>${fmtMXN(v.inv)}</span>
-          <span style="color:#0f6e56;font-weight:600">${fmtMXN(v.ing)}</span>
+          <span style="font-size:13px;color:var(--text)">${camp}</span>
+          <span style="color:var(--red)">${fmtMXN(v.inv)}</span>
+          <span style="color:var(--green);font-weight:700">${fmtMXN(v.ing)}</span>
           <span>${v.ing>0?fmtPct(v.inv/v.ing*100):'-'}</span>
-          <span>${v.inv>0?fmtX(v.ing/v.inv):'-'}</span>
+          <span style="color:var(--accent)">${v.inv>0?fmtX(v.ing/v.inv):'-'}</span>
         </div>`).join('');
       const top10=activos.filter(r=>toNum(r[ingCol])>0).sort((a,b)=>toNum(b[ingCol])-toNum(a[ingCol])).slice(0,10);
       document.getElementById('ads-top').innerHTML=top10.map(r=>`
         <div class="ads-row">
-          <span style="font-size:12px">${(r['Título de anuncio']||'').substring(0,35)}...</span>
-          <span>${fmtMXN(toNum(r[invCol]))}</span>
-          <span style="color:#0f6e56;font-weight:600">${fmtMXN(toNum(r[ingCol]))}</span>
+          <span style="font-size:12px;color:var(--text)">${(r['Título de anuncio']||'').substring(0,35)}...</span>
+          <span style="color:var(--red)">${fmtMXN(toNum(r[invCol]))}</span>
+          <span style="color:var(--green);font-weight:700">${fmtMXN(toNum(r[ingCol]))}</span>
           <span>${fmt(toNum(r[ventasCol]))}</span>
           <span>${toNum(r[acosCol])>0?fmtPct(toNum(r[acosCol])):'-'}</span>
-          <span>${toNum(r[roasCol])>0?fmtX(toNum(r[roasCol])):'-'}</span>
+          <span style="color:var(--accent)">${toNum(r[roasCol])>0?fmtX(toNum(r[roasCol])):'-'}</span>
         </div>`).join('');
       document.getElementById('ads-content').style.display='block';
     }catch(err){alert('Error: '+err.message);}
@@ -357,7 +738,9 @@ function loadAll(){
   document.getElementById('last-update').textContent='Actualizado: '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   loadVentas();
   loadStock();
+  loadReputacion();
 }
+
 loadAll();
 </script>
 </body>
