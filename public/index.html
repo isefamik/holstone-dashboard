@@ -7,32 +7,32 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#0d0d1a;
-  --sidebar:#1a1a2e;
-  --card:#1e1e35;
-  --accent:#fff200;
-  --accent-dim:rgba(255,242,0,.09);
-  --text:#e8e8f0;
-  --muted:#6b6b8a;
-  --dim:#3a3a5a;
-  --border:#252545;
-  --green:#00d68f;
-  --red:#ff4d6d;
-  --blue:#4d8bff;
+  --bg:#f5f6fa;
+  --sidebar:#ffffff;
+  --card:#ffffff;
+  --accent:#2563eb;
+  --accent-dim:rgba(37,99,235,.07);
+  --text:#1a1a2a;
+  --muted:#6b7280;
+  --dim:#9ca3af;
+  --border:#e5e7eb;
+  --green:#10b981;
+  --red:#ef4444;
+  --blue:#2563eb;
   --sw:244px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px}
 
 /* ── SIDEBAR ── */
-.sidebar{width:var(--sw);background:var(--sidebar);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;border-right:1px solid var(--border);z-index:100}
+.sidebar{width:var(--sw);background:var(--sidebar);height:100vh;position:fixed;left:0;top:0;display:flex;flex-direction:column;border-right:1px solid var(--border);z-index:100;box-shadow:1px 0 0 var(--border)}
 .sl-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
 .sl-brand{font-size:21px;font-weight:900;color:var(--accent);letter-spacing:2.5px;line-height:1}
 .sl-sub{font-size:10.5px;color:var(--muted);margin-top:4px;letter-spacing:.4px}
 .sl-nav{padding:10px 0;flex:1;overflow-y:auto}
 .nav-group{font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1.4px;padding:14px 20px 4px}
 .nav-item{display:flex;align-items:center;gap:11px;padding:10px 14px 10px 20px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);transition:all .14s;border-left:3px solid transparent;user-select:none}
-.nav-item:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-item:hover{color:var(--text);background:#f9fafb}
 .nav-item.active{color:var(--accent);background:var(--accent-dim);border-left-color:var(--accent);font-weight:600}
 .nav-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
 .sl-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px}
@@ -45,8 +45,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tb-title{font-size:15px;font-weight:700;color:var(--text)}
 .tb-right{display:flex;align-items:center;gap:14px}
 .tb-time{font-size:11.5px;color:var(--muted)}
-.btn-refresh{background:var(--accent);color:#111;border:none;padding:7px 16px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.3px;transition:opacity .14s}
-.btn-refresh:hover{opacity:.82}
+.btn-refresh{background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;transition:opacity .14s}
+.btn-refresh:hover{opacity:.85}
 .content{padding:26px 28px;flex:1}
 
 /* ── SECTIONS ── */
@@ -59,19 +59,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:22px}
 
 /* ── METRIC CARDS ── */
-.metric{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;transition:border-color .15s}
-.metric:hover{border-color:var(--dim)}
+.metric{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:box-shadow .15s}
+.metric:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
 .mi{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:14px}
-.mi-y{background:rgba(255,242,0,.13)}
-.mi-g{background:rgba(0,214,143,.12)}
-.mi-b{background:rgba(77,139,255,.13)}
-.mi-r{background:rgba(255,77,109,.12)}
+.mi-y{background:#fef9c3}
+.mi-g{background:#d1fae5}
+.mi-b{background:#dbeafe}
+.mi-r{background:#fee2e2}
 .metric-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;font-weight:600;margin-bottom:7px}
 .metric-value{font-size:26px;font-weight:800;line-height:1;color:var(--text)}
 .metric-sub{font-size:11.5px;color:var(--muted);margin-top:6px}
 
 /* ── CARDS ── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .card-title{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:16px}
 
 /* ── ITEM ROWS ── */
@@ -84,8 +84,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ── STOCK TABLE ── */
 .stock-header{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 28px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:.6px;border-bottom:1px solid var(--border);margin-bottom:4px}
 .stock-row{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 28px;gap:8px;padding:11px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center;cursor:pointer;transition:background .1s}
-.stock-row:hover{background:rgba(255,255,255,.025)}
-.variantes{display:none;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;margin:4px 0 8px;padding:8px 16px}
+.stock-row:hover{background:#f9fafb}
+.variantes{display:none;background:#f9fafb;border:1px solid var(--border);border-radius:8px;margin:4px 0 8px;padding:8px 16px}
 .variantes.open{display:block}
 .variante-header{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:4px 0 8px;font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase}
 .variante-row{display:grid;grid-template-columns:1fr 110px 110px;gap:8px;padding:7px 0;font-size:13px;border-bottom:1px solid var(--border);color:var(--muted)}
@@ -97,24 +97,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mes-selector{display:flex;gap:10px;align-items:center;margin-bottom:22px;flex-wrap:wrap}
 .mes-selector select{padding:8px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--card);color:var(--text);cursor:pointer;outline:none}
 .mes-selector select:focus{border-color:var(--accent)}
-.mes-selector button{background:var(--accent);color:#111;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700}
+.mes-selector button{background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
 
 /* ── BADGES ── */
 .badge{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600}
-.badge-pack{background:rgba(77,139,255,.15);color:var(--blue)}
+.badge-pack{background:#dbeafe;color:var(--blue)}
 
 /* ── LOADING / ERROR ── */
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;color:var(--muted);font-size:12px;gap:12px}
 .spin{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.error{background:rgba(255,77,109,.1);color:var(--red);border:1px solid rgba(255,77,109,.22);border-radius:8px;padding:12px 16px;font-size:13px;margin:8px 0}
+.error{background:#fef2f2;color:var(--red);border:1px solid #fecaca;border-radius:8px;padding:12px 16px;font-size:13px;margin:8px 0}
 
 /* ── ADS ── */
 .upload-area{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:22px}
 .upload-area:hover{border-color:var(--accent);background:var(--accent-dim)}
 .upload-area h3{font-size:16px;font-weight:600;margin-bottom:8px;color:var(--text)}
 .upload-area p{font-size:13px;color:var(--muted)}
-.upload-btn{background:var(--accent);color:#111;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;margin-top:14px}
+.upload-btn{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-top:14px}
 .ads-header{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px}
 .ads-row{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center}
 .camp-header{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px}
@@ -125,7 +125,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ── REPUTATION ── */
 .rep-badge{display:inline-flex;align-items:center;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .rep-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}
-.rep-stat-card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.rep-stat-card{background:#f9fafb;border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
 .rep-stat-val{font-size:19px;font-weight:800}
 .rep-stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px}
 
@@ -137,7 +137,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--dim)}
 </style>
 </head>
