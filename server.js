@@ -462,6 +462,14 @@ app.get('/api/stock-inteligente', async (req, res) => {
 
     result.sort((a, b) => b.sales3m - a.sales3m);
 
+    console.log('=== stock-inteligente DEBUG (top 5) ===');
+    result.slice(0, 5).forEach(i => {
+      const da = i.sales3m / totalDays;
+      console.log(`[${i.alertLevel.toUpperCase()}] "${i.title}" | stock=${i.totalStock} | sales3m=${i.sales3m} | dailyAvg=${da.toFixed(3)} | monthlyAvg=${i.monthlyAvg} | daysRemaining=${i.daysRemaining}`);
+    });
+    console.log('totalDays:', totalDays);
+    console.log('=======================================');
+
     const summary = {
       total: result.length,
       agotados: result.filter(i => i.alertLevel === 'out').length,
