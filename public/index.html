@@ -148,6 +148,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .badge-pack{background:#dbeafe;color:var(--blue)}
 .badge-green{background:#d1fae5;color:var(--green)}
 .badge-red{background:#fee2e2;color:var(--red)}
+.badge-yellow{background:#fef9c3;color:#ca8a04}
+
+/* ── ALERTS ── */
+.alert-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:8px;font-size:13px;margin-bottom:8px}
+.alert-item:last-child{margin-bottom:0}
+.alert-item.alert-critical{background:#fef2f2;color:#991b1b}
+.alert-item.alert-warning{background:#fffbeb;color:#92400e}
+.alert-item.alert-opportunity{background:#ecfdf5;color:#065f46}
+.alert-text{flex:1}
+.alert-btn{background:#fff;border:1px solid currentColor;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:inherit;flex-shrink:0}
+.alert-ok{display:flex;align-items:center;justify-content:center;padding:24px;color:var(--green);font-size:14px;font-weight:600}
+.row-flash{animation:rowFlash 1.6s ease}
+@keyframes rowFlash{0%,100%{background:transparent}30%{background:#fef9c3}}
 
 /* ── LOADING / ERROR ── */
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;color:var(--muted);font-size:12px;gap:12px}
@@ -658,7 +671,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
       </div>
 
+      <div class="card">
+        <div class="card-title">⚠️ Alertas</div>
+        <div id="ads-alerts"><div class="loading"><div class="spin"></div></div></div>
+      </div>
+
       <div id="ads-metrics" class="grid-3"><div class="loading"><div class="spin"></div></div></div>
+
+      <div class="card">
+        <div class="card-title">Inversión vs ventas por día</div>
+        <div style="position:relative;height:260px">
+          <canvas id="ads-tendencia-chart"></canvas>
+        </div>
+      </div>
 
       <div class="card">
         <div class="card-title">Campañas</div>
@@ -694,6 +719,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <thead>
               <tr>
                 <th class="sort-th" onclick="sortAdsTop('title')">Producto<span class="arrow"></span></th>
+                <th class="si-r sort-th" onclick="sortAdsTop('stock')">Stock<span class="arrow"></span></th>
                 <th class="si-r sort-th" onclick="sortAdsTop('cost')">Inversión<span class="arrow"></span></th>
                 <th class="si-r sort-th" onclick="sortAdsTop('total_amount')">Ventas<span class="arrow"></span></th>
                 <th class="si-r sort-th" onclick="sortAdsTop('roas')">ROAS<span class="arrow"></span></th>
@@ -702,7 +728,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               </tr>
             </thead>
             <tbody id="ads-top-tbody">
-              <tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+              <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
             </tbody>
           </table>
         </div>
@@ -959,23 +985,36 @@ function initVentasSection(){
 
 // ── PUBLICIDAD (PRODUCT ADS) ──────────────────────
 let adsInited=false;
-let adsTopData=[];
+let adsAllData=[];
+let adsCampaigns=[];
 let adsTopSort={key:'total_amount',dir:'desc'};
+let adsTendenciaChart=null;
 
 function initPublicidadSection(){
   if(adsInited)return;
   adsInited=true;
-  initDateRange('ads-dr',()=>loadAds());
+  initDateRange('ads-dr',()=>{loadAds();loadAdsTendencia();});
   loadAds();
+  loadAdsTendencia();
+}
+
+function stockBadge(stock,dias){
+  if(stock==null)return '<span class="badge">-</span>';
+  let cls='badge-green';
+  if(stock===0||(dias!=null&&dias<7))cls='badge-red';
+  else if(dias!=null&&dias<=15)cls='badge-yellow';
+  return `<span class="badge ${cls}">${fmt(stock)}${dias!=null?` (${dias}d)`:''}</span>`;
 }
 
 async function loadAds(){
   const elMetrics=document.getElementById('ads-metrics');
+  const elAlerts=document.getElementById('ads-alerts');
   const campTbody=document.getElementById('ads-camp-tbody');
   const topTbody=document.getElementById('ads-top-tbody');
   elMetrics.innerHTML=spin();
+  elAlerts.innerHTML=spin();
   campTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
-  topTbody.innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
+  topTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
   try{
     const st=drInstances['ads-dr'];
     const r=await fetch(`/api/ads?from=${st.rangeFrom}&to=${st.rangeTo}`);
@@ -983,6 +1022,8 @@ async function loadAds(){
     if(d.error)throw new Error(errStr(d.error));
     const campaigns=d.campaigns||[];
     const ads=d.ads||[];
+    adsCampaigns=campaigns;
+    adsAllData=ads;
 
     const totInv=campaigns.reduce((s,c)=>s+(c.metrics?.cost||0),0);
     const totVentas=campaigns.reduce((s,c)=>s+(c.metrics?.total_amount||0),0);
@@ -999,6 +1040,8 @@ async function loadAds(){
       <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks totales</div><div class="metric-value">${fmt(totClicks)}</div></div>
       <div class="metric"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>`;
 
+    renderAdsAlerts(campaigns,ads);
+
     if(campaigns.length===0){
       campTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)">Sin campañas en este período</td></tr>';
     }else{
@@ -1007,26 +1050,139 @@ async function loadAds(){
         const isActive=c.status==='active';
         const cAcos=m.acos||0;
         const acosClass=cAcos>50?'acos-alert':'';
+        const campAds=ads.filter(a=>a.campaign_id===c.id);
+        const detailRows=campAds.length?campAds.map(a=>{
+          const am=a.metrics||{};
+          const aAcos=am.acos||0;
+          return `
+          <tr class="si-row">
+            <td>${a.title||a.item_id}</td>
+            <td class="si-r">${stockBadge(a.stock,a.diasStock)}</td>
+            <td class="si-r">${fmtMXN(am.cost||0)}</td>
+            <td class="si-r">${fmtMXN(am.total_amount||0)}</td>
+            <td class="si-r">${fmtX(am.roas||0)}</td>
+            <td class="si-r ${aAcos>50?'acos-alert':''}">${fmtPct(aAcos)}</td>
+            <td class="si-r">${fmt(am.clicks||0)}</td>
+          </tr>`;
+        }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:14px">Sin productos</td></tr>';
         return `
-        <tr class="si-row">
-          <td>${c.name}</td>
+        <tr class="si-row" id="camp-row-${c.id}" style="cursor:pointer" onclick="toggleCampDetail(${c.id})">
+          <td>${c.name} <span class="arrow" id="camp-arrow-${c.id}" style="font-size:9px;opacity:.5">▼</span></td>
           <td><span class="badge ${isActive?'badge-green':'badge-red'}">${isActive?'Activa':'Pausada'}</span></td>
           <td class="si-r">${c.budget!=null?fmtMXN(c.budget):'-'}</td>
           <td class="si-r">${fmtMXN(m.cost||0)}</td>
           <td class="si-r">${fmtMXN(m.total_amount||0)}</td>
           <td class="si-r">${fmtX(m.roas||0)}</td>
           <td class="si-r ${acosClass}">${fmtPct(cAcos)}</td>
+        </tr>
+        <tr id="camp-detail-${c.id}" style="display:none">
+          <td colspan="7" style="padding:0 12px 12px;background:#f9fafb">
+            <table class="si-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th class="si-r">Stock</th>
+                  <th class="si-r">Inversión</th>
+                  <th class="si-r">Ventas</th>
+                  <th class="si-r">ROAS</th>
+                  <th class="si-r">ACOS</th>
+                  <th class="si-r">Clicks</th>
+                </tr>
+              </thead>
+              <tbody>${detailRows}</tbody>
+            </table>
+          </td>
         </tr>`;
       }).join('');
     }
 
-    adsTopData=ads.slice().sort((a,b)=>(b.metrics?.total_amount||0)-(a.metrics?.total_amount||0)).slice(0,20);
     renderAdsTop();
   }catch(e){
     elMetrics.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+    elAlerts.innerHTML=`<div class="error">${e.message}</div>`;
     campTbody.innerHTML=`<tr><td colspan="7" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
-    topTbody.innerHTML=`<tr><td colspan="6" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
+    topTbody.innerHTML=`<tr><td colspan="7" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
   }
+}
+
+function toggleCampDetail(id){
+  const row=document.getElementById(`camp-detail-${id}`);
+  const arrow=document.getElementById(`camp-arrow-${id}`);
+  const open=row.style.display!=='none';
+  row.style.display=open?'none':'table-row';
+  arrow.textContent=open?'▼':'▲';
+}
+
+function renderAdsAlerts(campaigns,ads){
+  const el=document.getElementById('ads-alerts');
+  const alerts=[];
+
+  ads.forEach(a=>{
+    const m=a.metrics||{};
+    const name=a.title||a.item_id;
+    if(a.stock===0&&((m.cost||0)>0||(m.clicks||0)>0)){
+      alerts.push({level:'critical',icon:'🔴',text:`<b>${name}</b> está en publicidad pero tiene stock 0 (gastando sin poder vender)`,itemId:a.item_id});
+    }
+    if((m.acos||0)>25){
+      alerts.push({level:'warning',icon:'🟡',text:`<b>${name}</b> tiene ACOS de ${fmtPct(m.acos)} (mayor a 25%)`,itemId:a.item_id});
+    }
+    if(a.diasStock!=null&&a.diasStock<7&&(m.roas||0)>5){
+      alerts.push({level:'warning',icon:'🟡',text:`<b>${name}</b> tiene ${a.diasStock}d de stock y ROAS ${fmtX(m.roas)} — reabastecer urgente`,itemId:a.item_id});
+    }
+    if((m.roas||0)>15){
+      alerts.push({level:'opportunity',icon:'🟢',text:`<b>${name}</b> tiene ROAS de ${fmtX(m.roas)} — considera aumentar presupuesto`,itemId:a.item_id});
+    }
+  });
+
+  campaigns.forEach(c=>{
+    const m=c.metrics||{};
+    if(c.status==='active'&&(m.cost||0)>50&&(m.total_amount||0)===0){
+      alerts.push({level:'critical',icon:'🔴',text:`Campaña <b>${c.name}</b> activa con ${fmtMXN(m.cost)} invertidos y $0 en ventas`,campId:c.id});
+    }
+  });
+
+  const order={critical:0,warning:1,opportunity:2};
+  alerts.sort((a,b)=>order[a.level]-order[b.level]);
+
+  if(alerts.length===0){
+    el.innerHTML='<div class="alert-ok">✅ Todo en orden</div>';
+    return;
+  }
+  el.innerHTML=alerts.map(a=>{
+    const action=a.campId!=null?`verCampaniaAds(${a.campId})`:`verProductoAds('${a.itemId}')`;
+    return `
+    <div class="alert-item alert-${a.level}">
+      <span>${a.icon}</span>
+      <span class="alert-text">${a.text}</span>
+      <button type="button" class="alert-btn" onclick="${action}">Ver</button>
+    </div>`;
+  }).join('');
+}
+
+function verCampaniaAds(campId){
+  const row=document.getElementById(`camp-detail-${campId}`);
+  if(row&&row.style.display==='none')toggleCampDetail(campId);
+  const target=document.getElementById(`camp-row-${campId}`);
+  if(target){
+    target.scrollIntoView({behavior:'smooth',block:'center'});
+    target.classList.remove('row-flash');
+    void target.offsetWidth;
+    target.classList.add('row-flash');
+  }
+}
+
+function verProductoAds(itemId){
+  document.getElementById('ads-top-search').value=itemId;
+  renderAdsTop();
+  setTimeout(()=>{
+    const target=document.getElementById(`ads-prod-${itemId}`);
+    if(target){
+      target.scrollIntoView({behavior:'smooth',block:'center'});
+      target.classList.remove('row-flash');
+      void target.offsetWidth;
+      target.classList.add('row-flash');
+    }
+  },50);
 }
 
 function sortAdsTop(key){
@@ -1041,15 +1197,17 @@ function sortAdsTop(key){
 function renderAdsTop(){
   const tbody=document.getElementById('ads-top-tbody');
   const search=(document.getElementById('ads-top-search').value||'').toLowerCase();
-  let items=adsTopData.filter(a=>(a.title||'').toLowerCase().includes(search));
+  let items=adsAllData.filter(a=>(a.title||'').toLowerCase().includes(search)||(a.item_id||'').toLowerCase().includes(search));
   const {key,dir}=adsTopSort;
   items=items.slice().sort((a,b)=>{
     let av,bv;
     if(key==='title'){av=a.title||'';bv=b.title||'';}
+    else if(key==='stock'){av=a.stock??-1;bv=b.stock??-1;}
     else{av=a.metrics?.[key]||0;bv=b.metrics?.[key]||0;}
     if(typeof av==='string')return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
     return dir==='asc'?av-bv:bv-av;
   });
+  if(!search)items=items.slice(0,20);
   document.querySelectorAll('#publicidad .sort-th').forEach(th=>{
     th.classList.remove('sort-active');
     th.querySelector('.arrow').textContent='';
@@ -1060,7 +1218,7 @@ function renderAdsTop(){
     activeTh.querySelector('.arrow').textContent=dir==='asc'?'▲':'▼';
   }
   if(items.length===0){
-    tbody.innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)">Sin resultados</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)">Sin resultados</td></tr>';
     return;
   }
   tbody.innerHTML=items.map(a=>{
@@ -1068,8 +1226,9 @@ function renderAdsTop(){
     const aAcos=m.acos||0;
     const acosClass=aAcos>50?'acos-alert':'';
     return `
-    <tr class="si-row">
+    <tr class="si-row" id="ads-prod-${a.item_id}">
       <td>${a.title||a.item_id}</td>
+      <td class="si-r">${stockBadge(a.stock,a.diasStock)}</td>
       <td class="si-r">${fmtMXN(m.cost||0)}</td>
       <td class="si-r">${fmtMXN(m.total_amount||0)}</td>
       <td class="si-r">${fmtX(m.roas||0)}</td>
@@ -1077,6 +1236,46 @@ function renderAdsTop(){
       <td class="si-r">${fmt(m.clicks||0)}</td>
     </tr>`;
   }).join('');
+}
+
+async function loadAdsTendencia(){
+  const ctx=document.getElementById('ads-tendencia-chart');
+  try{
+    const st=drInstances['ads-dr'];
+    const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    const dias=d.dias||[];
+    const labels=dias.map(x=>{
+      const[,mo,da]=x.fecha.split('-');
+      return `${da}/${mo}`;
+    });
+    if(adsTendenciaChart)adsTendenciaChart.destroy();
+    adsTendenciaChart=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          {label:'Inversión',data:dias.map(x=>x.inversion),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2},
+          {label:'Ventas',data:dias.map(x=>x.ventas),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.08)',fill:true,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2}
+        ]
+      },
+      options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}},
+          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtMXN(ctx.parsed.y)}`}}
+        },
+        scales:{
+          y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>fmtMXN(v)}},
+          x:{grid:{display:false}}
+        }
+      }
+    });
+  }catch(e){
+    ctx.parentElement.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
 }
 
 function showVentasTab(tab,el){

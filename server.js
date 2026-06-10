@@ -563,8 +563,8 @@ app.get('/api/performance', async (req, res) => {
   }
 });
 
-app.get('/api/stock-inteligente', async (req, res) => {
-  try {
+async function computeStockInteligente() {
+  {
     // 1. Get all active item IDs (paginated)
     let allIds = [];
     let offset = 0;
@@ -706,11 +706,18 @@ app.get('/api/stock-inteligente', async (req, res) => {
       valorInventario: Math.round(result.reduce((s, i) => s + i.valorInventario, 0))
     };
 
-    res.json({
+    return {
       items: result, summary, totalDays,
       periodoDesde: startDate.toISOString().split('T')[0],
       periodoHasta: now.toISOString().split('T')[0]
-    });
+    };
+  }
+}
+
+app.get('/api/stock-inteligente', async (req, res) => {
+  try {
+    const data = await computeStockInteligente();
+    res.json(data);
   } catch (e) {
     const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     res.status(500).json({ error: msg });
@@ -1212,7 +1219,49 @@ app.get('/api/ads', async (req, res) => {
       offset += 50;
     }
 
+    const stockData = await computeStockInteligente().catch(() => null);
+    const stockMap = {};
+    if (stockData) {
+      stockData.items.forEach(i => {
+        stockMap[i.id] = { stock: i.totalStock, diasStock: i.daysRemaining };
+      });
+    }
+    ads = ads.map(ad => ({
+      ...ad,
+      stock: stockMap[ad.item_id]?.stock ?? null,
+      diasStock: stockMap[ad.item_id]?.diasStock ?? null
+    }));
+
     res.json({ from, to, campaigns: campaignsResp.results, ads });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+app.get('/api/ads-tendencia', async (req, res) => {
+  try {
+    const from = req.query.from || dateNDaysAgo(6);
+    const to = req.query.to || today();
+
+    const dateList = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) dateList.push(d);
+
+    const dias = [];
+    const CONCURRENCY = 5;
+    for (let i = 0; i < dateList.length; i += CONCURRENCY) {
+      const batch = dateList.slice(i, i + CONCURRENCY);
+      const results = await Promise.all(batch.map(async fecha => {
+        const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`, {
+          date_from: fecha, date_to: fecha, metrics: 'cost,total_amount'
+        });
+        const inversion = (d.results || []).reduce((s, c) => s + (c.metrics?.cost || 0), 0);
+        const ventas = (d.results || []).reduce((s, c) => s + (c.metrics?.total_amount || 0), 0);
+        return { fecha, inversion, ventas };
+      }));
+      dias.push(...results);
+    }
+
+    res.json({ from, to, dias });
   } catch (e) {
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
