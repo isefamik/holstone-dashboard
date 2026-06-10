@@ -149,6 +149,56 @@ async function mlGet(url, params = {}) {
   return r.data;
 }
 
+function toRange(dateFrom, dateTo) {
+  return {
+    from: `${dateFrom}T00:00:00.000-06:00`,
+    to: `${dateTo}T23:59:59.000-06:00`
+  };
+}
+
+function daysAgo(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const now = new Date(today() + 'T00:00:00');
+  return Math.round((now - d) / 86400000);
+}
+
+function getPeriodRange(period, year, month) {
+  const fechaHoy = today();
+  if (period === '7days') {
+    return {
+      from: dateNDaysAgo(6), to: fechaHoy,
+      fromAnt: dateNDaysAgo(13), toAnt: dateNDaysAgo(7),
+      label: 'Últimos 7 días', days: 7
+    };
+  }
+  if (period === '30days') {
+    return {
+      from: dateNDaysAgo(29), to: fechaHoy,
+      fromAnt: dateNDaysAgo(59), toAnt: dateNDaysAgo(30),
+      label: 'Últimos 30 días', days: 30
+    };
+  }
+  if (period === 'month') {
+    const now = new Date();
+    const y = parseInt(year) || now.getFullYear();
+    const m = parseInt(month) || (now.getMonth() + 1);
+    const lastDay = new Date(y, m, 0).getDate();
+    const isCurrentMonth = y === now.getFullYear() && m === (now.getMonth() + 1);
+    const dayTo = isCurrentMonth ? now.getDate() : lastDay;
+    const from = `${y}-${String(m).padStart(2, '0')}-01`;
+    const to = `${y}-${String(m).padStart(2, '0')}-${String(dayTo).padStart(2, '0')}`;
+    let pm = m - 1, py = y;
+    if (pm === 0) { pm = 12; py -= 1; }
+    const prevLastDay = new Date(py, pm, 0).getDate();
+    const fromAnt = `${py}-${String(pm).padStart(2, '0')}-01`;
+    const toAnt = `${py}-${String(pm).padStart(2, '0')}-${String(prevLastDay).padStart(2, '0')}`;
+    return { from, to, fromAnt, toAnt, label: `${y}-${String(m).padStart(2, '0')}`, days: dayTo };
+  }
+  // hoy (default)
+  const ayer = dateNDaysAgo(1);
+  return { from: fechaHoy, to: fechaHoy, fromAnt: ayer, toAnt: ayer, label: 'Hoy', days: 1 };
+}
+
 async function fetchPaidOrders(from, to) {
   let allOrders = [];
   let offset = 0;
@@ -799,5 +849,273 @@ app.get('/api/tendencia', async (req, res) => {
   } catch (e) {
     const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     res.status(500).json({ error: msg });
+  }
+});
+
+// ── VENTAS — RESUMEN CON COMPARATIVA ────────────────────────────────────────
+
+app.get('/api/ventas-resumen', async (req, res) => {
+  try {
+    const period = req.query.period || 'hoy';
+    const range = getPeriodRange(period, req.query.year, req.query.month);
+    const cur = toRange(range.from, range.to);
+    const ant = toRange(range.fromAnt, range.toAnt);
+
+    const [ordersCur, ordersAnt] = await Promise.all([
+      fetchPaidOrders(cur.from, cur.to),
+      fetchPaidOrders(ant.from, ant.to)
+    ]);
+
+    function summarize(orders) {
+      const ventaBruta = orders.reduce((s, o) => s + o.total_amount, 0);
+      const unidades = orders.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
+      const ordenes = orders.length;
+      const buyerCounts = {};
+      orders.forEach(o => {
+        const bid = o.buyer?.id;
+        if (bid == null) return;
+        buyerCounts[bid] = (buyerCounts[bid] || 0) + 1;
+      });
+      const compradores = Object.keys(buyerCounts).length;
+      const frecuentes = Object.values(buyerCounts).filter(c => c >= 2).length;
+      const nuevos = compradores - frecuentes;
+      return {
+        ventaBruta, unidades, ordenes, compradores, frecuentes, nuevos,
+        precioPromedio: ordenes > 0 ? ventaBruta / ordenes : 0
+      };
+    }
+
+    const cs = summarize(ordersCur);
+    const as = summarize(ordersAnt);
+
+    // Visitas (solo disponibles para los últimos ~60 días)
+    let visitasMap = {};
+    try {
+      const v = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items_visits/time_window`, { last: 60, unit: 'day' });
+      (v.results || []).forEach(r => { visitasMap[r.date.split('T')[0]] = r.total; });
+    } catch (e) {
+      console.error('Error obteniendo visitas:', e.response?.data || e.message);
+    }
+
+    function sumVisitas(from, to) {
+      let s = 0;
+      let d = new Date(from + 'T00:00:00');
+      const end = new Date(to + 'T00:00:00');
+      while (d <= end) {
+        const key = d.toISOString().split('T')[0];
+        s += visitasMap[key] || 0;
+        d.setDate(d.getDate() + 1);
+      }
+      return s;
+    }
+
+    const visitasCur = daysAgo(range.to) <= 59 ? sumVisitas(range.from, range.to) : null;
+    const visitasAnt = daysAgo(range.toAnt) <= 59 ? sumVisitas(range.fromAnt, range.toAnt) : null;
+    const conversionCur = visitasCur === null ? null : (visitasCur > 0 ? cs.ordenes / visitasCur * 100 : 0);
+    const conversionAnt = visitasAnt === null ? null : (visitasAnt > 0 ? as.ordenes / visitasAnt * 100 : 0);
+
+    // Top productos del período
+    const byProduct = {};
+    ordersCur.forEach(o => {
+      o.order_items.forEach(i => {
+        const t = i.item.title;
+        if (!byProduct[t]) byProduct[t] = { revenue: 0, units: 0, orders: 0 };
+        byProduct[t].revenue += o.total_amount;
+        byProduct[t].units += i.quantity;
+        byProduct[t].orders += 1;
+      });
+    });
+    const top = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 20).map(([title, v]) => ({ title, ...v }));
+
+    res.json({
+      period, label: range.label, from: range.from, to: range.to,
+      ventaBruta: cs.ventaBruta, ventaBrutaAnt: as.ventaBruta,
+      unidades: cs.unidades, unidadesAnt: as.unidades,
+      precioPromedio: cs.precioPromedio, precioPromedioAnt: as.precioPromedio,
+      visitas: visitasCur, visitasAnt,
+      conversion: conversionCur, conversionAnt,
+      compradores: cs.compradores, compradoresAnt: as.compradores,
+      frecuentes: cs.frecuentes, frecuentesAnt: as.frecuentes,
+      nuevos: cs.nuevos, nuevosAnt: as.nuevos,
+      ordenes: cs.ordenes, ordenesAnt: as.ordenes,
+      top
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── VENTAS — HEATMAP DÍA/HORA ───────────────────────────────────────────────
+
+app.get('/api/heatmap', async (req, res) => {
+  try {
+    const period = req.query.period === '30days' ? '30days' : '7days';
+    const days = period === '30days' ? 30 : 7;
+    const from = `${dateNDaysAgo(days - 1)}T00:00:00.000-06:00`;
+    const to = `${today()}T23:59:59.000-06:00`;
+    const orders = await fetchPaidOrders(from, to);
+
+    const DOW = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const DOW_MAP = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ ventas: 0, ordenes: 0 })));
+
+    orders.forEach(o => {
+      const d = new Date(o.date_created);
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', weekday: 'short', hour: '2-digit', hour12: false }).formatToParts(d);
+      const weekdayShort = parts.find(p => p.type === 'weekday').value;
+      let hour = parseInt(parts.find(p => p.type === 'hour').value);
+      if (hour === 24) hour = 0;
+      const dow = DOW_MAP[weekdayShort];
+      grid[dow][hour].ventas += o.total_amount;
+      grid[dow][hour].ordenes += 1;
+    });
+
+    let max = 0;
+    grid.forEach(row => row.forEach(c => { if (c.ventas > max) max = c.ventas; }));
+    grid.forEach(row => row.forEach(c => {
+      if (c.ventas === 0) c.nivel = 0;
+      else if (c.ventas <= max / 3) c.nivel = 1;
+      else if (c.ventas <= max * 2 / 3) c.nivel = 2;
+      else c.nivel = 3;
+    }));
+
+    const porDia = grid.map((row, i) => ({ dia: DOW[i], ventas: row.reduce((s, c) => s + c.ventas, 0) }));
+    const diaTop = porDia.reduce((a, b) => b.ventas > a.ventas ? b : a, porDia[0]);
+    const porHora = Array.from({ length: 24 }, (_, h) => ({ hora: h, ventas: grid.reduce((s, row) => s + row[h].ventas, 0) }));
+    const horaTop = porHora.reduce((a, b) => b.ventas > a.ventas ? b : a, porHora[0]);
+    const ventaTotal = orders.reduce((s, o) => s + o.total_amount, 0);
+
+    res.json({
+      period, days, grid, dow: DOW,
+      diaConMasVentas: diaTop.ventas > 0 ? diaTop.dia : null,
+      horaConMasVentas: horaTop.ventas > 0 ? `${String(horaTop.hora).padStart(2, '0')}:00 - ${String((horaTop.hora + 1) % 24).padStart(2, '0')}:00` : null,
+      promedioPorDia: ventaTotal / days
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── VENTAS — POR PUBLICACIÓN ─────────────────────────────────────────────────
+
+app.get('/api/ventas-por-publicacion', async (req, res) => {
+  try {
+    const period = req.query.period || '7days';
+    const range = getPeriodRange(period, req.query.year, req.query.month);
+    const cur = toRange(range.from, range.to);
+    const orders = await fetchPaidOrders(cur.from, cur.to);
+
+    const byItem = {};
+    orders.forEach(o => {
+      o.order_items.forEach(i => {
+        const id = i.item.id;
+        if (!byItem[id]) byItem[id] = { id, title: i.item.title, ventaBruta: 0, unidades: 0, ordenes: 0 };
+        byItem[id].ventaBruta += o.total_amount;
+        byItem[id].unidades += i.quantity;
+        byItem[id].ordenes += 1;
+      });
+    });
+
+    const items = Object.values(byItem);
+    const totalVenta = items.reduce((s, i) => s + i.ventaBruta, 0);
+    const ids = items.map(i => i.id);
+
+    const typeMap = {};
+    for (let i = 0; i < ids.length; i += 20) {
+      const chunk = ids.slice(i, i + 20).join(',');
+      const details = await mlGet(`https://api.mercadolibre.com/items?ids=${chunk}&attributes=id,listing_type_id`);
+      details.filter(d => d.code === 200).forEach(d => { typeMap[d.body.id] = d.body.listing_type_id; });
+    }
+
+    const visitDays = Math.min(range.days, 60);
+    const visitMap = {};
+    const BATCH = 10;
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const chunk = ids.slice(i, i + BATCH);
+      const results = await Promise.all(chunk.map(id =>
+        mlGet(`https://api.mercadolibre.com/items/${id}/visits/time_window`, { last: visitDays, unit: 'day' })
+          .then(v => v.total_visits || 0).catch(() => 0)
+      ));
+      chunk.forEach((id, idx) => { visitMap[id] = results[idx]; });
+    }
+
+    const result = items.map(i => {
+      const visitas = visitMap[i.id] || 0;
+      const lt = typeMap[i.id];
+      return {
+        id: i.id, title: i.title,
+        tipo: lt === 'gold_pro' ? 'Premium' : 'Clásica',
+        ventaBruta: i.ventaBruta,
+        participacion: totalVenta > 0 ? (i.ventaBruta / totalVenta * 100) : 0,
+        visitas,
+        unidades: i.unidades,
+        conversion: visitas > 0 ? (i.ordenes / visitas * 100) : 0
+      };
+    }).sort((a, b) => b.ventaBruta - a.ventaBruta);
+
+    res.json({ period, label: range.label, items: result });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── VENTAS — PUBLICACIONES SIN VENTAS ───────────────────────────────────────
+
+app.get('/api/sin-ventas', async (req, res) => {
+  try {
+    let allIds = [];
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status: 'active', limit: 50, offset });
+      total = r.paging.total;
+      allIds = allIds.concat(r.results);
+      offset += 50;
+    }
+    let items = [];
+    for (let i = 0; i < allIds.length; i += 20) {
+      const ids = allIds.slice(i, i + 20).join(',');
+      const details = await mlGet(`https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status`);
+      items = items.concat(details.filter(d => d.code === 200).map(d => d.body));
+    }
+    items = items.filter(i => (i.available_quantity || 0) > 0);
+
+    const to = `${today()}T23:59:59.000-06:00`;
+    const from30 = `${dateNDaysAgo(29)}T00:00:00.000-06:00`;
+    const orders30 = await fetchPaidOrders(from30, to);
+    const soldIds30 = new Set();
+    orders30.forEach(o => o.order_items.forEach(i => soldIds30.add(i.item.id)));
+
+    const sinVentas = items.filter(i => !soldIds30.has(i.id));
+
+    const from90 = `${dateNDaysAgo(89)}T00:00:00.000-06:00`;
+    const orders90 = await fetchPaidOrders(from90, to);
+    const lastSale = {};
+    orders90.forEach(o => o.order_items.forEach(i => {
+      const id = i.item.id;
+      const date = o.date_created.split('T')[0];
+      if (!lastSale[id] || date > lastSale[id]) lastSale[id] = date;
+    }));
+
+    const visitMap = {};
+    const BATCH = 10;
+    for (let i = 0; i < sinVentas.length; i += BATCH) {
+      const chunk = sinVentas.slice(i, i + BATCH);
+      const results = await Promise.all(chunk.map(it =>
+        mlGet(`https://api.mercadolibre.com/items/${it.id}/visits/time_window`, { last: 30, unit: 'day' })
+          .then(v => v.total_visits || 0).catch(() => 0)
+      ));
+      chunk.forEach((it, idx) => { visitMap[it.id] = results[idx]; });
+    }
+
+    const result = sinVentas.map(i => ({
+      id: i.id, title: i.title, price: i.price, stock: i.available_quantity,
+      visitas: visitMap[i.id] || 0,
+      ultimaVenta: lastSale[i.id] || null
+    })).sort((a, b) => b.visitas - a.visitas);
+
+    res.json({ total: result.length, items: result });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });

@@ -177,6 +177,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .si-table th.si-r{text-align:right}
 .si-prod-row td{padding:12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;cursor:pointer;transition:background .1s}
 .si-prod-row:hover td{background:#f9fafb}
+.si-row td{padding:12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;transition:background .1s}
+.si-row:hover td{background:#f9fafb}
 .si-var-tr{display:none}
 .si-var-tr.open{display:table-row}
 .days-bar-outer{background:#f3f4f6;border-radius:4px;height:5px;width:80px;display:inline-block;vertical-align:middle;overflow:hidden;flex-shrink:0}
@@ -189,6 +191,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+
+/* ── VENTAS (sección) ── */
+.vtab{display:none}
+.vtab.active{display:block}
+.sort-th{cursor:pointer;user-select:none}
+.sort-th .arrow{font-size:9px;margin-left:4px;opacity:.4}
+.sort-th.sort-active .arrow{opacity:1;color:var(--accent)}
+
+/* ── HEATMAP ── */
+.heatmap-wrap{overflow-x:auto;padding-bottom:6px}
+.heatmap-grid{display:grid;grid-template-columns:54px repeat(24,minmax(26px,1fr));gap:3px;min-width:760px}
+.hm-label{font-size:10.5px;color:var(--muted);display:flex;align-items:center;white-space:nowrap}
+.hm-hour-label{font-size:9px;color:var(--dim);text-align:center;padding-bottom:2px}
+.hm-cell{aspect-ratio:1;border-radius:4px;cursor:default;position:relative}
+.hm-lvl-0{background:#f3f4f6}
+.hm-lvl-1{background:#bfdbfe}
+.hm-lvl-2{background:#60a5fa}
+.hm-lvl-3{background:#1d4ed8}
+.hm-cell:hover{outline:2px solid var(--accent);outline-offset:1px}
+.hm-cell[title]:hover::after{content:attr(title);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:#1a1a2a;color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;white-space:nowrap;z-index:10;pointer-events:none}
+.hm-legend{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:11px;color:var(--muted)}
+.hm-legend .hm-cell{width:14px;height:14px;flex:none;aspect-ratio:unset}
 
 /* ── ENVÍOS ── */
 .envios-tabs{display:flex;gap:8px;margin:14px 0 18px;flex-wrap:wrap}
@@ -258,11 +282,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span class="nav-icon">⊞</span><span>Inicio</span>
     </div>
     <div class="nav-group">Ventas</div>
-    <div class="nav-item" onclick="showSection('ventas',this)">
-      <span class="nav-icon">📅</span><span>Ventas hoy</span>
-    </div>
-    <div class="nav-item" onclick="showSection('mes',this)">
-      <span class="nav-icon">📆</span><span>Ventas por mes</span>
+    <div class="nav-item" onclick="showSection('ventas',this);initVentasSection()">
+      <span class="nav-icon">📊</span><span>Ventas</span>
     </div>
     <div class="nav-group">Catálogo</div>
     <div class="nav-item" onclick="showSection('stock',this);loadStockInteligente()">
@@ -386,33 +407,131 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
     </div>
 
-    <!-- ── VENTAS HOY ── -->
+    <!-- ── VENTAS ── -->
     <div id="ventas" class="section">
-      <div id="ventas-metrics" class="grid-4"><div class="loading"><div class="spin"></div></div></div>
-      <div class="card">
-        <div class="card-title">Top productos hoy</div>
-        <div id="ventas-top"><div class="loading"><div class="spin"></div></div></div>
+      <div class="ov-header">
+        <h2>Ventas</h2>
+        <p>Resumen, horarios, publicaciones y oportunidades</p>
       </div>
-    </div>
 
-    <!-- ── VENTAS MES ── -->
-    <div id="mes" class="section">
-      <div class="mes-selector">
-        <select id="sel-mes">
-          <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-          <option value="4">Abril</option><option value="5">Mayo</option><option value="6" selected>Junio</option>
-          <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-        </select>
-        <select id="sel-year">
-          <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
-        </select>
-        <button type="button" onclick="loadMes()">Ver mes</button>
+      <div class="envios-tabs">
+        <button type="button" class="envios-tab active" onclick="showVentasTab('resumen',this)">Resumen</button>
+        <button type="button" class="envios-tab" onclick="showVentasTab('heatmap',this)">Heatmap</button>
+        <button type="button" class="envios-tab" onclick="showVentasTab('porpub',this)">Por publicación</button>
+        <button type="button" class="envios-tab" onclick="showVentasTab('sinventas',this)">Sin ventas</button>
       </div>
-      <div id="mes-metrics" class="grid-4"><div class="loading"><div class="spin"></div>Selecciona un mes</div></div>
-      <div class="card">
-        <div class="card-title" id="mes-titulo">Top productos del mes</div>
-        <div id="mes-top"><div class="loading"><div class="spin"></div>Selecciona un mes</div></div>
+
+      <!-- TAB 1: RESUMEN -->
+      <div id="vt-resumen" class="vtab active">
+        <div class="envios-tabs">
+          <button type="button" class="envios-tab active" data-period="hoy" onclick="setResumenPeriod('hoy',this)">Hoy</button>
+          <button type="button" class="envios-tab" data-period="7days" onclick="setResumenPeriod('7days',this)">Últimos 7 días</button>
+          <button type="button" class="envios-tab" data-period="30days" onclick="setResumenPeriod('30days',this)">Últimos 30 días</button>
+          <button type="button" class="envios-tab" data-period="month" onclick="setResumenPeriod('month',this)">Mes específico</button>
+        </div>
+        <div class="mes-selector" id="vr-month-selector" style="display:none">
+          <select id="vr-sel-mes">
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+            <option value="4">Abril</option><option value="5">Mayo</option><option value="6" selected>Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+          <select id="vr-sel-year">
+            <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
+          </select>
+          <button type="button" onclick="loadVentasResumen()">Ver mes</button>
+        </div>
+        <div id="vr-metrics" class="grid-4"><div class="loading"><div class="spin"></div></div></div>
+        <div class="card">
+          <div class="card-title">Top productos del período</div>
+          <div id="vr-top"><div class="loading"><div class="spin"></div>Cargando...</div></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: HEATMAP -->
+      <div id="vt-heatmap" class="vtab">
+        <div class="envios-tabs">
+          <button type="button" class="envios-tab active" onclick="setHeatmapPeriod('7days',this)">Últimos 7 días</button>
+          <button type="button" class="envios-tab" onclick="setHeatmapPeriod('30days',this)">Últimos 30 días</button>
+        </div>
+        <div class="grid-3" id="hm-metrics">
+          <div class="metric">
+            <div class="mi mi-b">📅</div>
+            <div class="metric-label">Día con más ventas</div>
+            <div class="metric-value" id="hm-dia" style="font-size:20px">—</div>
+          </div>
+          <div class="metric">
+            <div class="mi mi-y">⏰</div>
+            <div class="metric-label">Franja con más ventas</div>
+            <div class="metric-value" id="hm-hora" style="font-size:20px">—</div>
+          </div>
+          <div class="metric">
+            <div class="mi mi-g">📊</div>
+            <div class="metric-label">Promedio por día</div>
+            <div class="metric-value" id="hm-promedio" style="color:var(--accent)">—</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Mapa de calor — ventas por día y hora (hora de México)</div>
+          <div id="hm-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
+        </div>
+      </div>
+
+      <!-- TAB 3: POR PUBLICACIÓN -->
+      <div id="vt-porpub" class="vtab">
+        <div class="envios-tabs">
+          <button type="button" class="envios-tab" onclick="setPorPubPeriod('hoy',this)">Hoy</button>
+          <button type="button" class="envios-tab active" onclick="setPorPubPeriod('7days',this)">Últimos 7 días</button>
+          <button type="button" class="envios-tab" onclick="setPorPubPeriod('30days',this)">Últimos 30 días</button>
+        </div>
+        <div class="card">
+          <div class="si-filter-bar">
+            <div class="si-search-wrap">
+              <input class="si-search" id="pp-search" type="text" placeholder="Buscar publicación..." oninput="renderPorPub()">
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="si-table">
+              <thead>
+                <tr>
+                  <th class="sort-th" onclick="sortPorPub('title')">Publicación<span class="arrow"></span></th>
+                  <th class="sort-th" onclick="sortPorPub('tipo')">Tipo<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortPorPub('ventaBruta')">Ventas brutas<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortPorPub('participacion')">% Participación<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortPorPub('visitas')">Visitas<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortPorPub('unidades')">Unidades<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortPorPub('conversion')">Conversión<span class="arrow"></span></th>
+                </tr>
+              </thead>
+              <tbody id="pp-tbody">
+                <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: SIN VENTAS -->
+      <div id="vt-sinventas" class="vtab">
+        <div class="card">
+          <div class="card-title">Publicaciones activas con stock sin ventas en los últimos 30 días</div>
+          <div style="overflow-x:auto">
+            <table class="si-table">
+              <thead>
+                <tr>
+                  <th>Publicación</th>
+                  <th class="si-r">Precio</th>
+                  <th class="si-r">Stock disponible</th>
+                  <th class="si-r">Visitas (30d)</th>
+                  <th>Última venta</th>
+                </tr>
+              </thead>
+              <tbody id="sv-tbody">
+                <tr><td colspan="5" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -542,7 +661,7 @@ function renderDelta(elId,current,previous,label='vs ayer'){
 }
 
 const PAGE_TITLES={
-  inicio:'Inicio',ventas:'Ventas hoy',mes:'Ventas por mes',
+  inicio:'Inicio',ventas:'Ventas',
   stock:'Stock',publicidad:'Publicidad',devoluciones:'Devoluciones',reputacion:'Reputación'
 };
 
@@ -708,43 +827,238 @@ function toggleVariantes(id){
 // ── Data loaders ──────────────────────────────────
 async function loadVentas(){
   try{
-    document.getElementById('ventas-metrics').innerHTML=spin();
-    document.getElementById('ventas-top').innerHTML=spin();
     const r=await fetch('/api/ventas-hoy');
     const d=await r.json();
     if(d.error)throw new Error(d.error);
-    renderMetrics('ventas-metrics',d);
-    renderTop('ventas-top',d.top);
     // overview cards
     document.getElementById('ov-venta-val').textContent=fmtMXN(d.ventaBruta);
     document.getElementById('ov-venta-sub').textContent=`${fmt(d.ordenes)} órdenes · ${fmt(d.unidades)} uds`;
     renderDelta('ov-venta-delta',d.ventaBruta,d.ventaBrutaAyer);
     renderTop('ov-top',d.top,{expandable:true});
   }catch(e){
-    document.getElementById('ventas-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
     document.getElementById('ov-venta-val').textContent='Error';
     document.getElementById('ov-top').innerHTML=`<div class="error">${e.message}</div>`;
   }
 }
 
-async function loadMes(){
-  console.log('[loadMes] iniciando...');
+// ══════════════ SECCIÓN VENTAS ══════════════
+
+let ventasInited=false;
+let resumenPeriod='hoy';
+let heatmapPeriod='7days';
+let porPubPeriod='7days';
+let porPubData=[];
+let porPubSort={key:'ventaBruta',dir:'desc'};
+
+function initVentasSection(){
+  if(ventasInited)return;
+  ventasInited=true;
+  loadVentasResumen();
+}
+
+function showVentasTab(tab,el){
+  document.querySelectorAll('#ventas .vtab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#ventas > .envios-tabs .envios-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('vt-'+tab).classList.add('active');
+  el.classList.add('active');
+  if(tab==='heatmap'&&!document.getElementById('hm-content').dataset.loaded)loadHeatmap();
+  if(tab==='porpub'&&!document.getElementById('pp-tbody').dataset.loaded)loadPorPub();
+  if(tab==='sinventas'&&!document.getElementById('sv-tbody').dataset.loaded)loadSinVentas();
+}
+
+// ── TAB 1: RESUMEN ────────────────────────────────
+function setResumenPeriod(period,el){
+  resumenPeriod=period;
+  document.querySelectorAll('#vt-resumen .envios-tabs .envios-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('vr-month-selector').style.display=period==='month'?'flex':'none';
+  if(period!=='month')loadVentasResumen();
+}
+
+const RESUMEN_METRICS=[
+  {key:'ventaBruta',label:'Ventas brutas',icon:'💰',mi:'mi-y',fmt:fmtMXN,color:'var(--accent)'},
+  {key:'unidades',label:'Unidades vendidas',icon:'📦',mi:'mi-b',fmt:fmt},
+  {key:'precioPromedio',label:'Precio promedio',icon:'🏷️',mi:'mi-g',fmt:fmtMXN},
+  {key:'visitas',label:'Visitas',icon:'👁️',mi:'mi-y',fmt:fmt},
+  {key:'conversion',label:'Conversión',icon:'🎯',mi:'mi-b',fmt:fmtPct},
+  {key:'compradores',label:'Compradores totales',icon:'🛍️',mi:'mi-g',fmt:fmt},
+  {key:'frecuentes',label:'Frecuentes',icon:'🔁',mi:'mi-y',fmt:fmt},
+  {key:'nuevos',label:'Nuevos',icon:'✨',mi:'mi-b',fmt:fmt}
+];
+
+async function loadVentasResumen(){
+  const elMetrics=document.getElementById('vr-metrics');
+  const elTop=document.getElementById('vr-top');
+  elMetrics.innerHTML=spin();
+  elTop.innerHTML=spin();
   try{
-    const mes=document.getElementById('sel-mes').value;
-    const year=document.getElementById('sel-year').value;
-    const meses=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    document.getElementById('mes-metrics').innerHTML=spin();
-    document.getElementById('mes-top').innerHTML=spin();
-    document.getElementById('mes-titulo').textContent=`Top productos — ${meses[mes]} ${year}`;
-    const r=await fetch(`/api/ventas-mes?month=${mes}&year=${year}`);
+    let url=`/api/ventas-resumen?period=${resumenPeriod}`;
+    if(resumenPeriod==='month'){
+      url+=`&month=${document.getElementById('vr-sel-mes').value}&year=${document.getElementById('vr-sel-year').value}`;
+    }
+    const r=await fetch(url);
     const d=await r.json();
-    if(d.error)throw new Error(d.error);
-    renderMetrics('mes-metrics',d);
-    renderTop('mes-top',d.top);
+    if(d.error)throw new Error(errStr(d.error));
+    elMetrics.innerHTML=RESUMEN_METRICS.map(m=>`
+      <div class="metric">
+        <div class="mi ${m.mi}">${m.icon}</div>
+        <div class="metric-label">${m.label}</div>
+        <div class="metric-value" id="vrm-${m.key}-val" ${m.color?`style="color:${m.color}"`:''}>—</div>
+        <div class="metric-delta" id="vrm-${m.key}-delta"></div>
+      </div>`).join('');
+    RESUMEN_METRICS.forEach(m=>{
+      const cur=d[m.key];
+      const ant=d[m.key+'Ant'];
+      document.getElementById(`vrm-${m.key}-val`).textContent = cur===null||cur===undefined ? '—' : m.fmt(cur);
+      if(cur===null||cur===undefined){
+        document.getElementById(`vrm-${m.key}-delta`).textContent='';
+      }else{
+        renderDelta(`vrm-${m.key}-delta`,cur,ant,'vs período anterior');
+      }
+    });
+    renderTop('vr-top',d.top,{expandable:true});
   }catch(e){
-    const msg=e.message||'Error desconocido';
-    document.getElementById('mes-metrics').innerHTML=`<div class="error">Error: ${msg}</div>`;
-    document.getElementById('mes-top').innerHTML=`<div class="error" style="padding:16px">Error al cargar: ${msg}</div>`;
+    elMetrics.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+    elTop.innerHTML=`<div class="error">${e.message}</div>`;
+  }
+}
+
+// ── TAB 2: HEATMAP ────────────────────────────────
+function setHeatmapPeriod(period,el){
+  heatmapPeriod=period;
+  document.querySelectorAll('#vt-heatmap .envios-tabs .envios-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  loadHeatmap();
+}
+
+async function loadHeatmap(){
+  const el=document.getElementById('hm-content');
+  el.innerHTML=spin();
+  try{
+    const r=await fetch(`/api/heatmap?period=${heatmapPeriod}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    el.dataset.loaded='1';
+    document.getElementById('hm-dia').textContent=d.diaConMasVentas||'Sin ventas';
+    document.getElementById('hm-hora').textContent=d.horaConMasVentas||'Sin ventas';
+    document.getElementById('hm-promedio').textContent=fmtMXN(d.promedioPorDia);
+
+    let cells='';
+    cells+='<div></div>';
+    for(let h=0;h<24;h++)cells+=`<div class="hm-hour-label">${h}</div>`;
+    d.grid.forEach((row,dow)=>{
+      cells+=`<div class="hm-label">${d.dow[dow].slice(0,3)}</div>`;
+      row.forEach((cell,h)=>{
+        const title=`${d.dow[dow]} ${String(h).padStart(2,'0')}:00 — ${fmtMXN(cell.ventas)} (${cell.ordenes} órdenes)`;
+        cells+=`<div class="hm-cell hm-lvl-${cell.nivel}" title="${title}"></div>`;
+      });
+    });
+    el.innerHTML=`
+      <div class="heatmap-wrap"><div class="heatmap-grid">${cells}</div></div>
+      <div class="hm-legend">
+        <span>Menos</span>
+        <div class="hm-cell hm-lvl-0"></div>
+        <div class="hm-cell hm-lvl-1"></div>
+        <div class="hm-cell hm-lvl-2"></div>
+        <div class="hm-cell hm-lvl-3"></div>
+        <span>Más</span>
+      </div>`;
+  }catch(e){
+    el.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
+}
+
+// ── TAB 3: POR PUBLICACIÓN ────────────────────────
+function setPorPubPeriod(period,el){
+  porPubPeriod=period;
+  document.querySelectorAll('#vt-porpub .envios-tabs .envios-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  loadPorPub();
+}
+
+async function loadPorPub(){
+  const tbody=document.getElementById('pp-tbody');
+  tbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
+  try{
+    const r=await fetch(`/api/ventas-por-publicacion?period=${porPubPeriod}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    document.getElementById('pp-tbody').dataset.loaded='1';
+    porPubData=d.items||[];
+    renderPorPub();
+  }catch(e){
+    tbody.innerHTML=`<tr><td colspan="7" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
+  }
+}
+
+function sortPorPub(key){
+  if(porPubSort.key===key){
+    porPubSort.dir=porPubSort.dir==='desc'?'asc':'desc';
+  }else{
+    porPubSort={key,dir:key==='title'||key==='tipo'?'asc':'desc'};
+  }
+  renderPorPub();
+}
+
+function renderPorPub(){
+  const tbody=document.getElementById('pp-tbody');
+  const search=(document.getElementById('pp-search').value||'').toLowerCase();
+  let items=porPubData.filter(i=>i.title.toLowerCase().includes(search));
+  const {key,dir}=porPubSort;
+  items=items.slice().sort((a,b)=>{
+    let av=a[key],bv=b[key];
+    if(typeof av==='string')return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+    return dir==='asc'?av-bv:bv-av;
+  });
+  document.querySelectorAll('#vt-porpub .sort-th').forEach(th=>{
+    th.classList.remove('sort-active');
+    th.querySelector('.arrow').textContent='';
+  });
+  const activeTh=[...document.querySelectorAll('#vt-porpub .sort-th')].find(th=>th.getAttribute('onclick')===`sortPorPub('${key}')`);
+  if(activeTh){
+    activeTh.classList.add('sort-active');
+    activeTh.querySelector('.arrow').textContent=dir==='asc'?'▲':'▼';
+  }
+  if(items.length===0){
+    tbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)">Sin resultados</td></tr>';
+    return;
+  }
+  tbody.innerHTML=items.map(i=>`
+    <tr class="si-row">
+      <td>${i.title}</td>
+      <td>${i.tipo}</td>
+      <td class="si-r">${fmtMXN(i.ventaBruta)}</td>
+      <td class="si-r">${fmtPct(i.participacion)}</td>
+      <td class="si-r">${fmt(i.visitas)}</td>
+      <td class="si-r">${fmt(i.unidades)}</td>
+      <td class="si-r">${fmtPct(i.conversion)}</td>
+    </tr>`).join('');
+}
+
+// ── TAB 4: SIN VENTAS ─────────────────────────────
+async function loadSinVentas(){
+  const tbody=document.getElementById('sv-tbody');
+  tbody.innerHTML='<tr><td colspan="5" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
+  try{
+    const r=await fetch('/api/sin-ventas');
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    tbody.dataset.loaded='1';
+    const items=d.items||[];
+    if(items.length===0){
+      tbody.innerHTML='<tr><td colspan="5" style="padding:32px;text-align:center;color:var(--muted)">Todas las publicaciones activas tuvieron ventas en los últimos 30 días 🎉</td></tr>';
+      return;
+    }
+    tbody.innerHTML=items.map(i=>`
+      <tr class="si-row">
+        <td>${i.title}</td>
+        <td class="si-r">${fmtMXN(i.price)}</td>
+        <td class="si-r">${fmt(i.stock)}</td>
+        <td class="si-r">${fmt(i.visitas)}</td>
+        <td>${i.ultimaVenta||'Nunca'}</td>
+      </tr>`).join('');
+  }catch(e){
+    tbody.innerHTML=`<tr><td colspan="5" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
   }
 }
 
