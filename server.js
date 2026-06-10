@@ -549,3 +549,100 @@ app.get('/api/stock-inteligente', async (req, res) => {
     res.status(500).json({ error: msg });
   }
 });
+
+// ── ENVÍOS ───────────────────────────────────────────────────────────────────
+
+function dateNDaysAgo(n) {
+  const d = new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(d);
+}
+
+app.get('/api/envios', async (req, res) => {
+  try {
+    const period = req.query.period || 'today';
+    const fechaHoy = today();
+    let from, to;
+    if (period === '7days') {
+      from = `${dateNDaysAgo(6)}T00:00:00.000-06:00`;
+      to = `${fechaHoy}T23:59:59.000-06:00`;
+    } else if (period === '30days') {
+      from = `${dateNDaysAgo(29)}T00:00:00.000-06:00`;
+      to = `${fechaHoy}T23:59:59.000-06:00`;
+    } else {
+      from = `${fechaHoy}T00:00:00.000-06:00`;
+      to = `${fechaHoy}T23:59:59.000-06:00`;
+    }
+    console.log('[envios] period:', period, 'from:', from, 'to:', to);
+
+    // Obtener todas las órdenes pagadas en el rango
+    let allOrders = [];
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+        seller: SELLER_ID, 'order.status': 'paid',
+        'order.date_created.from': from, 'order.date_created.to': to,
+        limit: 50, offset
+      });
+      total = d.paging.total;
+      allOrders = allOrders.concat(d.results);
+      offset += 50;
+    }
+
+    // Obtener detalle de cada envío en lotes (logistic_type + costo)
+    const shipmentIds = [...new Set(allOrders.filter(o => o.shipping?.id).map(o => o.shipping.id))];
+    const shipmentMap = {};
+    const BATCH = 15;
+    for (let i = 0; i < shipmentIds.length; i += BATCH) {
+      const batch = shipmentIds.slice(i, i + BATCH);
+      const results = await Promise.all(batch.map(id =>
+        mlGet(`https://api.mercadolibre.com/shipments/${id}`).catch(() => null)
+      ));
+      batch.forEach((id, idx) => { if (results[idx]) shipmentMap[id] = results[idx]; });
+    }
+
+    let totalEnvios = 0;
+    let costoTotal = 0;
+    const tipos = {};
+
+    allOrders.forEach(o => {
+      const shipment = o.shipping?.id ? shipmentMap[o.shipping.id] : null;
+      const isFull = shipment?.logistic_type === 'fulfillment' || o.fulfilled === true;
+      const tipoKey = isFull ? 'full' : 'me';
+      const costo = shipment?.base_cost || 0;
+
+      totalEnvios++;
+      costoTotal += costo;
+
+      if (!tipos[tipoKey]) tipos[tipoKey] = { cantidad: 0, dinero: 0, costo: 0 };
+      tipos[tipoKey].cantidad++;
+      tipos[tipoKey].dinero += o.total_amount;
+      tipos[tipoKey].costo += costo;
+    });
+
+    const NOMBRES = { full: 'Full', me: 'Mercado Envíos' };
+    const desglose = ['full', 'me'].filter(k => tipos[k]).map(k => {
+      const v = tipos[k];
+      return {
+        tipo: NOMBRES[k],
+        cantidad: v.cantidad,
+        porcentaje: totalEnvios ? Math.round((v.cantidad / totalEnvios) * 1000) / 10 : 0,
+        dineroTransaccionado: Math.round(v.dinero),
+        ticketPromedio: v.cantidad ? Math.round(v.dinero / v.cantidad) : 0,
+        costo: Math.round(v.costo)
+      };
+    });
+
+    res.json({
+      period,
+      totalEnvios,
+      costoTotal: Math.round(costoTotal),
+      desglose,
+      periodoDesde: from,
+      periodoHasta: to
+    });
+  } catch (e) {
+    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
+    res.status(500).json({ error: msg });
+  }
+});
