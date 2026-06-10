@@ -45,6 +45,32 @@ async function saveTokenToSupabase(data) {
   }
 }
 
+// ── Snapshots diarios de stock/publicaciones (para comparativas) ───────────
+
+async function saveStockSnapshot(totalPiezas, totalPublicaciones) {
+  try {
+    const { error } = await supabase.from('stock_snapshots').upsert({
+      date: today(),
+      total_piezas: totalPiezas,
+      total_publicaciones: totalPublicaciones
+    });
+    if (error) throw error;
+  } catch (e) {
+    console.error('Error guardando snapshot de stock:', e.message);
+  }
+}
+
+async function getStockSnapshot(date) {
+  try {
+    const { data, error } = await supabase.from('stock_snapshots').select('*').eq('date', date).maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (e) {
+    console.error('Error leyendo snapshot de stock:', e.message);
+    return null;
+  }
+}
+
 // Placeholder hasta que initTokens() cargue el valor real desde Supabase
 let tokenData = {
   access_token: process.env.ML_TOKEN,
@@ -123,28 +149,48 @@ async function mlGet(url, params = {}) {
   return r.data;
 }
 
+async function fetchPaidOrders(from, to) {
+  let allOrders = [];
+  let offset = 0;
+  let total = 1;
+  while (offset < total) {
+    const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+      seller: SELLER_ID, 'order.status': 'paid',
+      'order.date_created.from': from, 'order.date_created.to': to,
+      limit: 50, offset
+    });
+    total = d.paging.total;
+    allOrders = allOrders.concat(d.results);
+    offset += 50;
+  }
+  return allOrders;
+}
+
 app.get('/api/ventas-hoy', async (req, res) => {
   try {
     const fecha = today();
     const from = `${fecha}T00:00:00.000-06:00`;
     const to = `${fecha}T23:59:59.000-06:00`;
     console.log('[ventas-hoy] from:', from, 'to:', to);
-    let allOrders = [];
-    let offset = 0;
-    let total = 1;
-    while (offset < total) {
-      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-        seller: SELLER_ID, 'order.status': 'paid',
-        'order.date_created.from': from, 'order.date_created.to': to,
-        limit: 50, offset
-      });
-      total = d.paging.total;
-      allOrders = allOrders.concat(d.results);
-      offset += 50;
-    }
+
+    const fechaAyer = dateNDaysAgo(1);
+    const fromAyer = `${fechaAyer}T00:00:00.000-06:00`;
+    const toAyer = `${fechaAyer}T23:59:59.000-06:00`;
+
+    const [allOrders, ordersAyer] = await Promise.all([
+      fetchPaidOrders(from, to),
+      fetchPaidOrders(fromAyer, toAyer)
+    ]);
+
+    const total = allOrders.length;
     const ventaBruta = allOrders.reduce((s, o) => s + o.total_amount, 0);
     const unidades = allOrders.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
     const precioLista = allOrders.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.gross_price, 0), 0);
+
+    const ordenesAyer = ordersAyer.length;
+    const ventaBrutaAyer = ordersAyer.reduce((s, o) => s + o.total_amount, 0);
+    const unidadesAyer = ordersAyer.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
+
     const byProduct = {};
     allOrders.forEach(o => {
       o.order_items.forEach(i => {
@@ -156,7 +202,11 @@ app.get('/api/ventas-hoy', async (req, res) => {
       });
     });
     const top = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 10).map(([title, v]) => ({ title, ...v }));
-    res.json({ ordenes: total, ventaBruta, precioLista, descuentos: precioLista - ventaBruta, unidades, ticketPromedio: total > 0 ? ventaBruta / total : 0, top });
+    res.json({
+      ordenes: total, ventaBruta, precioLista, descuentos: precioLista - ventaBruta, unidades,
+      ticketPromedio: total > 0 ? ventaBruta / total : 0, top,
+      ventaBrutaAyer, ordenesAyer, unidadesAyer
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -242,7 +292,19 @@ app.get('/api/stock', async (req, res) => {
     });
     const totalStock = result.reduce((s, i) => s + i.totalUnits, 0);
     const totalPiezas = result.reduce((s, i) => s + i.totalPiezas, 0);
-    res.json({ totalPublicaciones: result.length, totalStock, totalPiezas, items: result });
+    const totalPublicaciones = result.length;
+
+    const [snap7, snapAyer] = await Promise.all([
+      getStockSnapshot(dateNDaysAgo(7)),
+      getStockSnapshot(dateNDaysAgo(1))
+    ]);
+    await saveStockSnapshot(totalPiezas, totalPublicaciones);
+
+    res.json({
+      totalPublicaciones, totalStock, totalPiezas, items: result,
+      totalPiezasHace7d: snap7 ? snap7.total_piezas : null,
+      totalPublicacionesAyer: snapAyer ? snapAyer.total_publicaciones : null
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -70,6 +70,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .metric-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;font-weight:600;margin-bottom:7px}
 .metric-value{font-size:26px;font-weight:800;line-height:1;color:var(--text)}
 .metric-sub{font-size:11.5px;color:var(--muted);margin-top:6px}
+.metric-delta{font-size:11px;margin-top:4px;font-weight:600;display:flex;align-items:center;gap:4px;min-height:14px}
+.metric-delta.up{color:var(--green)}
+.metric-delta.down{color:var(--red)}
+.metric-delta.flat{color:var(--dim)}
 
 /* ── CARDS ── */
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
@@ -304,24 +308,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div class="metric-label">Ventas hoy</div>
           <div class="metric-value" id="ov-venta-val" style="color:var(--accent)">—</div>
           <div class="metric-sub" id="ov-venta-sub">cargando...</div>
+          <div class="metric-delta" id="ov-venta-delta"></div>
         </div>
         <div class="metric">
           <div class="mi mi-b">📦</div>
           <div class="metric-label">Stock disponible</div>
           <div class="metric-value" id="ov-stock-val">—</div>
           <div class="metric-sub" id="ov-stock-sub">cargando...</div>
+          <div class="metric-delta" id="ov-stock-delta"></div>
         </div>
         <div class="metric">
           <div class="mi mi-g">🏷️</div>
           <div class="metric-label">Publicaciones activas</div>
           <div class="metric-value" id="ov-pubs-val" style="color:var(--green)">—</div>
           <div class="metric-sub" id="ov-pubs-sub">cargando...</div>
+          <div class="metric-delta" id="ov-pubs-delta"></div>
         </div>
         <div class="metric">
           <div class="mi mi-y">⭐</div>
           <div class="metric-label">Reputación</div>
           <div class="metric-value" id="ov-rep-val">—</div>
           <div class="metric-sub" id="ov-rep-sub">cargando...</div>
+          <div class="metric-delta" id="ov-rep-delta"></div>
         </div>
       </div>
       <div class="grid-3">
@@ -514,6 +522,21 @@ function fmtMXN(n){return'$'+fmt(n)}
 function fmtPct(n){return Number(n).toFixed(2)+'%'}
 function fmtX(n){return Number(n).toFixed(2)+'x'}
 
+function renderDelta(elId,current,previous,label='vs ayer'){
+  const el=document.getElementById(elId);
+  if(!el)return;
+  if(previous===null||previous===undefined){el.textContent='';el.className='metric-delta';return;}
+  if(previous===0){
+    if(current===0){el.className='metric-delta flat';el.innerHTML=`— sin cambio ${label}`;}
+    else{el.className='metric-delta up';el.innerHTML=`▲ nuevo ${label}`;}
+    return;
+  }
+  const pct=((current-previous)/previous)*100;
+  if(Math.abs(pct)<0.05){el.className='metric-delta flat';el.innerHTML=`— sin cambio ${label}`;}
+  else if(pct>0){el.className='metric-delta up';el.innerHTML=`▲ ${pct.toFixed(1)}% ${label}`;}
+  else{el.className='metric-delta down';el.innerHTML=`▼ ${Math.abs(pct).toFixed(1)}% ${label}`;}
+}
+
 const PAGE_TITLES={
   inicio:'Inicio',ventas:'Ventas hoy',mes:'Ventas por mes',
   stock:'Stock',publicidad:'Publicidad',devoluciones:'Devoluciones',reputacion:'Reputación'
@@ -672,6 +695,7 @@ async function loadVentas(){
     // overview cards
     document.getElementById('ov-venta-val').textContent=fmtMXN(d.ventaBruta);
     document.getElementById('ov-venta-sub').textContent=`${fmt(d.ordenes)} órdenes · ${fmt(d.unidades)} uds`;
+    renderDelta('ov-venta-delta',d.ventaBruta,d.ventaBrutaAyer);
     renderTop('ov-top',d.top.slice(0,5));
   }catch(e){
     document.getElementById('ventas-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
@@ -710,6 +734,8 @@ async function loadStock(){
     document.getElementById('ov-stock-sub').textContent=fmt(d.totalStock)+' uds ML · '+fmt(d.totalPublicaciones)+' pub.';
     document.getElementById('ov-pubs-val').textContent=fmt(d.totalPublicaciones);
     document.getElementById('ov-pubs-sub').textContent=fmt(d.totalStock)+' unidades en stock';
+    renderDelta('ov-stock-delta',d.totalPiezas,d.totalPiezasHace7d,'vs hace 7 días');
+    renderDelta('ov-pubs-delta',d.totalPublicaciones,d.totalPublicacionesAyer);
   }catch(e){}
 }
 
