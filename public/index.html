@@ -108,6 +108,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .mes-selector select:focus{border-color:var(--accent)}
 .mes-selector button{background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
 
+/* ── SELECTOR DE RANGO DE FECHAS ── */
+.dr-wrap{position:relative;margin-bottom:22px;max-width:340px}
+.dr-input-wrap{position:relative;cursor:pointer}
+.dr-input{width:100%;padding:10px 36px 10px 14px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--card);color:var(--text);cursor:pointer;outline:none;font-weight:600;box-sizing:border-box}
+.dr-input:focus{border-color:var(--accent)}
+.dr-icon{position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:14px}
+.dr-picker{position:absolute;top:calc(100% + 8px);left:0;z-index:50;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.14);padding:18px;width:max-content;max-width:calc(100vw - 40px)}
+.dr-quick{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.dr-quick button{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text)}
+.dr-quick button:hover{background:var(--border)}
+.dr-calendars{display:flex;align-items:flex-start;gap:14px}
+.dr-nav-btn{background:var(--bg);border:1px solid var(--border);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex:none;margin-top:2px;line-height:1;color:var(--text)}
+.dr-nav-btn:hover{background:var(--border)}
+.dr-cal{width:230px}
+.dr-cal-label{text-align:center;font-weight:700;font-size:13px;margin-bottom:10px;text-transform:capitalize}
+.dr-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dr-dow{font-size:9px;color:var(--muted);text-transform:uppercase;text-align:center;padding-bottom:4px;font-weight:600}
+.dr-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;border-radius:6px;color:var(--text)}
+.dr-day:hover{background:var(--bg)}
+.dr-day.dr-empty{visibility:hidden;cursor:default}
+.dr-day.dr-today{font-weight:700;color:var(--accent)}
+.dr-day.dr-in-range{background:#bfdbfe;border-radius:0}
+.dr-day.dr-start,.dr-day.dr-end{background:#1d4ed8;color:#fff;font-weight:700}
+.dr-day.dr-start{border-radius:6px 0 0 6px}
+.dr-day.dr-end{border-radius:0 6px 6px 0}
+.dr-day.dr-start.dr-end{border-radius:6px}
+.dr-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.dr-cancel{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)}
+.dr-apply{background:var(--accent);border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;color:#fff}
+@media (max-width:640px){
+  .dr-calendars{flex-wrap:wrap;justify-content:center}
+  #dr-cal-wrap-0{display:none}
+  .dr-picker{left:50%;transform:translateX(-50%)}
+}
+
 /* ── BADGES ── */
 .badge{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600}
 .badge-pack{background:#dbeafe;color:var(--blue)}
@@ -449,23 +484,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       <!-- TAB 1: RESUMEN -->
       <div id="vt-resumen" class="vtab active">
-        <div class="envios-tabs">
-          <button type="button" class="envios-tab active" data-period="hoy" onclick="setResumenPeriod('hoy',this)">Hoy</button>
-          <button type="button" class="envios-tab" data-period="7days" onclick="setResumenPeriod('7days',this)">Últimos 7 días</button>
-          <button type="button" class="envios-tab" data-period="30days" onclick="setResumenPeriod('30days',this)">Últimos 30 días</button>
-          <button type="button" class="envios-tab" data-period="month" onclick="setResumenPeriod('month',this)">Mes específico</button>
-        </div>
-        <div class="mes-selector" id="vr-month-selector" style="display:none">
-          <select id="vr-sel-mes">
-            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-            <option value="4">Abril</option><option value="5">Mayo</option><option value="6" selected>Junio</option>
-            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-          </select>
-          <select id="vr-sel-year">
-            <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
-          </select>
-          <button type="button" onclick="loadVentasResumen()">Ver mes</button>
+        <div class="dr-wrap" id="dr-wrap">
+          <div class="dr-input-wrap" onclick="toggleDatePicker()">
+            <input type="text" id="dr-input" class="dr-input" readonly placeholder="Selecciona un rango">
+            <span class="dr-icon">📅</span>
+          </div>
+          <div class="dr-picker" id="dr-picker" style="display:none">
+            <div class="dr-quick">
+              <button type="button" onclick="drQuick('hoy')">Hoy</button>
+              <button type="button" onclick="drQuick('ayer')">Ayer</button>
+              <button type="button" onclick="drQuick('7days')">Últimos 7 días</button>
+              <button type="button" onclick="drQuick('30days')">Últimos 30 días</button>
+              <button type="button" onclick="drQuick('thismonth')">Este mes</button>
+              <button type="button" onclick="drQuick('lastmonth')">Mes anterior</button>
+            </div>
+            <div class="dr-calendars">
+              <button type="button" class="dr-nav-btn" onclick="drNav(-1)">‹</button>
+              <div class="dr-cal" id="dr-cal-wrap-0">
+                <div class="dr-cal-label" id="dr-cal-label-0"></div>
+                <div class="dr-cal-grid" id="dr-cal-grid-0"></div>
+              </div>
+              <div class="dr-cal" id="dr-cal-wrap-1">
+                <div class="dr-cal-label" id="dr-cal-label-1"></div>
+                <div class="dr-cal-grid" id="dr-cal-grid-1"></div>
+              </div>
+              <button type="button" class="dr-nav-btn" onclick="drNav(1)">›</button>
+            </div>
+            <div class="dr-actions">
+              <button type="button" class="dr-cancel" onclick="closeDatePicker()">Cancelar</button>
+              <button type="button" class="dr-apply" onclick="applyDateRange()">Aplicar</button>
+            </div>
+          </div>
         </div>
         <div id="vr-metrics" class="grid-4"><div class="loading"><div class="spin"></div></div></div>
 
@@ -890,7 +939,6 @@ async function loadVentas(){
 // ══════════════ SECCIÓN VENTAS ══════════════
 
 let ventasInited=false;
-let resumenPeriod='hoy';
 let heatmapPeriod='7days';
 let porPubPeriod='7days';
 let porPubData=[];
@@ -899,6 +947,7 @@ let porPubSort={key:'ventaBruta',dir:'desc'};
 function initVentasSection(){
   if(ventasInited)return;
   ventasInited=true;
+  initDateRange();
   loadVentasResumen();
   loadCalendar();
 }
@@ -914,14 +963,6 @@ function showVentasTab(tab,el){
 }
 
 // ── TAB 1: RESUMEN ────────────────────────────────
-function setResumenPeriod(period,el){
-  resumenPeriod=period;
-  document.querySelectorAll('#vt-resumen .envios-tabs .envios-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('vr-month-selector').style.display=period==='month'?'flex':'none';
-  if(period!=='month')loadVentasResumen();
-}
-
 const RESUMEN_METRICS=[
   {key:'ventaBruta',label:'Ventas brutas',icon:'💰',mi:'mi-y',fmt:fmtMXN,color:'var(--accent)'},
   {key:'unidades',label:'Unidades vendidas',icon:'📦',mi:'mi-b',fmt:fmt},
@@ -939,10 +980,7 @@ async function loadVentasResumen(){
   elMetrics.innerHTML=spin();
   elTop.innerHTML=spin();
   try{
-    let url=`/api/ventas-resumen?period=${resumenPeriod}`;
-    if(resumenPeriod==='month'){
-      url+=`&month=${document.getElementById('vr-sel-mes').value}&year=${document.getElementById('vr-sel-year').value}`;
-    }
+    const url=`/api/ventas-resumen?period=range&from=${resumenRangeFrom}&to=${resumenRangeTo}`;
     const r=await fetch(url);
     const d=await r.json();
     if(d.error)throw new Error(errStr(d.error));
@@ -1073,6 +1111,150 @@ function closeCalDayDetail(){
   calSelectedDay=null;
   document.querySelectorAll('#cal-grid .cal-day').forEach(c=>c.classList.remove('cal-selected'));
   document.getElementById('cal-day-detail').innerHTML='';
+}
+
+// ── SELECTOR DE RANGO DE FECHAS ───────────────────
+let resumenRangeFrom=CAL_TODAY;
+let resumenRangeTo=CAL_TODAY;
+let drStart=CAL_TODAY;
+let drEnd=CAL_TODAY;
+let drViewYear=parseInt(CAL_TODAY.slice(0,4));
+let drViewMonth=parseInt(CAL_TODAY.slice(5,7));
+
+function addDaysStr(dateStr,n){
+  const d=new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function fmtDateDisplay(dateStr){
+  const[y,m,d]=dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function updateDrInput(){
+  document.getElementById('dr-input').value=`${fmtDateDisplay(resumenRangeFrom)} - ${fmtDateDisplay(resumenRangeTo)}`;
+}
+
+function initDateRange(){
+  updateDrInput();
+}
+
+function toggleDatePicker(){
+  const picker=document.getElementById('dr-picker');
+  if(picker.style.display==='none'){
+    drStart=resumenRangeFrom;
+    drEnd=resumenRangeTo;
+    drViewYear=parseInt(drEnd.slice(0,4));
+    drViewMonth=parseInt(drEnd.slice(5,7));
+    renderDrCalendars();
+    picker.style.display='block';
+  }else{
+    picker.style.display='none';
+  }
+}
+
+function closeDatePicker(){
+  document.getElementById('dr-picker').style.display='none';
+}
+
+document.addEventListener('click',function(e){
+  const wrap=document.getElementById('dr-wrap');
+  const picker=document.getElementById('dr-picker');
+  if(wrap&&picker&&picker.style.display!=='none'&&!wrap.contains(e.target)){
+    picker.style.display='none';
+  }
+});
+
+function drNav(delta){
+  drViewMonth+=delta;
+  if(drViewMonth<1){drViewMonth=12;drViewYear--;}
+  if(drViewMonth>12){drViewMonth=1;drViewYear++;}
+  renderDrCalendars();
+}
+
+function drMonthLabel(year,month){
+  return `${MONTH_NAMES[month-1]} ${year}`;
+}
+
+function buildDrMonthGrid(year,month){
+  const lastDay=new Date(year,month,0).getDate();
+  const firstDow=new Date(year,month-1,1).getDay();
+  let html=CAL_DOW.map(x=>`<div class="dr-dow">${x}</div>`).join('');
+  for(let i=0;i<firstDow;i++)html+='<div class="dr-day dr-empty"></div>';
+  for(let day=1;day<=lastDay;day++){
+    const fecha=`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const classes=['dr-day'];
+    if(fecha===CAL_TODAY)classes.push('dr-today');
+    if(drStart&&fecha===drStart)classes.push('dr-start');
+    if(drEnd&&fecha===drEnd)classes.push('dr-end');
+    if(drStart&&drEnd&&fecha>drStart&&fecha<drEnd)classes.push('dr-in-range');
+    html+=`<div class="${classes.join(' ')}" onclick="drSelectDay('${fecha}')">${day}</div>`;
+  }
+  return html;
+}
+
+function renderDrCalendars(){
+  let leftMonth=drViewMonth-1,leftYear=drViewYear;
+  if(leftMonth<1){leftMonth=12;leftYear--;}
+  document.getElementById('dr-cal-label-0').textContent=drMonthLabel(leftYear,leftMonth);
+  document.getElementById('dr-cal-grid-0').innerHTML=buildDrMonthGrid(leftYear,leftMonth);
+  document.getElementById('dr-cal-label-1').textContent=drMonthLabel(drViewYear,drViewMonth);
+  document.getElementById('dr-cal-grid-1').innerHTML=buildDrMonthGrid(drViewYear,drViewMonth);
+}
+
+function drSelectDay(fecha){
+  if(!drStart||(drStart&&drEnd)){
+    drStart=fecha;
+    drEnd=null;
+  }else if(fecha<drStart){
+    drEnd=drStart;
+    drStart=fecha;
+  }else{
+    drEnd=fecha;
+  }
+  renderDrCalendars();
+}
+
+function drQuick(type){
+  const t=CAL_TODAY;
+  if(type==='hoy'){
+    drStart=t;drEnd=t;
+  }else if(type==='ayer'){
+    const y=addDaysStr(t,-1);
+    drStart=y;drEnd=y;
+  }else if(type==='7days'){
+    drStart=addDaysStr(t,-6);drEnd=t;
+  }else if(type==='30days'){
+    drStart=addDaysStr(t,-29);drEnd=t;
+  }else if(type==='thismonth'){
+    drStart=`${t.slice(0,8)}01`;drEnd=t;
+  }else if(type==='lastmonth'){
+    const y=parseInt(t.slice(0,4)),m=parseInt(t.slice(5,7));
+    let pm=m-1,py=y;
+    if(pm===0){pm=12;py--;}
+    const lastDay=new Date(py,pm,0).getDate();
+    drStart=`${py}-${String(pm).padStart(2,'0')}-01`;
+    drEnd=`${py}-${String(pm).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  }
+  drViewYear=parseInt(drEnd.slice(0,4));
+  drViewMonth=parseInt(drEnd.slice(5,7));
+  applyDrSelection();
+}
+
+function applyDateRange(){
+  if(!drStart)return;
+  if(!drEnd)drEnd=drStart;
+  applyDrSelection();
+}
+
+function applyDrSelection(){
+  if(drEnd<drStart){const tmp=drStart;drStart=drEnd;drEnd=tmp;}
+  resumenRangeFrom=drStart;
+  resumenRangeTo=drEnd;
+  updateDrInput();
+  closeDatePicker();
+  loadVentasResumen();
 }
 
 // ── TAB 2: HEATMAP ────────────────────────────────

@@ -168,12 +168,20 @@ function addDays(dateStr, n) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function getPeriodRange(period, year, month, date) {
+function getPeriodRange(period, year, month, date, rangeFrom, rangeTo) {
   const fechaHoy = today();
   if (period === 'day') {
     const fecha = date || fechaHoy;
     const fechaAnt = addDays(fecha, -1);
     return { from: fecha, to: fecha, fromAnt: fechaAnt, toAnt: fechaAnt, label: fecha, days: 1 };
+  }
+  if (period === 'range') {
+    const from = rangeFrom;
+    const to = rangeTo;
+    const days = Math.round((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000) + 1;
+    const toAnt = addDays(from, -1);
+    const fromAnt = addDays(from, -days);
+    return { from, to, fromAnt, toAnt, label: `${from} a ${to}`, days };
   }
   if (period === '7days') {
     return {
@@ -868,7 +876,7 @@ app.get('/api/tendencia', async (req, res) => {
 app.get('/api/ventas-resumen', async (req, res) => {
   try {
     const period = req.query.period || 'hoy';
-    const range = getPeriodRange(period, req.query.year, req.query.month, req.query.date);
+    const range = getPeriodRange(period, req.query.year, req.query.month, req.query.date, req.query.from, req.query.to);
     const cur = toRange(range.from, range.to);
     const ant = toRange(range.fromAnt, range.toAnt);
 
