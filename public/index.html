@@ -55,6 +55,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .section.active{display:block}
 
 /* ── GRIDS ── */
+.grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
 .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:22px}
@@ -150,15 +151,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .badge-red{background:#fee2e2;color:var(--red)}
 .badge-yellow{background:#fef9c3;color:#ca8a04}
 
-/* ── ALERTS ── */
-.alert-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:8px;font-size:13px;margin-bottom:8px}
-.alert-item:last-child{margin-bottom:0}
-.alert-item.alert-critical{background:#fef2f2;color:#991b1b}
-.alert-item.alert-warning{background:#fffbeb;color:#92400e}
-.alert-item.alert-opportunity{background:#ecfdf5;color:#065f46}
-.alert-text{flex:1}
-.alert-btn{background:#fff;border:1px solid currentColor;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:inherit;flex-shrink:0}
-.alert-ok{display:flex;align-items:center;justify-content:center;padding:24px;color:var(--green);font-size:14px;font-weight:600}
+/* ── INSIGHTS ── */
+.insight-card{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.insight-card.insight-critical{border-left-color:var(--red)}
+.insight-card.insight-warning{border-left-color:#f59e0b}
+.insight-card.insight-opportunity{border-left-color:var(--green)}
+.insight-icon{font-size:18px}
+.insight-title{font-size:13px;font-weight:700;color:var(--text)}
+.insight-desc{font-size:12px;color:var(--muted);flex:1;line-height:1.4}
+.insight-action{align-self:flex-start;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text)}
+.insight-ok{display:flex;align-items:center;justify-content:center;padding:24px;color:var(--green);font-size:14px;font-weight:600;grid-column:1/-1}
 .row-flash{animation:rowFlash 1.6s ease}
 @keyframes rowFlash{0%,100%{background:transparent}30%{background:#fef9c3}}
 
@@ -291,6 +293,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   /* stacked grids */
   .grid-4,.grid-3,.grid-2{grid-template-columns:1fr}
+  .grid-6{grid-template-columns:repeat(2,1fr)}
   .rep-stats-grid{grid-template-columns:repeat(2,1fr)}
 
   /* horizontally scrollable "table" rows built from CSS grid */
@@ -638,99 +641,142 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
     <!-- ── PUBLICIDAD ── -->
     <div id="publicidad" class="section">
-      <div class="dr-wrap" id="ads-dr-wrap">
-        <div class="dr-input-wrap" onclick="toggleDatePicker('ads-dr')">
-          <input type="text" id="ads-dr-input" class="dr-input" readonly placeholder="Selecciona un rango">
-          <span class="dr-icon">📅</span>
-        </div>
-        <div class="dr-picker" id="ads-dr-picker" style="display:none">
-          <div class="dr-quick">
-            <button type="button" onclick="drQuick('ads-dr','hoy')">Hoy</button>
-            <button type="button" onclick="drQuick('ads-dr','ayer')">Ayer</button>
-            <button type="button" onclick="drQuick('ads-dr','7days')">Últimos 7 días</button>
-            <button type="button" onclick="drQuick('ads-dr','30days')">Últimos 30 días</button>
-            <button type="button" onclick="drQuick('ads-dr','thismonth')">Este mes</button>
-            <button type="button" onclick="drQuick('ads-dr','lastmonth')">Mes anterior</button>
+      <!-- ── VISTA PRINCIPAL ── -->
+      <div id="ads-main-view">
+        <div class="dr-wrap" id="ads-dr-wrap">
+          <div class="dr-input-wrap" onclick="toggleDatePicker('ads-dr')">
+            <input type="text" id="ads-dr-input" class="dr-input" readonly placeholder="Selecciona un rango">
+            <span class="dr-icon">📅</span>
           </div>
-          <div class="dr-calendars">
-            <button type="button" class="dr-nav-btn" onclick="drNav('ads-dr',-1)">‹</button>
-            <div class="dr-cal" id="ads-dr-cal-wrap-0">
-              <div class="dr-cal-label" id="ads-dr-cal-label-0"></div>
-              <div class="dr-cal-grid" id="ads-dr-cal-grid-0"></div>
+          <div class="dr-picker" id="ads-dr-picker" style="display:none">
+            <div class="dr-quick">
+              <button type="button" onclick="drQuick('ads-dr','hoy')">Hoy</button>
+              <button type="button" onclick="drQuick('ads-dr','ayer')">Ayer</button>
+              <button type="button" onclick="drQuick('ads-dr','7days')">Últimos 7 días</button>
+              <button type="button" onclick="drQuick('ads-dr','30days')">Últimos 30 días</button>
+              <button type="button" onclick="drQuick('ads-dr','thismonth')">Este mes</button>
+              <button type="button" onclick="drQuick('ads-dr','lastmonth')">Mes anterior</button>
             </div>
-            <div class="dr-cal" id="ads-dr-cal-wrap-1">
-              <div class="dr-cal-label" id="ads-dr-cal-label-1"></div>
-              <div class="dr-cal-grid" id="ads-dr-cal-grid-1"></div>
+            <div class="dr-calendars">
+              <button type="button" class="dr-nav-btn" onclick="drNav('ads-dr',-1)">‹</button>
+              <div class="dr-cal" id="ads-dr-cal-wrap-0">
+                <div class="dr-cal-label" id="ads-dr-cal-label-0"></div>
+                <div class="dr-cal-grid" id="ads-dr-cal-grid-0"></div>
+              </div>
+              <div class="dr-cal" id="ads-dr-cal-wrap-1">
+                <div class="dr-cal-label" id="ads-dr-cal-label-1"></div>
+                <div class="dr-cal-grid" id="ads-dr-cal-grid-1"></div>
+              </div>
+              <button type="button" class="dr-nav-btn" onclick="drNav('ads-dr',1)">›</button>
             </div>
-            <button type="button" class="dr-nav-btn" onclick="drNav('ads-dr',1)">›</button>
-          </div>
-          <div class="dr-actions">
-            <button type="button" class="dr-cancel" onclick="closeDatePicker('ads-dr')">Cancelar</button>
-            <button type="button" class="dr-apply" onclick="applyDateRange('ads-dr')">Aplicar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">⚠️ Alertas</div>
-        <div id="ads-alerts"><div class="loading"><div class="spin"></div></div></div>
-      </div>
-
-      <div id="ads-metrics" class="grid-3"><div class="loading"><div class="spin"></div></div></div>
-
-      <div class="card">
-        <div class="card-title">Inversión vs ventas por día</div>
-        <div style="position:relative;height:260px">
-          <canvas id="ads-tendencia-chart"></canvas>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Campañas</div>
-        <div style="overflow-x:auto">
-          <table class="si-table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Estado</th>
-                <th class="si-r">Presupuesto</th>
-                <th class="si-r">Inversión</th>
-                <th class="si-r">Ventas</th>
-                <th class="si-r">ROAS</th>
-                <th class="si-r">ACOS</th>
-              </tr>
-            </thead>
-            <tbody id="ads-camp-tbody">
-              <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Top 20 productos</div>
-        <div class="si-filter-bar">
-          <div class="si-search-wrap">
-            <input class="si-search" id="ads-top-search" type="text" placeholder="Buscar producto..." oninput="renderAdsTop()">
+            <div class="dr-actions">
+              <button type="button" class="dr-cancel" onclick="closeDatePicker('ads-dr')">Cancelar</button>
+              <button type="button" class="dr-apply" onclick="applyDateRange('ads-dr')">Aplicar</button>
+            </div>
           </div>
         </div>
-        <div style="overflow-x:auto">
-          <table class="si-table">
-            <thead>
-              <tr>
-                <th class="sort-th" onclick="sortAdsTop('title')">Producto<span class="arrow"></span></th>
-                <th class="si-r sort-th" onclick="sortAdsTop('stock')">Stock<span class="arrow"></span></th>
-                <th class="si-r sort-th" onclick="sortAdsTop('cost')">Inversión<span class="arrow"></span></th>
-                <th class="si-r sort-th" onclick="sortAdsTop('total_amount')">Ventas<span class="arrow"></span></th>
-                <th class="si-r sort-th" onclick="sortAdsTop('roas')">ROAS<span class="arrow"></span></th>
-                <th class="si-r sort-th" onclick="sortAdsTop('acos')">ACOS<span class="arrow"></span></th>
-                <th class="si-r sort-th" onclick="sortAdsTop('clicks')">Clicks<span class="arrow"></span></th>
-              </tr>
-            </thead>
-            <tbody id="ads-top-tbody">
-              <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
-            </tbody>
-          </table>
+
+        <div id="ads-metrics" class="grid-6"><div class="loading"><div class="spin"></div></div></div>
+
+        <div class="card">
+          <div class="card-title">Ventas y ROAS por día</div>
+          <div style="position:relative;height:280px">
+            <canvas id="ads-tendencia-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Campañas</div>
+          <div style="overflow-x:auto">
+            <table class="si-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Diagnóstico</th>
+                  <th class="si-r">Presupuesto</th>
+                  <th class="si-r">Inversión</th>
+                  <th class="si-r">Ventas</th>
+                  <th class="si-r">ROAS</th>
+                  <th class="si-r">ACOS</th>
+                </tr>
+              </thead>
+              <tbody id="ads-camp-tbody">
+                <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">💡 Insights</div>
+          <div id="ads-insights" class="grid-3"><div class="loading"><div class="spin"></div></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Top 20 productos</div>
+          <div class="si-filter-bar">
+            <div class="si-search-wrap">
+              <input class="si-search" id="ads-top-search" type="text" placeholder="Buscar producto..." oninput="renderAdsTop()">
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="si-table">
+              <thead>
+                <tr>
+                  <th class="sort-th" onclick="sortAdsTop('title')">Producto<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortAdsTop('stock')">Stock<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortAdsTop('cost')">Inversión<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortAdsTop('total_amount')">Ventas<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortAdsTop('roas')">ROAS<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortAdsTop('acos')">ACOS<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortAdsTop('clicks')">Clicks<span class="arrow"></span></th>
+                </tr>
+              </thead>
+              <tbody id="ads-top-tbody">
+                <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── VISTA DETALLE DE CAMPAÑA ── -->
+      <div id="ads-detail-view" style="display:none">
+        <button type="button" class="btn-refresh" onclick="backToAdsMain()" style="margin-bottom:16px">← Volver</button>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px">
+          <h2 id="ads-detail-name" style="font-size:18px;font-weight:800;color:var(--text)"></h2>
+          <span id="ads-detail-diag"></span>
+          <span id="ads-detail-status"></span>
+        </div>
+
+        <div id="ads-detail-metrics" class="grid-6"></div>
+
+        <div class="card">
+          <div class="card-title">Ventas y ROAS por día</div>
+          <div style="position:relative;height:280px">
+            <canvas id="ads-detail-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Productos de la campaña</div>
+          <div style="overflow-x:auto">
+            <table class="si-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th class="si-r">Stock</th>
+                  <th class="si-r">Inversión</th>
+                  <th class="si-r">Ventas</th>
+                  <th class="si-r">ROAS</th>
+                  <th class="si-r">ACOS</th>
+                  <th class="si-r">Clicks</th>
+                  <th class="si-r">Impresiones</th>
+                </tr>
+              </thead>
+              <tbody id="ads-detail-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -989,6 +1035,7 @@ let adsAllData=[];
 let adsCampaigns=[];
 let adsTopSort={key:'total_amount',dir:'desc'};
 let adsTendenciaChart=null;
+let adsDetailChart=null;
 
 function initPublicidadSection(){
   if(adsInited)return;
@@ -1006,13 +1053,28 @@ function stockBadge(stock,dias){
   return `<span class="badge ${cls}">${fmt(stock)}${dias!=null?` (${dias}d)`:''}</span>`;
 }
 
+function diagnostico(m,budget){
+  const roas=m.roas||0;
+  const acos=m.acos||0;
+  const cost=m.cost||0;
+  const ventas=m.total_amount||0;
+  if(roas<4||acos>30||(cost>50&&ventas===0)){
+    return {label:'Revisar',cls:'badge-red'};
+  }
+  if((roas>=4&&roas<7)||(acos>15&&acos<=30)){
+    return {label:'Puede mejorar',cls:'badge-yellow'};
+  }
+  if(roas>=7&&acos<=15){
+    return {label:'Excelente',cls:'badge-green'};
+  }
+  return {label:'Puede mejorar',cls:'badge-yellow'};
+}
+
 async function loadAds(){
   const elMetrics=document.getElementById('ads-metrics');
-  const elAlerts=document.getElementById('ads-alerts');
   const campTbody=document.getElementById('ads-camp-tbody');
   const topTbody=document.getElementById('ads-top-tbody');
   elMetrics.innerHTML=spin();
-  elAlerts.innerHTML=spin();
   campTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
   topTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
   try{
@@ -1040,58 +1102,25 @@ async function loadAds(){
       <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks totales</div><div class="metric-value">${fmt(totClicks)}</div></div>
       <div class="metric"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>`;
 
-    renderAdsAlerts(campaigns,ads);
+    renderAdsInsights(campaigns,ads);
 
     if(campaigns.length===0){
       campTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)">Sin campañas en este período</td></tr>';
     }else{
       campTbody.innerHTML=campaigns.map(c=>{
         const m=c.metrics||{};
-        const isActive=c.status==='active';
         const cAcos=m.acos||0;
         const acosClass=cAcos>50?'acos-alert':'';
-        const campAds=ads.filter(a=>a.campaign_id===c.id);
-        const detailRows=campAds.length?campAds.map(a=>{
-          const am=a.metrics||{};
-          const aAcos=am.acos||0;
-          return `
-          <tr class="si-row">
-            <td>${a.title||a.item_id}</td>
-            <td class="si-r">${stockBadge(a.stock,a.diasStock)}</td>
-            <td class="si-r">${fmtMXN(am.cost||0)}</td>
-            <td class="si-r">${fmtMXN(am.total_amount||0)}</td>
-            <td class="si-r">${fmtX(am.roas||0)}</td>
-            <td class="si-r ${aAcos>50?'acos-alert':''}">${fmtPct(aAcos)}</td>
-            <td class="si-r">${fmt(am.clicks||0)}</td>
-          </tr>`;
-        }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:14px">Sin productos</td></tr>';
+        const diag=diagnostico(m,c.budget);
         return `
-        <tr class="si-row" id="camp-row-${c.id}" style="cursor:pointer" onclick="toggleCampDetail(${c.id})">
-          <td>${c.name} <span class="arrow" id="camp-arrow-${c.id}" style="font-size:9px;opacity:.5">▼</span></td>
-          <td><span class="badge ${isActive?'badge-green':'badge-red'}">${isActive?'Activa':'Pausada'}</span></td>
+        <tr class="si-row" style="cursor:pointer" onclick="showAdsDetail(${c.id})">
+          <td>${c.name}</td>
+          <td><span class="badge ${diag.cls}">${diag.label}</span></td>
           <td class="si-r">${c.budget!=null?fmtMXN(c.budget):'-'}</td>
           <td class="si-r">${fmtMXN(m.cost||0)}</td>
           <td class="si-r">${fmtMXN(m.total_amount||0)}</td>
           <td class="si-r">${fmtX(m.roas||0)}</td>
           <td class="si-r ${acosClass}">${fmtPct(cAcos)}</td>
-        </tr>
-        <tr id="camp-detail-${c.id}" style="display:none">
-          <td colspan="7" style="padding:0 12px 12px;background:#f9fafb">
-            <table class="si-table">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th class="si-r">Stock</th>
-                  <th class="si-r">Inversión</th>
-                  <th class="si-r">Ventas</th>
-                  <th class="si-r">ROAS</th>
-                  <th class="si-r">ACOS</th>
-                  <th class="si-r">Clicks</th>
-                </tr>
-              </thead>
-              <tbody>${detailRows}</tbody>
-            </table>
-          </td>
         </tr>`;
       }).join('');
     }
@@ -1099,76 +1128,53 @@ async function loadAds(){
     renderAdsTop();
   }catch(e){
     elMetrics.innerHTML=`<div class="error">Error: ${e.message}</div>`;
-    elAlerts.innerHTML=`<div class="error">${e.message}</div>`;
     campTbody.innerHTML=`<tr><td colspan="7" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
     topTbody.innerHTML=`<tr><td colspan="7" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
   }
 }
 
-function toggleCampDetail(id){
-  const row=document.getElementById(`camp-detail-${id}`);
-  const arrow=document.getElementById(`camp-arrow-${id}`);
-  const open=row.style.display!=='none';
-  row.style.display=open?'none':'table-row';
-  arrow.textContent=open?'▼':'▲';
-}
-
-function renderAdsAlerts(campaigns,ads){
-  const el=document.getElementById('ads-alerts');
-  const alerts=[];
+function renderAdsInsights(campaigns,ads){
+  const el=document.getElementById('ads-insights');
+  const insights=[];
 
   ads.forEach(a=>{
     const m=a.metrics||{};
     const name=a.title||a.item_id;
     if(a.stock===0&&((m.cost||0)>0||(m.clicks||0)>0)){
-      alerts.push({level:'critical',icon:'🔴',text:`<b>${name}</b> está en publicidad pero tiene stock 0 (gastando sin poder vender)`,itemId:a.item_id});
+      insights.push({level:'critical',icon:'🔴',title:'Stock agotado en publicidad',desc:`${name} está en publicidad pero tiene stock 0 (gastando sin poder vender)`,action:'Ver producto',onclick:`verProductoAds('${a.item_id}')`});
     }
     if((m.acos||0)>25){
-      alerts.push({level:'warning',icon:'🟡',text:`<b>${name}</b> tiene ACOS de ${fmtPct(m.acos)} (mayor a 25%)`,itemId:a.item_id});
+      insights.push({level:'warning',icon:'🟡',title:'ACOS elevado',desc:`${name} tiene ACOS de ${fmtPct(m.acos)} (mayor a 25%)`,action:'Ver producto',onclick:`verProductoAds('${a.item_id}')`});
     }
     if(a.diasStock!=null&&a.diasStock<7&&(m.roas||0)>5){
-      alerts.push({level:'warning',icon:'🟡',text:`<b>${name}</b> tiene ${a.diasStock}d de stock y ROAS ${fmtX(m.roas)} — reabastecer urgente`,itemId:a.item_id});
+      insights.push({level:'warning',icon:'🟡',title:'Reabastecer urgente',desc:`${name} tiene ${a.diasStock}d de stock y ROAS ${fmtX(m.roas)}`,action:'Ver producto',onclick:`verProductoAds('${a.item_id}')`});
     }
     if((m.roas||0)>15){
-      alerts.push({level:'opportunity',icon:'🟢',text:`<b>${name}</b> tiene ROAS de ${fmtX(m.roas)} — considera aumentar presupuesto`,itemId:a.item_id});
+      insights.push({level:'opportunity',icon:'🟢',title:'Oportunidad de escalar',desc:`${name} tiene ROAS de ${fmtX(m.roas)} — considera aumentar presupuesto`,action:'Ver producto',onclick:`verProductoAds('${a.item_id}')`});
     }
   });
 
   campaigns.forEach(c=>{
     const m=c.metrics||{};
     if(c.status==='active'&&(m.cost||0)>50&&(m.total_amount||0)===0){
-      alerts.push({level:'critical',icon:'🔴',text:`Campaña <b>${c.name}</b> activa con ${fmtMXN(m.cost)} invertidos y $0 en ventas`,campId:c.id});
+      insights.push({level:'critical',icon:'🔴',title:'Campaña sin ventas',desc:`${c.name} activa con ${fmtMXN(m.cost)} invertidos y $0 en ventas`,action:'Ver campaña',onclick:`showAdsDetail(${c.id})`});
     }
   });
 
   const order={critical:0,warning:1,opportunity:2};
-  alerts.sort((a,b)=>order[a.level]-order[b.level]);
+  insights.sort((a,b)=>order[a.level]-order[b.level]);
 
-  if(alerts.length===0){
-    el.innerHTML='<div class="alert-ok">✅ Todo en orden</div>';
+  if(insights.length===0){
+    el.innerHTML='<div class="insight-ok">✅ Todo en orden</div>';
     return;
   }
-  el.innerHTML=alerts.map(a=>{
-    const action=a.campId!=null?`verCampaniaAds(${a.campId})`:`verProductoAds('${a.itemId}')`;
-    return `
-    <div class="alert-item alert-${a.level}">
-      <span>${a.icon}</span>
-      <span class="alert-text">${a.text}</span>
-      <button type="button" class="alert-btn" onclick="${action}">Ver</button>
-    </div>`;
-  }).join('');
-}
-
-function verCampaniaAds(campId){
-  const row=document.getElementById(`camp-detail-${campId}`);
-  if(row&&row.style.display==='none')toggleCampDetail(campId);
-  const target=document.getElementById(`camp-row-${campId}`);
-  if(target){
-    target.scrollIntoView({behavior:'smooth',block:'center'});
-    target.classList.remove('row-flash');
-    void target.offsetWidth;
-    target.classList.add('row-flash');
-  }
+  el.innerHTML=insights.slice(0,5).map(i=>`
+    <div class="insight-card insight-${i.level}">
+      <div class="insight-icon">${i.icon}</div>
+      <div class="insight-title">${i.title}</div>
+      <div class="insight-desc">${i.desc}</div>
+      <button type="button" class="insight-action" onclick="${i.onclick}">${i.action}</button>
+    </div>`).join('');
 }
 
 function verProductoAds(itemId){
@@ -1238,6 +1244,36 @@ function renderAdsTop(){
   }).join('');
 }
 
+function renderVentasRoasChart(canvasEl,existingChart,dias){
+  const labels=dias.map(x=>{
+    const[,mo,da]=x.fecha.split('-');
+    return `${da}/${mo}`;
+  });
+  if(existingChart)existingChart.destroy();
+  return new Chart(canvasEl,{
+    data:{
+      labels,
+      datasets:[
+        {type:'bar',label:'Ventas',data:dias.map(x=>x.ventas),backgroundColor:'#2563eb',yAxisID:'y',order:2},
+        {type:'line',label:'ROAS',data:dias.map(x=>x.roas),borderColor:'#8b5cf6',backgroundColor:'#8b5cf6',tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2,yAxisID:'y1',order:1}
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>ctx.dataset.label==='ROAS'?`ROAS: ${fmtX(ctx.parsed.y)}`:`${ctx.dataset.label}: ${fmtMXN(ctx.parsed.y)}`}}
+      },
+      scales:{
+        y:{beginAtZero:true,position:'left',grid:{color:'#f3f4f6'},ticks:{callback:v=>fmtMXN(v)}},
+        y1:{beginAtZero:true,position:'right',grid:{display:false},ticks:{callback:v=>fmtX(v)}},
+        x:{grid:{display:false}}
+      }
+    }
+  });
+}
+
 async function loadAdsTendencia(){
   const ctx=document.getElementById('ads-tendencia-chart');
   try{
@@ -1245,37 +1281,70 @@ async function loadAdsTendencia(){
     const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}`);
     const d=await r.json();
     if(d.error)throw new Error(errStr(d.error));
-    const dias=d.dias||[];
-    const labels=dias.map(x=>{
-      const[,mo,da]=x.fecha.split('-');
-      return `${da}/${mo}`;
-    });
-    if(adsTendenciaChart)adsTendenciaChart.destroy();
-    adsTendenciaChart=new Chart(ctx,{
-      type:'line',
-      data:{
-        labels,
-        datasets:[
-          {label:'Inversión',data:dias.map(x=>x.inversion),borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',fill:true,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2},
-          {label:'Ventas',data:dias.map(x=>x.ventas),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.08)',fill:true,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2}
-        ]
-      },
-      options:{
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins:{
-          legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}},
-          tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtMXN(ctx.parsed.y)}`}}
-        },
-        scales:{
-          y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>fmtMXN(v)}},
-          x:{grid:{display:false}}
-        }
-      }
-    });
+    adsTendenciaChart=renderVentasRoasChart(ctx,adsTendenciaChart,d.dias||[]);
   }catch(e){
     ctx.parentElement.innerHTML=`<div class="error">Error: ${e.message}</div>`;
   }
+}
+
+async function showAdsDetail(campId){
+  const c=adsCampaigns.find(x=>x.id===campId);
+  if(!c)return;
+  document.getElementById('ads-main-view').style.display='none';
+  document.getElementById('ads-detail-view').style.display='block';
+
+  const m=c.metrics||{};
+  const diag=diagnostico(m,c.budget);
+  const isActive=c.status==='active';
+  document.getElementById('ads-detail-name').textContent=c.name;
+  document.getElementById('ads-detail-diag').innerHTML=`<span class="badge ${diag.cls}">${diag.label}</span>`;
+  document.getElementById('ads-detail-status').innerHTML=`<span class="badge ${isActive?'badge-green':'badge-red'}">${isActive?'Activa':'Pausada'}</span>`;
+
+  document.getElementById('ads-detail-metrics').innerHTML=`
+    <div class="metric"><div class="mi mi-b">🎯</div><div class="metric-label">Presupuesto</div><div class="metric-value">${c.budget!=null?fmtMXN(c.budget):'-'}</div></div>
+    <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión</div><div class="metric-value" style="color:var(--red)">${fmtMXN(m.cost||0)}</div></div>
+    <div class="metric"><div class="mi mi-g">💰</div><div class="metric-label">Ventas</div><div class="metric-value" style="color:var(--green)">${fmtMXN(m.total_amount||0)}</div></div>
+    <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS</div><div class="metric-value" style="color:var(--accent)">${fmtX(m.roas||0)}</div></div>
+    <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS</div><div class="metric-value">${fmtPct(m.acos||0)}</div></div>
+    <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks</div><div class="metric-value">${fmt(m.clicks||0)}</div></div>`;
+
+  const tbody=document.getElementById('ads-detail-tbody');
+  const campAds=adsAllData.filter(a=>a.campaign_id===campId);
+  if(campAds.length===0){
+    tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)">Sin productos</td></tr>';
+  }else{
+    tbody.innerHTML=campAds.map(a=>{
+      const am=a.metrics||{};
+      const aAcos=am.acos||0;
+      return `
+      <tr class="si-row">
+        <td>${a.title||a.item_id}</td>
+        <td class="si-r">${stockBadge(a.stock,a.diasStock)}</td>
+        <td class="si-r">${fmtMXN(am.cost||0)}</td>
+        <td class="si-r">${fmtMXN(am.total_amount||0)}</td>
+        <td class="si-r">${fmtX(am.roas||0)}</td>
+        <td class="si-r ${aAcos>50?'acos-alert':''}">${fmtPct(aAcos)}</td>
+        <td class="si-r">${fmt(am.clicks||0)}</td>
+        <td class="si-r">${fmt(am.prints||0)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  const ctx=document.getElementById('ads-detail-chart');
+  try{
+    const st=drInstances['ads-dr'];
+    const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}&campaign_id=${campId}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    adsDetailChart=renderVentasRoasChart(ctx,adsDetailChart,d.dias||[]);
+  }catch(e){
+    ctx.parentElement.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
+}
+
+function backToAdsMain(){
+  document.getElementById('ads-detail-view').style.display='none';
+  document.getElementById('ads-main-view').style.display='block';
 }
 
 function showVentasTab(tab,el){

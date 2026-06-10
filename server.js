@@ -1242,6 +1242,7 @@ app.get('/api/ads-tendencia', async (req, res) => {
   try {
     const from = req.query.from || dateNDaysAgo(6);
     const to = req.query.to || today();
+    const campaignId = req.query.campaign_id ? parseInt(req.query.campaign_id) : null;
 
     const dateList = [];
     for (let d = from; d <= to; d = addDays(d, 1)) dateList.push(d);
@@ -1254,9 +1255,12 @@ app.get('/api/ads-tendencia', async (req, res) => {
         const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`, {
           date_from: fecha, date_to: fecha, metrics: 'cost,total_amount'
         });
-        const inversion = (d.results || []).reduce((s, c) => s + (c.metrics?.cost || 0), 0);
-        const ventas = (d.results || []).reduce((s, c) => s + (c.metrics?.total_amount || 0), 0);
-        return { fecha, inversion, ventas };
+        let results2 = d.results || [];
+        if (campaignId) results2 = results2.filter(c => c.id === campaignId);
+        const inversion = results2.reduce((s, c) => s + (c.metrics?.cost || 0), 0);
+        const ventas = results2.reduce((s, c) => s + (c.metrics?.total_amount || 0), 0);
+        const roas = inversion > 0 ? ventas / inversion : 0;
+        return { fecha, inversion, ventas, roas };
       }));
       dias.push(...results);
     }
