@@ -367,6 +367,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <button type="button" class="envios-tab active" onclick="setTendenciaMetric('venta',this)">Ventas ($)</button>
           <button type="button" class="envios-tab" onclick="setTendenciaMetric('unidades',this)">Unidades</button>
           <button type="button" class="envios-tab" onclick="setTendenciaMetric('ticket',this)">Ticket promedio</button>
+          <button type="button" class="envios-tab" onclick="setTendenciaMetric('visitas',this)">Visitas</button>
+          <button type="button" class="envios-tab" onclick="setTendenciaMetric('dinero',this)">Dinero transaccionado</button>
         </div>
         <div id="tendencia-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
       </div>
@@ -1192,7 +1194,9 @@ let tendenciaMetric='venta';
 const TENDENCIA_METRICS={
   venta:{key:'ventaBruta',label:'Ventas',fmt:fmtMXN,totalLabel:'Total del período',avgLabel:'Promedio diario'},
   unidades:{key:'unidades',label:'Unidades',fmt:fmt,totalLabel:'Total del período',avgLabel:'Promedio diario'},
-  ticket:{key:'ticketPromedio',label:'Ticket promedio',fmt:fmtMXN,totalLabel:'Promedio del período',avgLabel:'Último día'}
+  ticket:{key:'ticketPromedio',label:'Ticket promedio',fmt:fmtMXN,totalLabel:'Promedio del período',avgLabel:'Último día'},
+  visitas:{key:'visitas',label:'Visitas',fmt:fmt,totalLabel:'Total del período',avgLabel:'Promedio diario'},
+  dinero:{key:'ventaBruta',label:'Dinero transaccionado',fmt:fmtMXN,totalLabel:'Total del período',avgLabel:'Promedio diario'}
 };
 
 async function loadTendencia(period,btn){

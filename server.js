@@ -691,6 +691,21 @@ app.get('/api/tendencia', async (req, res) => {
       dias.push(...batchResults);
     }
 
+    // Visitas diarias (suma de todos los items del vendedor)
+    try {
+      const visitas = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items_visits/time_window`, {
+        last: days, unit: 'day'
+      });
+      const visitasMap = {};
+      (visitas.results || []).forEach(r => {
+        visitasMap[r.date.split('T')[0]] = r.total;
+      });
+      dias.forEach(d => { d.visitas = visitasMap[d.fecha] || 0; });
+    } catch (e) {
+      console.error('Error obteniendo visitas:', e.response?.data || e.message);
+      dias.forEach(d => { d.visitas = 0; });
+    }
+
     res.json({ period, dias });
   } catch (e) {
     const msg = e.response?.data?.message || e.response?.data?.error || e.message;
