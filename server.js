@@ -402,30 +402,6 @@ app.get('/api/reputacion', async (req, res) => {
 });
 
 
-app.get('/api/mercadopago', async (req, res) => {
-  try {
-    let data;
-    try {
-      data = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/mercadopago/account/balance`);
-    } catch (e1) {
-      data = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/mercadopago_account/balance`);
-    }
-    res.json({
-      disponible: data.available_balance ?? data.available?.amount ?? 0,
-      aLiquidar: data.unavailable_balance?.total ?? data.unavailable?.amount ?? 0,
-      enCuentaTotal: data.total_balance ?? data.total?.amount ?? 0
-    });
-  } catch (e) {
-    const status = e.response?.status;
-    if (status === 401 || status === 403) {
-      res.status(401).json({ error: 'UNAUTHORIZED' });
-    } else {
-      res.status(500).json({ error: e.response?.data || e.message });
-    }
-  }
-});
-
-
 app.get('/api/publicaciones', async (req, res) => {
   try {
     const [actR, pausR] = await Promise.all([
