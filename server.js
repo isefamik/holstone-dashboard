@@ -162,8 +162,19 @@ function daysAgo(dateStr) {
   return Math.round((now - d) / 86400000);
 }
 
-function getPeriodRange(period, year, month) {
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getPeriodRange(period, year, month, date) {
   const fechaHoy = today();
+  if (period === 'day') {
+    const fecha = date || fechaHoy;
+    const fechaAnt = addDays(fecha, -1);
+    return { from: fecha, to: fecha, fromAnt: fechaAnt, toAnt: fechaAnt, label: fecha, days: 1 };
+  }
   if (period === '7days') {
     return {
       from: dateNDaysAgo(6), to: fechaHoy,
@@ -857,7 +868,7 @@ app.get('/api/tendencia', async (req, res) => {
 app.get('/api/ventas-resumen', async (req, res) => {
   try {
     const period = req.query.period || 'hoy';
-    const range = getPeriodRange(period, req.query.year, req.query.month);
+    const range = getPeriodRange(period, req.query.year, req.query.month, req.query.date);
     const cur = toRange(range.from, range.to);
     const ant = toRange(range.fromAnt, range.toAnt);
 
@@ -991,6 +1002,45 @@ app.get('/api/heatmap', async (req, res) => {
       horaConMasVentas: horaTop.ventas > 0 ? `${String(horaTop.hora).padStart(2, '0')}:00 - ${String((horaTop.hora + 1) % 24).padStart(2, '0')}:00` : null,
       promedioPorDia: ventaTotal / days
     });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── VENTAS — CALENDARIO MENSUAL ─────────────────────────────────────────────
+
+app.get('/api/calendario', async (req, res) => {
+  try {
+    const now = new Date();
+    const year = parseInt(req.query.year) || now.getFullYear();
+    const month = parseInt(req.query.month) || (now.getMonth() + 1);
+    const lastDay = new Date(year, month, 0).getDate();
+    const from = `${year}-${String(month).padStart(2, '0')}-01`;
+    const to = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const range = toRange(from, to);
+    const orders = await fetchPaidOrders(range.from, range.to);
+
+    const byDay = {};
+    orders.forEach(o => {
+      const fecha = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date(o.date_created));
+      if (!byDay[fecha]) byDay[fecha] = { ordenes: 0, ventaBruta: 0 };
+      byDay[fecha].ordenes += 1;
+      byDay[fecha].ventaBruta += o.total_amount;
+    });
+
+    const days = [];
+    for (let day = 1; day <= lastDay; day++) {
+      const fecha = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const data = byDay[fecha] || { ordenes: 0, ventaBruta: 0 };
+      let nivel;
+      if (data.ordenes === 0) nivel = 0;
+      else if (data.ordenes <= 10) nivel = 1;
+      else if (data.ordenes <= 50) nivel = 2;
+      else nivel = 3;
+      days.push({ fecha, ordenes: data.ordenes, ventaBruta: data.ventaBruta, nivel });
+    }
+
+    res.json({ year, month, days });
   } catch (e) {
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
