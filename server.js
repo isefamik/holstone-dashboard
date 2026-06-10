@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
@@ -13,69 +13,44 @@ app.use(express.static(path.join(__dirname, 'public')));
 const CLIENT_ID = process.env.ML_CLIENT_ID;
 const CLIENT_SECRET = process.env.ML_CLIENT_SECRET;
 const SELLER_ID = process.env.SELLER_ID;
-const TOKEN_FILE = path.join(__dirname, '.token.json');
 
-// ── Token persistence ──────────────────────────────────────────────────────
+// ── Token persistence (Supabase) ────────────────────────────────────────────
 
-function saveTokenFile(data) {
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const TOKEN_ROW_ID = 'ml_token';
+
+async function loadTokenFromSupabase() {
   try {
-    fs.writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
+    const { data, error } = await supabase.from('tokens').select('*').eq('id', TOKEN_ROW_ID).maybeSingle();
+    if (error) throw error;
+    return data;
   } catch (e) {
-    console.error('No se pudo guardar .token.json:', e.message);
+    console.error('Error leyendo token de Supabase:', e.message);
+    return null;
   }
 }
 
-function loadTokenFile() {
+async function saveTokenToSupabase(data) {
   try {
-    if (fs.existsSync(TOKEN_FILE)) {
-      return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
-    }
-  } catch (e) {
-    console.error('No se pudo leer .token.json:', e.message);
-  }
-  return null;
-}
-
-// Initialize tokenData: prefer .token.json, fall back to env vars
-const saved = loadTokenFile();
-let tokenData = saved && saved.access_token
-  ? { ...saved }
-  : {
-      access_token: process.env.ML_TOKEN,
-      refresh_token: process.env.ML_REFRESH_TOKEN,
-      expires_at: Date.now() + (5 * 60 * 60 * 1000)
-    };
-
-if (saved) {
-  console.log('Token cargado desde .token.json, expira:', new Date(tokenData.expires_at).toLocaleString('es-MX'));
-} else {
-  console.log('Token cargado desde variables de entorno');
-}
-
-// Mantiene sincronizadas ML_TOKEN y ML_REFRESH_TOKEN en las env vars de Render
-// para que un redeploy/reinicio nunca arranque con tokens viejos.
-async function updateRenderEnvVars(accessToken, refreshToken) {
-  const RENDER_API_KEY = process.env.RENDER_API_KEY;
-  const RENDER_SERVICE_ID = process.env.RENDER_SERVICE_ID;
-  if (!RENDER_API_KEY || !RENDER_SERVICE_ID) return;
-  try {
-    const headers = {
-      Authorization: `Bearer ${RENDER_API_KEY}`,
-      'Content-Type': 'application/json'
-    };
-    const url = `https://api.render.com/v1/services/${RENDER_SERVICE_ID}/env-vars`;
-    const { data: current } = await axios.get(url, { headers });
-    const updated = current.map(({ envVar }) => {
-      if (envVar.key === 'ML_TOKEN') return { key: envVar.key, value: accessToken };
-      if (envVar.key === 'ML_REFRESH_TOKEN') return { key: envVar.key, value: refreshToken };
-      return { key: envVar.key, value: envVar.value };
+    const { error } = await supabase.from('tokens').upsert({
+      id: TOKEN_ROW_ID,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: data.expires_at,
+      updated_at: new Date().toISOString()
     });
-    await axios.put(url, updated, { headers });
-    console.log('Variables ML_TOKEN y ML_REFRESH_TOKEN actualizadas en Render');
+    if (error) throw error;
   } catch (e) {
-    console.error('Error actualizando env vars en Render:', e.response?.data || e.message);
+    console.error('Error guardando token en Supabase:', e.message);
   }
 }
+
+// Placeholder hasta que initTokens() cargue el valor real desde Supabase
+let tokenData = {
+  access_token: process.env.ML_TOKEN,
+  refresh_token: process.env.ML_REFRESH_TOKEN,
+  expires_at: Date.now() + (5 * 60 * 60 * 1000)
+};
 
 async function refreshToken() {
   try {
@@ -86,19 +61,14 @@ async function refreshToken() {
     params.append('client_secret', CLIENT_SECRET);
     // Always use the most current refresh_token (may have rotated)
     params.append('refresh_token', tokenData.refresh_token || process.env.ML_REFRESH_TOKEN);
-    const oldRefreshToken = tokenData.refresh_token;
     const response = await axios.post('https://api.mercadolibre.com/oauth/token', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     tokenData.access_token = response.data.access_token;
     tokenData.refresh_token = response.data.refresh_token || tokenData.refresh_token;
     tokenData.expires_at = Date.now() + ((response.data.expires_in - 300) * 1000);
-    saveTokenFile(tokenData);
-    console.log('Token renovado y guardado en .token.json, expira:', new Date(tokenData.expires_at).toLocaleString('es-MX'));
-    // Solo actualiza Render (lo que dispara un redeploy) si el refresh_token rotó
-    if (tokenData.refresh_token !== oldRefreshToken) {
-      await updateRenderEnvVars(tokenData.access_token, tokenData.refresh_token);
-    }
+    await saveTokenToSupabase(tokenData);
+    console.log('Token renovado y guardado en Supabase, expira:', new Date(tokenData.expires_at).toLocaleString('es-MX'));
     return tokenData.access_token;
   } catch (e) {
     console.error('Error renovando token:', e.response?.data || e.message);
@@ -113,14 +83,31 @@ async function getToken() {
   return tokenData.access_token;
 }
 
-// Refresh at startup if token is expired or about to expire (< 10 min)
-if (Date.now() >= tokenData.expires_at - 10 * 60 * 1000) {
-  refreshToken();
-} else {
-  console.log('Token vigente, no es necesario renovar al arrancar');
+async function initTokens() {
+  const fromDb = await loadTokenFromSupabase();
+  if (fromDb && fromDb.access_token) {
+    tokenData = {
+      access_token: fromDb.access_token,
+      refresh_token: fromDb.refresh_token,
+      expires_at: Number(fromDb.expires_at)
+    };
+    console.log('Token cargado desde Supabase, expira:', new Date(tokenData.expires_at).toLocaleString('es-MX'));
+  } else {
+    console.log('No hay token en Supabase, usando variables de entorno');
+    await saveTokenToSupabase(tokenData);
+  }
+
+  // Refresh at startup if token is expired or about to expire (< 10 min)
+  if (Date.now() >= tokenData.expires_at - 10 * 60 * 1000) {
+    await refreshToken();
+  } else {
+    console.log('Token vigente, no es necesario renovar al arrancar');
+  }
+
+  setInterval(refreshToken, 5.5 * 60 * 60 * 1000);
 }
 
-setInterval(refreshToken, 5.5 * 60 * 60 * 1000);
+initTokens();
 
 function today() {
   const now = new Date();
