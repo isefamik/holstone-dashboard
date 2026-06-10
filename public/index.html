@@ -75,6 +75,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .metric-delta.down{color:var(--red)}
 .metric-delta.flat{color:var(--dim)}
 
+/* ── MERCADOPAGO CARD ── */
+.mp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.mp-item{text-align:center;padding:14px 10px;border-radius:10px;background:var(--bg)}
+.mp-icon{font-size:20px;margin-bottom:8px}
+.mp-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;font-weight:600;margin-bottom:6px}
+.mp-value{font-size:22px;font-weight:800;line-height:1}
+@media(max-width:700px){.mp-grid{grid-template-columns:1fr}}
+
 /* ── CARDS ── */
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
 .card-title{font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;margin-bottom:16px}
@@ -331,6 +339,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div class="metric-sub" id="ov-rep-sub">cargando...</div>
           <div class="metric-delta" id="ov-rep-delta"></div>
         </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💳 MercadoPago</div>
+        <div id="ov-mp"><div class="loading"><div class="spin"></div></div></div>
       </div>
       <div class="grid-3">
         <div class="card">
@@ -737,6 +749,39 @@ async function loadStock(){
     renderDelta('ov-stock-delta',d.totalPiezas,d.totalPiezasHace7d,'vs hace 7 días');
     renderDelta('ov-pubs-delta',d.totalPublicaciones,d.totalPublicacionesAyer);
   }catch(e){}
+}
+
+async function loadMercadoPago(){
+  const el=document.getElementById('ov-mp');
+  try{
+    const r=await fetch('/api/mercadopago');
+    const d=await r.json();
+    if(d.error==='UNAUTHORIZED'){
+      el.innerHTML=`<div style="text-align:center;color:var(--muted);font-size:13px;padding:10px 0">🔒 Requiere permisos adicionales de MercadoPago</div>`;
+      return;
+    }
+    if(d.error)throw new Error(errStr(d.error));
+    el.innerHTML=`
+      <div class="mp-grid">
+        <div class="mp-item">
+          <div class="mp-icon">💳</div>
+          <div class="mp-label">Disponible</div>
+          <div class="mp-value" style="color:var(--green)">${fmtMXN(d.disponible)}</div>
+        </div>
+        <div class="mp-item">
+          <div class="mp-icon">⏳</div>
+          <div class="mp-label">A liquidar</div>
+          <div class="mp-value" style="color:#f59e0b">${fmtMXN(d.aLiquidar)}</div>
+        </div>
+        <div class="mp-item">
+          <div class="mp-icon">🏦</div>
+          <div class="mp-label">En cuenta total</div>
+          <div class="mp-value" style="color:var(--accent)">${fmtMXN(d.enCuentaTotal)}</div>
+        </div>
+      </div>`;
+  }catch(e){
+    el.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
 }
 
 async function loadReputacion(){
@@ -1326,6 +1371,7 @@ function loadAll(){
   loadStock();
   loadReputacion();
   loadPublicaciones();
+  loadMercadoPago();
   loadPerformance();
   loadEnvios('today');
   loadTendencia('7days');
