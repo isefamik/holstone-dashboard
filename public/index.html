@@ -180,6 +180,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+
+/* ── HAMBURGER / MOBILE NAV ── */
+.hamburger{display:none;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text);padding:8px;line-height:1;border-radius:8px}
+.hamburger:active{background:#f3f4f6}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99}
+.sidebar-overlay.show{display:block}
+
+/* ── RESPONSIVE ── */
+@media (max-width:860px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s ease;box-shadow:2px 0 16px rgba(0,0,0,.18)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .hamburger{display:inline-flex;align-items:center;justify-content:center}
+  .topbar{padding:0 14px}
+  .content{padding:14px}
+  .tb-title{font-size:14px}
+  .tb-time{display:none}
+
+  /* stacked grids */
+  .grid-4,.grid-3,.grid-2{grid-template-columns:1fr}
+  .rep-stats-grid{grid-template-columns:repeat(2,1fr)}
+
+  /* horizontally scrollable "table" rows built from CSS grid */
+  #ads-content .card,
+  #devoluciones .card{overflow-x:auto}
+  .ads-header,.ads-row{min-width:560px}
+  .camp-header,.camp-row{min-width:500px}
+  .dev-header,.dev-row{min-width:440px}
+
+  /* bigger touch targets */
+  .btn-refresh,.upload-btn,.mes-selector button,.si-filter-btn,.nav-item{min-height:44px}
+  .mes-selector select{min-height:44px}
+  .si-filter-bar{flex-direction:column;align-items:stretch}
+  .si-filter-btn{justify-content:center}
+  .si-search-wrap,.si-search{width:100%}
+  .nav-item{padding-top:13px;padding-bottom:13px;font-size:14px}
+}
 </style>
 </head>
 <body>
@@ -223,9 +260,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </aside>
 
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
 <!-- ═══════════════ MAIN ═══════════════ -->
 <div class="main">
   <div class="topbar">
+    <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Menú">☰</button>
     <div class="tb-title" id="page-title">Inicio</div>
     <div class="tb-right">
       <span class="tb-time" id="last-update"></span>
@@ -444,6 +484,16 @@ function showSection(name,el){
   document.getElementById(name).classList.add('active');
   el.classList.add('active');
   document.getElementById('page-title').textContent=PAGE_TITLES[name]||name;
+  closeSidebar();
+}
+
+function toggleSidebar(){
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('show');
+}
+function closeSidebar(){
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('show');
 }
 
 function spin(){return'<div class="loading"><div class="spin"></div></div>'}
