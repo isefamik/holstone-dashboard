@@ -110,11 +110,8 @@ async function initTokens() {
 initTokens();
 
 function today() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  // en-CA produce el formato YYYY-MM-DD directamente
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date());
 }
 
 async function mlGet(url, params = {}) {
@@ -131,6 +128,7 @@ app.get('/api/ventas-hoy', async (req, res) => {
     const fecha = today();
     const from = `${fecha}T00:00:00.000-06:00`;
     const to = `${fecha}T23:59:59.000-06:00`;
+    console.log('[ventas-hoy] from:', from, 'to:', to);
     let allOrders = [];
     let offset = 0;
     let total = 1;
