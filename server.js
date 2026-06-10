@@ -149,6 +149,15 @@ async function mlGet(url, params = {}) {
   return r.data;
 }
 
+async function mlGetAds(url, params = {}) {
+  const token = await getToken();
+  const r = await axios.get(url, {
+    params,
+    headers: { Authorization: `Bearer ${token}`, 'api-version': '2' }
+  });
+  return r.data;
+}
+
 function toRange(dateFrom, dateTo) {
   return {
     from: `${dateFrom}T00:00:00.000-06:00`,
@@ -1173,6 +1182,37 @@ app.get('/api/sin-ventas', async (req, res) => {
     })).sort((a, b) => b.visitas - a.visitas);
 
     res.json({ total: result.length, items: result });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── PUBLICIDAD (PRODUCT ADS) ─────────────────────────────────────────────────
+
+const ADVERTISER_ID = 4299;
+const ADS_METRICS = 'clicks,prints,cost,cpc,acos,roas,total_amount,units_quantity,direct_amount,indirect_amount';
+
+app.get('/api/ads', async (req, res) => {
+  try {
+    const from = req.query.from || dateNDaysAgo(6);
+    const to = req.query.to || today();
+
+    const campaignsResp = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`, {
+      date_from: from, date_to: to, metrics: ADS_METRICS
+    });
+
+    let ads = [];
+    let offset = 0, total = 1;
+    while (offset < total) {
+      const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/ads/search`, {
+        date_from: from, date_to: to, metrics: ADS_METRICS, limit: 50, offset
+      });
+      total = d.paging.total;
+      ads = ads.concat(d.results);
+      offset += 50;
+    }
+
+    res.json({ from, to, campaigns: campaignsResp.results, ads });
   } catch (e) {
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }

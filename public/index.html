@@ -139,30 +139,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .dr-apply{background:var(--accent);border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;color:#fff}
 @media (max-width:640px){
   .dr-calendars{flex-wrap:wrap;justify-content:center}
-  #dr-cal-wrap-0{display:none}
+  #dr-cal-wrap-0,#ads-dr-cal-wrap-0{display:none}
   .dr-picker{left:50%;transform:translateX(-50%)}
 }
 
 /* ── BADGES ── */
 .badge{font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600}
 .badge-pack{background:#dbeafe;color:var(--blue)}
+.badge-green{background:#d1fae5;color:var(--green)}
+.badge-red{background:#fee2e2;color:var(--red)}
 
 /* ── LOADING / ERROR ── */
 .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;color:var(--muted);font-size:12px;gap:12px}
 .spin{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .error{background:#fef2f2;color:var(--red);border:1px solid #fecaca;border-radius:8px;padding:12px 16px;font-size:13px;margin:8px 0}
+.acos-alert{color:var(--red);font-weight:700}
 
 /* ── ADS ── */
-.upload-area{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:22px}
-.upload-area:hover{border-color:var(--accent);background:var(--accent-dim)}
-.upload-area h3{font-size:16px;font-weight:600;margin-bottom:8px;color:var(--text)}
-.upload-area p{font-size:13px;color:var(--muted)}
-.upload-btn{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-top:14px}
-.ads-header{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px}
-.ads-row{display:grid;grid-template-columns:2fr 90px 90px 90px 80px 70px;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center}
-.camp-header{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px}
-.camp-row{display:grid;grid-template-columns:2fr 100px 100px 80px 80px;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;align-items:center}
 .dev-header{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);margin-bottom:4px}
 .dev-row{display:grid;grid-template-columns:1fr 100px 100px 80px;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;align-items:center}
 
@@ -287,14 +281,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .rep-stats-grid{grid-template-columns:repeat(2,1fr)}
 
   /* horizontally scrollable "table" rows built from CSS grid */
-  #ads-content .card,
   #devoluciones .card{overflow-x:auto}
-  .ads-header,.ads-row{min-width:560px}
-  .camp-header,.camp-row{min-width:500px}
   .dev-header,.dev-row{min-width:440px}
 
   /* bigger touch targets */
-  .btn-refresh,.upload-btn,.mes-selector button,.si-filter-btn,.nav-item{min-height:44px}
+  .btn-refresh,.mes-selector button,.si-filter-btn,.nav-item{min-height:44px}
   .mes-selector select{min-height:44px}
   .si-filter-bar{flex-direction:column;align-items:stretch}
   .si-filter-btn{justify-content:center}
@@ -324,7 +315,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="nav-item" onclick="showSection('stock',this);loadStockInteligente()">
       <span class="nav-icon">📦</span><span>Stock</span>
     </div>
-    <div class="nav-item" onclick="showSection('publicidad',this)">
+    <div class="nav-item" onclick="showSection('publicidad',this);initPublicidadSection()">
       <span class="nav-icon">📢</span><span>Publicidad</span>
     </div>
     <div class="nav-group">Gestión</div>
@@ -459,21 +450,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <!-- TAB 1: RESUMEN -->
       <div id="vt-resumen" class="vtab active">
         <div class="dr-wrap" id="dr-wrap">
-          <div class="dr-input-wrap" onclick="toggleDatePicker()">
+          <div class="dr-input-wrap" onclick="toggleDatePicker('dr')">
             <input type="text" id="dr-input" class="dr-input" readonly placeholder="Selecciona un rango">
             <span class="dr-icon">📅</span>
           </div>
           <div class="dr-picker" id="dr-picker" style="display:none">
             <div class="dr-quick">
-              <button type="button" onclick="drQuick('hoy')">Hoy</button>
-              <button type="button" onclick="drQuick('ayer')">Ayer</button>
-              <button type="button" onclick="drQuick('7days')">Últimos 7 días</button>
-              <button type="button" onclick="drQuick('30days')">Últimos 30 días</button>
-              <button type="button" onclick="drQuick('thismonth')">Este mes</button>
-              <button type="button" onclick="drQuick('lastmonth')">Mes anterior</button>
+              <button type="button" onclick="drQuick('dr','hoy')">Hoy</button>
+              <button type="button" onclick="drQuick('dr','ayer')">Ayer</button>
+              <button type="button" onclick="drQuick('dr','7days')">Últimos 7 días</button>
+              <button type="button" onclick="drQuick('dr','30days')">Últimos 30 días</button>
+              <button type="button" onclick="drQuick('dr','thismonth')">Este mes</button>
+              <button type="button" onclick="drQuick('dr','lastmonth')">Mes anterior</button>
             </div>
             <div class="dr-calendars">
-              <button type="button" class="dr-nav-btn" onclick="drNav(-1)">‹</button>
+              <button type="button" class="dr-nav-btn" onclick="drNav('dr',-1)">‹</button>
               <div class="dr-cal" id="dr-cal-wrap-0">
                 <div class="dr-cal-label" id="dr-cal-label-0"></div>
                 <div class="dr-cal-grid" id="dr-cal-grid-0"></div>
@@ -482,11 +473,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
                 <div class="dr-cal-label" id="dr-cal-label-1"></div>
                 <div class="dr-cal-grid" id="dr-cal-grid-1"></div>
               </div>
-              <button type="button" class="dr-nav-btn" onclick="drNav(1)">›</button>
+              <button type="button" class="dr-nav-btn" onclick="drNav('dr',1)">›</button>
             </div>
             <div class="dr-actions">
-              <button type="button" class="dr-cancel" onclick="closeDatePicker()">Cancelar</button>
-              <button type="button" class="dr-apply" onclick="applyDateRange()">Aplicar</button>
+              <button type="button" class="dr-cancel" onclick="closeDatePicker('dr')">Cancelar</button>
+              <button type="button" class="dr-apply" onclick="applyDateRange('dr')">Aplicar</button>
             </div>
           </div>
         </div>
@@ -634,26 +625,86 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
     <!-- ── PUBLICIDAD ── -->
     <div id="publicidad" class="section">
-      <div class="upload-area" onclick="document.getElementById('ads-file').click()">
-        <h3>📊 Subir reporte de ML Ads</h3>
-        <p>Descarga el reporte de Product Ads desde ads.mercadolibre.com.mx y súbelo aquí</p>
-        <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('ads-file').click()">Seleccionar archivo Excel</button>
-        <input type="file" id="ads-file" accept=".xlsx,.xls" style="display:none" onchange="processAdsFile(this)">
+      <div class="dr-wrap" id="ads-dr-wrap">
+        <div class="dr-input-wrap" onclick="toggleDatePicker('ads-dr')">
+          <input type="text" id="ads-dr-input" class="dr-input" readonly placeholder="Selecciona un rango">
+          <span class="dr-icon">📅</span>
+        </div>
+        <div class="dr-picker" id="ads-dr-picker" style="display:none">
+          <div class="dr-quick">
+            <button type="button" onclick="drQuick('ads-dr','hoy')">Hoy</button>
+            <button type="button" onclick="drQuick('ads-dr','ayer')">Ayer</button>
+            <button type="button" onclick="drQuick('ads-dr','7days')">Últimos 7 días</button>
+            <button type="button" onclick="drQuick('ads-dr','30days')">Últimos 30 días</button>
+            <button type="button" onclick="drQuick('ads-dr','thismonth')">Este mes</button>
+            <button type="button" onclick="drQuick('ads-dr','lastmonth')">Mes anterior</button>
+          </div>
+          <div class="dr-calendars">
+            <button type="button" class="dr-nav-btn" onclick="drNav('ads-dr',-1)">‹</button>
+            <div class="dr-cal" id="ads-dr-cal-wrap-0">
+              <div class="dr-cal-label" id="ads-dr-cal-label-0"></div>
+              <div class="dr-cal-grid" id="ads-dr-cal-grid-0"></div>
+            </div>
+            <div class="dr-cal" id="ads-dr-cal-wrap-1">
+              <div class="dr-cal-label" id="ads-dr-cal-label-1"></div>
+              <div class="dr-cal-grid" id="ads-dr-cal-grid-1"></div>
+            </div>
+            <button type="button" class="dr-nav-btn" onclick="drNav('ads-dr',1)">›</button>
+          </div>
+          <div class="dr-actions">
+            <button type="button" class="dr-cancel" onclick="closeDatePicker('ads-dr')">Cancelar</button>
+            <button type="button" class="dr-apply" onclick="applyDateRange('ads-dr')">Aplicar</button>
+          </div>
+        </div>
       </div>
-      <div id="ads-content" style="display:none">
-        <div id="ads-periodo" style="font-size:12px;color:var(--muted);margin-bottom:16px"></div>
-        <div id="ads-metrics" class="grid-4"></div>
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title">Por campaña</div>
-            <div class="camp-header"><span>Campaña</span><span>Inversión</span><span>Ingresos</span><span>ACOS</span><span>ROAS</span></div>
-            <div id="ads-campanas"></div>
+
+      <div id="ads-metrics" class="grid-3"><div class="loading"><div class="spin"></div></div></div>
+
+      <div class="card">
+        <div class="card-title">Campañas</div>
+        <div style="overflow-x:auto">
+          <table class="si-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Estado</th>
+                <th class="si-r">Presupuesto</th>
+                <th class="si-r">Inversión</th>
+                <th class="si-r">Ventas</th>
+                <th class="si-r">ROAS</th>
+                <th class="si-r">ACOS</th>
+              </tr>
+            </thead>
+            <tbody id="ads-camp-tbody">
+              <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Top 20 productos</div>
+        <div class="si-filter-bar">
+          <div class="si-search-wrap">
+            <input class="si-search" id="ads-top-search" type="text" placeholder="Buscar producto..." oninput="renderAdsTop()">
           </div>
-          <div class="card">
-            <div class="card-title">Top productos por ingresos</div>
-            <div class="ads-header"><span>Producto</span><span>Inversión</span><span>Ingresos</span><span>Ventas</span><span>ACOS</span><span>ROAS</span></div>
-            <div id="ads-top"></div>
-          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="si-table">
+            <thead>
+              <tr>
+                <th class="sort-th" onclick="sortAdsTop('title')">Producto<span class="arrow"></span></th>
+                <th class="si-r sort-th" onclick="sortAdsTop('cost')">Inversión<span class="arrow"></span></th>
+                <th class="si-r sort-th" onclick="sortAdsTop('total_amount')">Ventas<span class="arrow"></span></th>
+                <th class="si-r sort-th" onclick="sortAdsTop('roas')">ROAS<span class="arrow"></span></th>
+                <th class="si-r sort-th" onclick="sortAdsTop('acos')">ACOS<span class="arrow"></span></th>
+                <th class="si-r sort-th" onclick="sortAdsTop('clicks')">Clicks<span class="arrow"></span></th>
+              </tr>
+            </thead>
+            <tbody id="ads-top-tbody">
+              <tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -902,8 +953,130 @@ let porPubSort={key:'ventaBruta',dir:'desc'};
 function initVentasSection(){
   if(ventasInited)return;
   ventasInited=true;
-  initDateRange();
+  initDateRange('dr',(from,to)=>loadVentasResumen(from,to));
   loadVentasResumen();
+}
+
+// ── PUBLICIDAD (PRODUCT ADS) ──────────────────────
+let adsInited=false;
+let adsTopData=[];
+let adsTopSort={key:'total_amount',dir:'desc'};
+
+function initPublicidadSection(){
+  if(adsInited)return;
+  adsInited=true;
+  initDateRange('ads-dr',()=>loadAds());
+  loadAds();
+}
+
+async function loadAds(){
+  const elMetrics=document.getElementById('ads-metrics');
+  const campTbody=document.getElementById('ads-camp-tbody');
+  const topTbody=document.getElementById('ads-top-tbody');
+  elMetrics.innerHTML=spin();
+  campTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
+  topTbody.innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
+  try{
+    const st=drInstances['ads-dr'];
+    const r=await fetch(`/api/ads?from=${st.rangeFrom}&to=${st.rangeTo}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    const campaigns=d.campaigns||[];
+    const ads=d.ads||[];
+
+    const totInv=campaigns.reduce((s,c)=>s+(c.metrics?.cost||0),0);
+    const totVentas=campaigns.reduce((s,c)=>s+(c.metrics?.total_amount||0),0);
+    const totClicks=campaigns.reduce((s,c)=>s+(c.metrics?.clicks||0),0);
+    const totImp=campaigns.reduce((s,c)=>s+(c.metrics?.prints||0),0);
+    const roas=totInv>0?totVentas/totInv:0;
+    const acos=totVentas>0?totInv/totVentas*100:0;
+
+    elMetrics.innerHTML=`
+      <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión total</div><div class="metric-value" style="color:var(--red)">${fmtMXN(totInv)}</div></div>
+      <div class="metric"><div class="mi mi-g">💰</div><div class="metric-label">Ventas por ads</div><div class="metric-value" style="color:var(--green)">${fmtMXN(totVentas)}</div></div>
+      <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS promedio</div><div class="metric-value" style="color:var(--accent)">${fmtX(roas)}</div></div>
+      <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS promedio</div><div class="metric-value">${fmtPct(acos)}</div></div>
+      <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks totales</div><div class="metric-value">${fmt(totClicks)}</div></div>
+      <div class="metric"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>`;
+
+    if(campaigns.length===0){
+      campTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)">Sin campañas en este período</td></tr>';
+    }else{
+      campTbody.innerHTML=campaigns.map(c=>{
+        const m=c.metrics||{};
+        const isActive=c.status==='active';
+        const cAcos=m.acos||0;
+        const acosClass=cAcos>50?'acos-alert':'';
+        return `
+        <tr class="si-row">
+          <td>${c.name}</td>
+          <td><span class="badge ${isActive?'badge-green':'badge-red'}">${isActive?'Activa':'Pausada'}</span></td>
+          <td class="si-r">${c.budget!=null?fmtMXN(c.budget):'-'}</td>
+          <td class="si-r">${fmtMXN(m.cost||0)}</td>
+          <td class="si-r">${fmtMXN(m.total_amount||0)}</td>
+          <td class="si-r">${fmtX(m.roas||0)}</td>
+          <td class="si-r ${acosClass}">${fmtPct(cAcos)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    adsTopData=ads.slice().sort((a,b)=>(b.metrics?.total_amount||0)-(a.metrics?.total_amount||0)).slice(0,20);
+    renderAdsTop();
+  }catch(e){
+    elMetrics.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+    campTbody.innerHTML=`<tr><td colspan="7" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
+    topTbody.innerHTML=`<tr><td colspan="6" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
+  }
+}
+
+function sortAdsTop(key){
+  if(adsTopSort.key===key){
+    adsTopSort.dir=adsTopSort.dir==='desc'?'asc':'desc';
+  }else{
+    adsTopSort={key,dir:key==='title'?'asc':'desc'};
+  }
+  renderAdsTop();
+}
+
+function renderAdsTop(){
+  const tbody=document.getElementById('ads-top-tbody');
+  const search=(document.getElementById('ads-top-search').value||'').toLowerCase();
+  let items=adsTopData.filter(a=>(a.title||'').toLowerCase().includes(search));
+  const {key,dir}=adsTopSort;
+  items=items.slice().sort((a,b)=>{
+    let av,bv;
+    if(key==='title'){av=a.title||'';bv=b.title||'';}
+    else{av=a.metrics?.[key]||0;bv=b.metrics?.[key]||0;}
+    if(typeof av==='string')return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+    return dir==='asc'?av-bv:bv-av;
+  });
+  document.querySelectorAll('#publicidad .sort-th').forEach(th=>{
+    th.classList.remove('sort-active');
+    th.querySelector('.arrow').textContent='';
+  });
+  const activeTh=[...document.querySelectorAll('#publicidad .sort-th')].find(th=>th.getAttribute('onclick')===`sortAdsTop('${key}')`);
+  if(activeTh){
+    activeTh.classList.add('sort-active');
+    activeTh.querySelector('.arrow').textContent=dir==='asc'?'▲':'▼';
+  }
+  if(items.length===0){
+    tbody.innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)">Sin resultados</td></tr>';
+    return;
+  }
+  tbody.innerHTML=items.map(a=>{
+    const m=a.metrics||{};
+    const aAcos=m.acos||0;
+    const acosClass=aAcos>50?'acos-alert':'';
+    return `
+    <tr class="si-row">
+      <td>${a.title||a.item_id}</td>
+      <td class="si-r">${fmtMXN(m.cost||0)}</td>
+      <td class="si-r">${fmtMXN(m.total_amount||0)}</td>
+      <td class="si-r">${fmtX(m.roas||0)}</td>
+      <td class="si-r ${acosClass}">${fmtPct(aAcos)}</td>
+      <td class="si-r">${fmt(m.clicks||0)}</td>
+    </tr>`;
+  }).join('');
 }
 
 function showVentasTab(tab,el){
@@ -934,7 +1107,8 @@ async function loadVentasResumen(){
   elMetrics.innerHTML=spin();
   elTop.innerHTML=spin();
   try{
-    const url=`/api/ventas-resumen?period=range&from=${resumenRangeFrom}&to=${resumenRangeTo}`;
+    const st=drInstances['dr'];
+    const url=`/api/ventas-resumen?period=range&from=${st.rangeFrom}&to=${st.rangeTo}`;
     const r=await fetch(url);
     const d=await r.json();
     if(d.error)throw new Error(errStr(d.error));
@@ -962,17 +1136,12 @@ async function loadVentasResumen(){
   }
 }
 
-// ── SELECTOR DE RANGO DE FECHAS ───────────────────
+// ── SELECTOR DE RANGO DE FECHAS (reutilizable) ────
 const MONTH_NAMES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const CAL_DOW=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 function todayStr(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City'}).format(new Date());}
 const CAL_TODAY=todayStr();
-let resumenRangeFrom=CAL_TODAY;
-let resumenRangeTo=CAL_TODAY;
-let drStart=CAL_TODAY;
-let drEnd=CAL_TODAY;
-let drViewYear=parseInt(CAL_TODAY.slice(0,4));
-let drViewMonth=parseInt(CAL_TODAY.slice(5,7));
+const drInstances={};
 
 function addDaysStr(dateStr,n){
   const d=new Date(dateStr+'T00:00:00');
@@ -985,52 +1154,64 @@ function fmtDateDisplay(dateStr){
   return `${d}/${m}/${y}`;
 }
 
-function updateDrInput(){
-  document.getElementById('dr-input').value=`${fmtDateDisplay(resumenRangeFrom)} - ${fmtDateDisplay(resumenRangeTo)}`;
+function initDateRange(ns,onApply){
+  drInstances[ns]={
+    rangeFrom:CAL_TODAY,rangeTo:CAL_TODAY,
+    start:CAL_TODAY,end:CAL_TODAY,
+    viewYear:parseInt(CAL_TODAY.slice(0,4)),viewMonth:parseInt(CAL_TODAY.slice(5,7)),
+    onApply
+  };
+  updateDrInput(ns);
 }
 
-function initDateRange(){
-  updateDrInput();
+function updateDrInput(ns){
+  const st=drInstances[ns];
+  document.getElementById(`${ns}-input`).value=`${fmtDateDisplay(st.rangeFrom)} - ${fmtDateDisplay(st.rangeTo)}`;
 }
 
-function toggleDatePicker(){
-  const picker=document.getElementById('dr-picker');
+function toggleDatePicker(ns){
+  const st=drInstances[ns];
+  const picker=document.getElementById(`${ns}-picker`);
   if(picker.style.display==='none'){
-    drStart=resumenRangeFrom;
-    drEnd=resumenRangeTo;
-    drViewYear=parseInt(drEnd.slice(0,4));
-    drViewMonth=parseInt(drEnd.slice(5,7));
-    renderDrCalendars();
+    st.start=st.rangeFrom;
+    st.end=st.rangeTo;
+    st.viewYear=parseInt(st.end.slice(0,4));
+    st.viewMonth=parseInt(st.end.slice(5,7));
+    renderDrCalendars(ns);
     picker.style.display='block';
   }else{
     picker.style.display='none';
   }
 }
 
-function closeDatePicker(){
-  document.getElementById('dr-picker').style.display='none';
+function closeDatePicker(ns){
+  document.getElementById(`${ns}-picker`).style.display='none';
 }
 
 document.addEventListener('click',function(e){
-  const wrap=document.getElementById('dr-wrap');
-  const picker=document.getElementById('dr-picker');
-  if(wrap&&picker&&picker.style.display!=='none'&&!e.composedPath().includes(wrap)){
-    picker.style.display='none';
-  }
+  Object.keys(drInstances).forEach(ns=>{
+    const wrap=document.getElementById(`${ns}-wrap`);
+    const picker=document.getElementById(`${ns}-picker`);
+    if(wrap&&picker&&picker.style.display!=='none'&&!e.composedPath().includes(wrap)){
+      picker.style.display='none';
+    }
+  });
 });
 
-function drNav(delta){
-  drViewMonth+=delta;
-  if(drViewMonth<1){drViewMonth=12;drViewYear--;}
-  if(drViewMonth>12){drViewMonth=1;drViewYear++;}
-  renderDrCalendars();
+function drNav(ns,delta){
+  const st=drInstances[ns];
+  st.viewMonth+=delta;
+  if(st.viewMonth<1){st.viewMonth=12;st.viewYear--;}
+  if(st.viewMonth>12){st.viewMonth=1;st.viewYear++;}
+  renderDrCalendars(ns);
 }
 
 function drMonthLabel(year,month){
   return `${MONTH_NAMES[month-1]} ${year}`;
 }
 
-function buildDrMonthGrid(year,month){
+function buildDrMonthGrid(ns,year,month){
+  const st=drInstances[ns];
   const lastDay=new Date(year,month,0).getDate();
   const firstDow=new Date(year,month-1,1).getDay();
   let html=CAL_DOW.map(x=>`<div class="dr-dow">${x}</div>`).join('');
@@ -1039,75 +1220,80 @@ function buildDrMonthGrid(year,month){
     const fecha=`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const classes=['dr-day'];
     if(fecha===CAL_TODAY)classes.push('dr-today');
-    if(drStart&&fecha===drStart)classes.push('dr-start');
-    if(drEnd&&fecha===drEnd)classes.push('dr-end');
-    if(drStart&&drEnd&&fecha>drStart&&fecha<drEnd)classes.push('dr-in-range');
-    html+=`<div class="${classes.join(' ')}" onclick="drSelectDay('${fecha}')">${day}</div>`;
+    if(st.start&&fecha===st.start)classes.push('dr-start');
+    if(st.end&&fecha===st.end)classes.push('dr-end');
+    if(st.start&&st.end&&fecha>st.start&&fecha<st.end)classes.push('dr-in-range');
+    html+=`<div class="${classes.join(' ')}" onclick="drSelectDay('${ns}','${fecha}')">${day}</div>`;
   }
   return html;
 }
 
-function renderDrCalendars(){
-  let leftMonth=drViewMonth-1,leftYear=drViewYear;
+function renderDrCalendars(ns){
+  const st=drInstances[ns];
+  let leftMonth=st.viewMonth-1,leftYear=st.viewYear;
   if(leftMonth<1){leftMonth=12;leftYear--;}
-  document.getElementById('dr-cal-label-0').textContent=drMonthLabel(leftYear,leftMonth);
-  document.getElementById('dr-cal-grid-0').innerHTML=buildDrMonthGrid(leftYear,leftMonth);
-  document.getElementById('dr-cal-label-1').textContent=drMonthLabel(drViewYear,drViewMonth);
-  document.getElementById('dr-cal-grid-1').innerHTML=buildDrMonthGrid(drViewYear,drViewMonth);
+  document.getElementById(`${ns}-cal-label-0`).textContent=drMonthLabel(leftYear,leftMonth);
+  document.getElementById(`${ns}-cal-grid-0`).innerHTML=buildDrMonthGrid(ns,leftYear,leftMonth);
+  document.getElementById(`${ns}-cal-label-1`).textContent=drMonthLabel(st.viewYear,st.viewMonth);
+  document.getElementById(`${ns}-cal-grid-1`).innerHTML=buildDrMonthGrid(ns,st.viewYear,st.viewMonth);
 }
 
-function drSelectDay(fecha){
-  if(!drStart||(drStart&&drEnd)){
-    drStart=fecha;
-    drEnd=null;
-  }else if(fecha<drStart){
-    drEnd=drStart;
-    drStart=fecha;
+function drSelectDay(ns,fecha){
+  const st=drInstances[ns];
+  if(!st.start||(st.start&&st.end)){
+    st.start=fecha;
+    st.end=null;
+  }else if(fecha<st.start){
+    st.end=st.start;
+    st.start=fecha;
   }else{
-    drEnd=fecha;
+    st.end=fecha;
   }
-  renderDrCalendars();
+  renderDrCalendars(ns);
 }
 
-function drQuick(type){
+function drQuick(ns,type){
+  const st=drInstances[ns];
   const t=CAL_TODAY;
   if(type==='hoy'){
-    drStart=t;drEnd=t;
+    st.start=t;st.end=t;
   }else if(type==='ayer'){
     const y=addDaysStr(t,-1);
-    drStart=y;drEnd=y;
+    st.start=y;st.end=y;
   }else if(type==='7days'){
-    drStart=addDaysStr(t,-6);drEnd=t;
+    st.start=addDaysStr(t,-6);st.end=t;
   }else if(type==='30days'){
-    drStart=addDaysStr(t,-29);drEnd=t;
+    st.start=addDaysStr(t,-29);st.end=t;
   }else if(type==='thismonth'){
-    drStart=`${t.slice(0,8)}01`;drEnd=t;
+    st.start=`${t.slice(0,8)}01`;st.end=t;
   }else if(type==='lastmonth'){
     const y=parseInt(t.slice(0,4)),m=parseInt(t.slice(5,7));
     let pm=m-1,py=y;
     if(pm===0){pm=12;py--;}
     const lastDay=new Date(py,pm,0).getDate();
-    drStart=`${py}-${String(pm).padStart(2,'0')}-01`;
-    drEnd=`${py}-${String(pm).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    st.start=`${py}-${String(pm).padStart(2,'0')}-01`;
+    st.end=`${py}-${String(pm).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
   }
-  drViewYear=parseInt(drEnd.slice(0,4));
-  drViewMonth=parseInt(drEnd.slice(5,7));
-  applyDrSelection();
+  st.viewYear=parseInt(st.end.slice(0,4));
+  st.viewMonth=parseInt(st.end.slice(5,7));
+  applyDrSelection(ns);
 }
 
-function applyDateRange(){
-  if(!drStart)return;
-  if(!drEnd)drEnd=drStart;
-  applyDrSelection();
+function applyDateRange(ns){
+  const st=drInstances[ns];
+  if(!st.start)return;
+  if(!st.end)st.end=st.start;
+  applyDrSelection(ns);
 }
 
-function applyDrSelection(){
-  if(drEnd<drStart){const tmp=drStart;drStart=drEnd;drEnd=tmp;}
-  resumenRangeFrom=drStart;
-  resumenRangeTo=drEnd;
-  updateDrInput();
-  closeDatePicker();
-  loadVentasResumen();
+function applyDrSelection(ns){
+  const st=drInstances[ns];
+  if(st.end<st.start){const tmp=st.start;st.start=st.end;st.end=tmp;}
+  st.rangeFrom=st.start;
+  st.rangeTo=st.end;
+  updateDrInput(ns);
+  closeDatePicker(ns);
+  st.onApply(st.rangeFrom,st.rangeTo);
 }
 
 // ── TAB 2: HEATMAP ────────────────────────────────
@@ -1379,72 +1565,6 @@ async function loadDevoluciones(){
   }catch(e){
     document.getElementById('dev-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
   }
-}
-
-function processAdsFile(input){
-  const file=input.files[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      const wb=XLSX.read(e.target.result,{type:'binary'});
-      const sheet=wb.Sheets['Reporte por anuncios'];
-      if(!sheet){alert('No se encontró la hoja "Reporte por anuncios"');return;}
-      const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
-      let headerRow=-1;
-      for(let i=0;i<rows.length;i++){
-        if(rows[i]&&rows[i].some(c=>String(c||'').includes('Campaña'))){headerRow=i;break;}
-      }
-      if(headerRow<0){alert('Estructura no reconocida');return;}
-      const headers=rows[headerRow].map(h=>String(h||'').replace(/\n/g,' ').trim());
-      const data=rows.slice(headerRow+1).filter(r=>r&&r[0]).map(r=>{const obj={};headers.forEach((h,i)=>obj[h]=r[i]);return obj;});
-      const periodo=data.length>0?`Período: ${data[0]['Desde']} — ${data[0]['Hasta']}`:'';
-      document.getElementById('ads-periodo').textContent=periodo;
-      const invCol=headers.find(h=>h.includes('nversi')&&!h.includes('ndirec'));
-      const ingCol=headers.find(h=>h.includes('ngresos')&&!h.includes('directas')&&!h.includes('ndirec'));
-      const acosCol=headers.find(h=>h.includes('ACOS'));
-      const roasCol=headers.find(h=>h.includes('ROAS'));
-      const ventasCol=headers.find(h=>h.includes('Ventas por publicidad'));
-      const impCol=headers.find(h=>h.includes('mpresiones'));
-      const clicsCol=headers.find(h=>h.includes('lics'));
-      const activos=data.filter(r=>r['Estado']==='Activo');
-      const toNum=v=>isNaN(parseFloat(v))?0:parseFloat(v);
-      const totInv=activos.reduce((s,r)=>s+toNum(r[invCol]),0);
-      const totIng=activos.reduce((s,r)=>s+toNum(r[ingCol]),0);
-      const totVentas=activos.reduce((s,r)=>s+toNum(r[ventasCol]),0);
-      const totImp=activos.reduce((s,r)=>s+toNum(r[impCol]),0);
-      const totClics=activos.reduce((s,r)=>s+toNum(r[clicsCol]),0);
-      const acos=totIng>0?(totInv/totIng*100):0;
-      const roas=totInv>0?(totIng/totInv):0;
-      document.getElementById('ads-metrics').innerHTML=`
-        <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión total</div><div class="metric-value" style="color:var(--red)">${fmtMXN(totInv)}</div><div class="metric-sub">MXN</div></div>
-        <div class="metric"><div class="mi mi-g">💰</div><div class="metric-label">Ingresos por ads</div><div class="metric-value" style="color:var(--green)">${fmtMXN(totIng)}</div><div class="metric-sub">${fmt(totVentas)} ventas</div></div>
-        <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS</div><div class="metric-value">${fmtPct(acos)}</div><div class="metric-sub">inversión / ingresos</div></div>
-        <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS</div><div class="metric-value" style="color:var(--accent)">${fmtX(roas)}</div><div class="metric-sub">${fmt(totImp)} imp · ${fmt(totClics)} clics</div></div>`;
-      const campMap={};
-      activos.forEach(r=>{const c=r['Campaña']||'Sin campaña';if(!campMap[c])campMap[c]={inv:0,ing:0};campMap[c].inv+=toNum(r[invCol]);campMap[c].ing+=toNum(r[ingCol]);});
-      document.getElementById('ads-campanas').innerHTML=Object.entries(campMap).sort((a,b)=>b[1].ing-a[1].ing).map(([camp,v])=>`
-        <div class="camp-row">
-          <span style="font-size:13px;color:var(--text)">${camp}</span>
-          <span style="color:var(--red)">${fmtMXN(v.inv)}</span>
-          <span style="color:var(--green);font-weight:700">${fmtMXN(v.ing)}</span>
-          <span>${v.ing>0?fmtPct(v.inv/v.ing*100):'-'}</span>
-          <span style="color:var(--accent)">${v.inv>0?fmtX(v.ing/v.inv):'-'}</span>
-        </div>`).join('');
-      const top10=activos.filter(r=>toNum(r[ingCol])>0).sort((a,b)=>toNum(b[ingCol])-toNum(a[ingCol])).slice(0,10);
-      document.getElementById('ads-top').innerHTML=top10.map(r=>`
-        <div class="ads-row">
-          <span style="font-size:12px;color:var(--text)">${(r['Título de anuncio']||'').substring(0,35)}...</span>
-          <span style="color:var(--red)">${fmtMXN(toNum(r[invCol]))}</span>
-          <span style="color:var(--green);font-weight:700">${fmtMXN(toNum(r[ingCol]))}</span>
-          <span>${fmt(toNum(r[ventasCol]))}</span>
-          <span>${toNum(r[acosCol])>0?fmtPct(toNum(r[acosCol])):'-'}</span>
-          <span style="color:var(--accent)">${toNum(r[roasCol])>0?fmtX(toNum(r[roasCol])):'-'}</span>
-        </div>`).join('');
-      document.getElementById('ads-content').style.display='block';
-    }catch(err){alert('Error: '+err.message);}
-  };
-  reader.readAsBinaryString(file);
 }
 
 function errStr(e){return typeof e==='string'?e:e?.message||e?.error||JSON.stringify(e)}
