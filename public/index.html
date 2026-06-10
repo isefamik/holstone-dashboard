@@ -967,6 +967,14 @@ async function loadPublicaciones(){
       <div class="ic-stat-row">
         <span class="ic-stat-label" style="font-weight:600;color:var(--text)">Total</span>
         <span class="ic-stat-val">${fmt(d.total)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label">⭐ Premium</span>
+        <span class="ic-stat-val">${fmt(d.premium)}</span>
+      </div>
+      <div class="ic-stat-row">
+        <span class="ic-stat-label">📋 Clásica</span>
+        <span class="ic-stat-val">${fmt(d.clasica)}</span>
       </div>`;
   }catch(e){
     document.getElementById('pub-stats').innerHTML=`<div class="error">${e.message}</div>`;
