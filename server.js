@@ -201,7 +201,7 @@ app.get('/api/ventas-hoy', async (req, res) => {
         byProduct[t].orders += 1;
       });
     });
-    const top = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 10).map(([title, v]) => ({ title, ...v }));
+    const top = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 20).map(([title, v]) => ({ title, ...v }));
     res.json({
       ordenes: total, ventaBruta, precioLista, descuentos: precioLista - ventaBruta, unidades,
       ticketPromedio: total > 0 ? ventaBruta / total : 0, top,
