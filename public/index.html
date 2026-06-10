@@ -357,6 +357,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <div id="envios-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
       </div>
+      <div class="card">
+        <div class="card-title">📊 Tendencia de ventas</div>
+        <div class="envios-tabs" id="tend-period-tabs">
+          <button type="button" class="envios-tab active" onclick="loadTendencia('7days',this)">Últimos 7 días</button>
+          <button type="button" class="envios-tab" onclick="loadTendencia('30days',this)">Últimos 30 días</button>
+        </div>
+        <div class="envios-tabs" id="tend-metric-tabs" style="margin-top:-6px">
+          <button type="button" class="envios-tab active" onclick="setTendenciaMetric('venta',this)">Ventas ($)</button>
+          <button type="button" class="envios-tab" onclick="setTendenciaMetric('unidades',this)">Unidades</button>
+          <button type="button" class="envios-tab" onclick="setTendenciaMetric('ticket',this)">Ticket promedio</button>
+        </div>
+        <div id="tendencia-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
+      </div>
     </div>
 
     <!-- ── VENTAS HOY ── -->
@@ -1171,6 +1184,112 @@ async function loadEnvios(period,btn){
   }
 }
 
+// ── Tendencia de ventas ────────────────────────
+let tendenciaChart=null;
+let tendenciaData=null;
+let tendenciaMetric='venta';
+
+const TENDENCIA_METRICS={
+  venta:{key:'ventaBruta',label:'Ventas',fmt:fmtMXN,totalLabel:'Total del período',avgLabel:'Promedio diario'},
+  unidades:{key:'unidades',label:'Unidades',fmt:fmt,totalLabel:'Total del período',avgLabel:'Promedio diario'},
+  ticket:{key:'ticketPromedio',label:'Ticket promedio',fmt:fmtMXN,totalLabel:'Promedio del período',avgLabel:'Último día'}
+};
+
+async function loadTendencia(period,btn){
+  if(btn){
+    document.querySelectorAll('#tend-period-tabs .envios-tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  const c=document.getElementById('tendencia-content');
+  c.innerHTML='<div class="loading"><div class="spin"></div>Cargando...</div>';
+  try{
+    const r=await fetch('/api/tendencia?period='+period);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    tendenciaData=d;
+    renderTendencia();
+  }catch(e){
+    c.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
+}
+
+function setTendenciaMetric(metric,btn){
+  tendenciaMetric=metric;
+  document.querySelectorAll('#tend-metric-tabs .envios-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderTendencia();
+}
+
+function renderTendencia(){
+  const d=tendenciaData;
+  if(!d)return;
+  const c=document.getElementById('tendencia-content');
+  const dias=d.dias;
+  const m=TENDENCIA_METRICS[tendenciaMetric];
+  const values=dias.map(x=>x[m.key]);
+  const sum=values.reduce((a,b)=>a+b,0);
+  const avg=dias.length?sum/dias.length:0;
+
+  let topVal,bottomVal;
+  if(tendenciaMetric==='ticket'){
+    topVal=avg;
+    bottomVal=values.length?values[values.length-1]:0;
+  }else{
+    topVal=sum;
+    bottomVal=avg;
+  }
+
+  c.innerHTML=`
+    <div class="envios-metrics">
+      <div class="envios-metric"><div class="v">${m.fmt(topVal)}</div><div class="l">${m.totalLabel}</div></div>
+      <div class="envios-metric"><div class="v">${m.fmt(bottomVal)}</div><div class="l">${m.avgLabel}</div></div>
+    </div>
+    <div style="position:relative;height:260px">
+      <canvas id="tendencia-chart"></canvas>
+    </div>`;
+
+  const labels=dias.map(x=>{
+    const [,mo,da]=x.fecha.split('-');
+    return `${da}/${mo}`;
+  });
+
+  const ctx=document.getElementById('tendencia-chart');
+  if(tendenciaChart)tendenciaChart.destroy();
+  tendenciaChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:m.label,
+        data:values,
+        borderColor:'#2563eb',
+        backgroundColor:'rgba(37,99,235,.08)',
+        fill:true,
+        tension:0.4,
+        pointRadius:2,
+        pointHoverRadius:4,
+        borderWidth:2
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>m.fmt(ctx.parsed.y)}}
+      },
+      scales:{
+        y:{
+          beginAtZero:true,
+          grid:{color:'#f3f4f6'},
+          ticks:{callback:v=>m.fmt(v)}
+        },
+        x:{grid:{display:false}}
+      }
+    }
+  });
+}
+
 function loadAll(){
   document.getElementById('last-update').textContent='Actualizado: '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   loadVentas();
@@ -1179,6 +1298,7 @@ function loadAll(){
   loadPublicaciones();
   loadPerformance();
   loadEnvios('today');
+  loadTendencia('7days');
 }
 
 loadAll();

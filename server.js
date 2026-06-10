@@ -646,3 +646,54 @@ app.get('/api/envios', async (req, res) => {
     res.status(500).json({ error: msg });
   }
 });
+
+// ── TENDENCIA DE VENTAS ──────────────────────────────────────────────────────
+
+app.get('/api/tendencia', async (req, res) => {
+  try {
+    const period = req.query.period === '30days' ? '30days' : '7days';
+    const days = period === '30days' ? 30 : 7;
+    const dates = [];
+    for (let i = days - 1; i >= 0; i--) dates.push(dateNDaysAgo(i));
+    console.log('[tendencia] period:', period, 'desde:', dates[0], 'hasta:', dates[dates.length - 1]);
+
+    const BATCH = 8;
+    const dias = [];
+    for (let i = 0; i < dates.length; i += BATCH) {
+      const batch = dates.slice(i, i + BATCH);
+      const batchResults = await Promise.all(batch.map(async fecha => {
+        const from = `${fecha}T00:00:00.000-06:00`;
+        const to = `${fecha}T23:59:59.000-06:00`;
+        let orders = [];
+        let offset = 0;
+        let total = 1;
+        while (offset < total) {
+          const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+            seller: SELLER_ID, 'order.status': 'paid',
+            'order.date_created.from': from, 'order.date_created.to': to,
+            limit: 50, offset
+          });
+          total = d.paging.total;
+          orders = orders.concat(d.results);
+          offset += 50;
+        }
+        const ordenes = orders.length;
+        const ventaBruta = orders.reduce((s, o) => s + o.total_amount, 0);
+        const unidades = orders.reduce((s, o) => s + o.order_items.reduce((ss, it) => ss + it.quantity, 0), 0);
+        return {
+          fecha,
+          ordenes,
+          ventaBruta: Math.round(ventaBruta),
+          unidades,
+          ticketPromedio: ordenes ? Math.round(ventaBruta / ordenes) : 0
+        };
+      }));
+      dias.push(...batchResults);
+    }
+
+    res.json({ period, dias });
+  } catch (e) {
+    const msg = e.response?.data?.message || e.response?.data?.error || e.message;
+    res.status(500).json({ error: msg });
+  }
+});
