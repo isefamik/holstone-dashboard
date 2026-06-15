@@ -150,6 +150,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .badge-green{background:#d1fae5;color:var(--green)}
 .badge-red{background:#fee2e2;color:var(--red)}
 .badge-yellow{background:#fef9c3;color:#ca8a04}
+.badge-gray{background:#f3f4f6;color:var(--muted)}
 
 /* ── INSIGHTS ── */
 .insight-card{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
@@ -162,6 +163,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .insight-action{align-self:flex-start;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text)}
 .insight-ok{display:flex;align-items:center;justify-content:center;padding:24px;color:var(--green);font-size:14px;font-weight:600;grid-column:1/-1}
 .row-flash{animation:rowFlash 1.6s ease}
+
+/* ── ALERTAS CRUZADAS ── */
+.alerts-section{border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.alerts-section.alerts-urgent{background:#fef2f2;border:1px solid #fecaca}
+.alerts-section.alerts-opportunity{background:#f0fdf4;border:1px solid #bbf7d0}
+.alerts-section-title{font-size:14px;font-weight:800;margin-bottom:8px;color:var(--text)}
+.alert-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(0,0,0,.06)}
+.alert-row:first-of-type{border-top:none}
+.alert-row-text{flex:1;font-size:13px;color:var(--text);line-height:1.4}
+.alert-row-action{background:#fff;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);white-space:nowrap}
+.alerts-empty{padding:4px 0;color:var(--muted);font-size:13px}
+
+/* ── METRIC CHECKS ── */
+.metric-checks{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:13px}
+.metric-checks label{display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text);user-select:none}
+
+/* ── CAMPAIGN NAME ── */
+.camp-name-link{color:var(--accent);font-weight:700;cursor:pointer}
+.camp-name-link:hover{text-decoration:underline}
 @keyframes rowFlash{0%,100%{background:transparent}30%{background:#fef9c3}}
 
 /* ── LOADING / ERROR ── */
@@ -680,6 +700,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
         <div class="card">
           <div class="card-title">Ventas y ROAS por día</div>
+          <div class="metric-checks" id="ads-chart-checks">
+            <label><input type="checkbox" value="ventas" checked onchange="updateAdsChart()"> Ventas por Ads</label>
+            <label><input type="checkbox" value="roas" checked onchange="updateAdsChart()"> ROAS</label>
+            <label><input type="checkbox" value="acos" onchange="updateAdsChart()"> ACOS</label>
+            <label><input type="checkbox" value="clicks" onchange="updateAdsChart()"> Clicks</label>
+            <label><input type="checkbox" value="inversion" onchange="updateAdsChart()"> Inversión</label>
+          </div>
           <div style="position:relative;height:280px">
             <canvas id="ads-tendencia-chart"></canvas>
           </div>
@@ -707,9 +734,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-title">💡 Insights</div>
-          <div id="ads-insights" class="grid-3"><div class="loading"><div class="spin"></div></div></div>
+        <div class="alerts-section alerts-urgent">
+          <div class="alerts-section-title">🚨 Acción urgente</div>
+          <div id="ads-alerts-urgent"><div class="loading"><div class="spin"></div></div></div>
+        </div>
+
+        <div class="alerts-section alerts-opportunity">
+          <div class="alerts-section-title">💡 Oportunidades</div>
+          <div id="ads-alerts-opportunity"><div class="loading"><div class="spin"></div></div></div>
         </div>
 
         <div class="card">
@@ -725,6 +757,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
                 <tr>
                   <th class="sort-th" onclick="sortAdsTop('title')">Producto<span class="arrow"></span></th>
                   <th class="si-r sort-th" onclick="sortAdsTop('stock')">Stock<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortAdsTop('diasStock')">Días restantes<span class="arrow"></span></th>
                   <th class="si-r sort-th" onclick="sortAdsTop('cost')">Inversión<span class="arrow"></span></th>
                   <th class="si-r sort-th" onclick="sortAdsTop('total_amount')">Ventas<span class="arrow"></span></th>
                   <th class="si-r sort-th" onclick="sortAdsTop('roas')">ROAS<span class="arrow"></span></th>
@@ -733,7 +766,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
                 </tr>
               </thead>
               <tbody id="ads-top-tbody">
-                <tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
+                <tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>
               </tbody>
             </table>
           </div>
@@ -749,10 +782,50 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <span id="ads-detail-status"></span>
         </div>
 
+        <div class="dr-wrap" id="ads-detail-dr-wrap">
+          <div class="dr-input-wrap" onclick="toggleDatePicker('ads-detail-dr')">
+            <input type="text" id="ads-detail-dr-input" class="dr-input" readonly placeholder="Selecciona un rango">
+            <span class="dr-icon">📅</span>
+          </div>
+          <div class="dr-picker" id="ads-detail-dr-picker" style="display:none">
+            <div class="dr-quick">
+              <button type="button" onclick="drQuick('ads-detail-dr','hoy')">Hoy</button>
+              <button type="button" onclick="drQuick('ads-detail-dr','ayer')">Ayer</button>
+              <button type="button" onclick="drQuick('ads-detail-dr','7days')">Últimos 7 días</button>
+              <button type="button" onclick="drQuick('ads-detail-dr','30days')">Últimos 30 días</button>
+              <button type="button" onclick="drQuick('ads-detail-dr','thismonth')">Este mes</button>
+              <button type="button" onclick="drQuick('ads-detail-dr','lastmonth')">Mes anterior</button>
+            </div>
+            <div class="dr-calendars">
+              <button type="button" class="dr-nav-btn" onclick="drNav('ads-detail-dr',-1)">‹</button>
+              <div class="dr-cal" id="ads-detail-dr-cal-wrap-0">
+                <div class="dr-cal-label" id="ads-detail-dr-cal-label-0"></div>
+                <div class="dr-cal-grid" id="ads-detail-dr-cal-grid-0"></div>
+              </div>
+              <div class="dr-cal" id="ads-detail-dr-cal-wrap-1">
+                <div class="dr-cal-label" id="ads-detail-dr-cal-label-1"></div>
+                <div class="dr-cal-grid" id="ads-detail-dr-cal-grid-1"></div>
+              </div>
+              <button type="button" class="dr-nav-btn" onclick="drNav('ads-detail-dr',1)">›</button>
+            </div>
+            <div class="dr-actions">
+              <button type="button" class="dr-cancel" onclick="closeDatePicker('ads-detail-dr')">Cancelar</button>
+              <button type="button" class="dr-apply" onclick="applyDateRange('ads-detail-dr')">Aplicar</button>
+            </div>
+          </div>
+        </div>
+
         <div id="ads-detail-metrics" class="grid-6"></div>
 
         <div class="card">
           <div class="card-title">Ventas y ROAS por día</div>
+          <div class="metric-checks" id="ads-detail-chart-checks">
+            <label><input type="checkbox" value="ventas" checked onchange="updateAdsDetailChart()"> Ventas por Ads</label>
+            <label><input type="checkbox" value="roas" checked onchange="updateAdsDetailChart()"> ROAS</label>
+            <label><input type="checkbox" value="acos" onchange="updateAdsDetailChart()"> ACOS</label>
+            <label><input type="checkbox" value="clicks" onchange="updateAdsDetailChart()"> Clicks</label>
+            <label><input type="checkbox" value="inversion" onchange="updateAdsDetailChart()"> Inversión</label>
+          </div>
           <div style="position:relative;height:280px">
             <canvas id="ads-detail-chart"></canvas>
           </div>
@@ -766,12 +839,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
                 <tr>
                   <th>Producto</th>
                   <th class="si-r">Stock</th>
+                  <th class="si-r">Días restantes</th>
                   <th class="si-r">Inversión</th>
                   <th class="si-r">Ventas</th>
                   <th class="si-r">ROAS</th>
                   <th class="si-r">ACOS</th>
                   <th class="si-r">Clicks</th>
-                  <th class="si-r">Impresiones</th>
                 </tr>
               </thead>
               <tbody id="ads-detail-tbody"></tbody>
@@ -1036,6 +1109,18 @@ let adsCampaigns=[];
 let adsTopSort={key:'total_amount',dir:'desc'};
 let adsTendenciaChart=null;
 let adsDetailChart=null;
+let adsTendenciaDias=[];
+let adsDetailDias=[];
+let currentDetailCampId=null;
+let adsDetailDrInited=false;
+
+const ADS_METRIC_CFG={
+  ventas: {label:'Ventas por Ads', type:'bar',  color:'#2563eb', axis:'y',  fmt:fmtMXN},
+  inversion:{label:'Inversión',    type:'bar',  color:'#ef4444', axis:'y',  fmt:fmtMXN},
+  roas:    {label:'ROAS',          type:'line', color:'#8b5cf6', axis:'y1', fmt:fmtX},
+  acos:    {label:'ACOS %',        type:'line', color:'#f59e0b', axis:'y1', fmt:fmtPct},
+  clicks:  {label:'Clicks',        type:'line', color:'#10b981', axis:'y1', fmt:fmt}
+};
 
 function initPublicidadSection(){
   if(adsInited)return;
@@ -1045,38 +1130,94 @@ function initPublicidadSection(){
   loadAdsTendencia();
 }
 
+// ── Stock helpers ──────────────────────────────────
+function stockLevelClass(dias){
+  if(dias==null)return 'badge-gray';
+  if(dias<7)return 'badge-red';
+  if(dias<=15)return 'badge-yellow';
+  return 'badge-green';
+}
 function stockBadge(stock,dias){
-  if(stock==null)return '<span class="badge">-</span>';
-  let cls='badge-green';
-  if(stock===0||(dias!=null&&dias<7))cls='badge-red';
-  else if(dias!=null&&dias<=15)cls='badge-yellow';
-  return `<span class="badge ${cls}">${fmt(stock)}${dias!=null?` (${dias}d)`:''}</span>`;
+  if(stock==null)return '<span class="badge badge-gray">-</span>';
+  return `<span class="badge ${stockLevelClass(dias)}">${fmt(stock)}</span>`;
+}
+function diasBadge(dias){
+  if(dias==null)return '<span class="badge badge-gray">-</span>';
+  return `<span class="badge ${stockLevelClass(dias)}">${dias}</span>`;
 }
 
-function diagnostico(m,budget){
-  const roas=m.roas||0;
-  const acos=m.acos||0;
-  const cost=m.cost||0;
-  const ventas=m.total_amount||0;
-  if(roas<4||acos>30||(cost>50&&ventas===0)){
-    return {label:'Revisar',cls:'badge-red'};
-  }
-  if((roas>=4&&roas<7)||(acos>15&&acos<=30)){
-    return {label:'Puede mejorar',cls:'badge-yellow'};
-  }
-  if(roas>=7&&acos<=15){
-    return {label:'Excelente',cls:'badge-green'};
-  }
+// ── Campaign diagnostic ────────────────────────────
+function diagnostico(m){
+  const roas=m.roas||0, acos=m.acos||0, cost=m.cost||0, ventas=m.total_amount||0;
+  if(roas<4||acos>30||(cost>50&&ventas===0)) return {label:'Revisar',cls:'badge-red'};
+  if((roas>=4&&roas<7)||(acos>15&&acos<=30)) return {label:'Puede mejorar',cls:'badge-yellow'};
+  if(roas>=7&&acos<=15)                      return {label:'Excelente',cls:'badge-green'};
   return {label:'Puede mejorar',cls:'badge-yellow'};
 }
 
+// ── Chart renderer ────────────────────────────────
+function renderAdsChart(canvasEl, existingChart, dias, metrics){
+  const labels=dias.map(x=>{const[,mo,da]=x.fecha.split('-');return `${da}/${mo}`;});
+  if(existingChart)existingChart.destroy();
+  if(!metrics.length||!dias.length){
+    const c=new Chart(canvasEl,{type:'bar',data:{labels:[],datasets:[]},options:{responsive:true,maintainAspectRatio:false}});
+    return c;
+  }
+  const datasets=metrics.map((key,i)=>{
+    const cfg=ADS_METRIC_CFG[key];
+    if(cfg.type==='bar') return {type:'bar',label:cfg.label,data:dias.map(x=>x[key]),backgroundColor:cfg.color,yAxisID:cfg.axis,order:2+i};
+    return {type:'line',label:cfg.label,data:dias.map(x=>x[key]),borderColor:cfg.color,backgroundColor:cfg.color,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2,yAxisID:cfg.axis,order:1};
+  });
+  const usesY =metrics.some(k=>ADS_METRIC_CFG[k].axis==='y');
+  const usesY1=metrics.some(k=>ADS_METRIC_CFG[k].axis==='y1');
+  const scales={x:{grid:{display:false}}};
+  if(usesY)  scales.y ={beginAtZero:true,position:'left', grid:{color:'#f3f4f6'},ticks:{callback:v=>fmtMXN(v)}};
+  if(usesY1) scales.y1={beginAtZero:true,position:'right',grid:{display:false},ticks:{callback:v=>`${Math.round(v)}`}};
+  return new Chart(canvasEl,{
+    data:{labels,datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>{
+          const key=metrics[ctx.datasetIndex];
+          return `${ctx.dataset.label}: ${key?ADS_METRIC_CFG[key].fmt(ctx.parsed.y):ctx.parsed.y}`;
+        }}}
+      },
+      scales
+    }
+  });
+}
+
+function checkedMetrics(containerId){
+  return [...document.querySelectorAll(`#${containerId} input[type=checkbox]:checked`)].map(i=>i.value);
+}
+
+function updateAdsChart(){
+  adsTendenciaChart=renderAdsChart(
+    document.getElementById('ads-tendencia-chart'),
+    adsTendenciaChart, adsTendenciaDias, checkedMetrics('ads-chart-checks')
+  );
+}
+
+function updateAdsDetailChart(){
+  adsDetailChart=renderAdsChart(
+    document.getElementById('ads-detail-chart'),
+    adsDetailChart, adsDetailDias, checkedMetrics('ads-detail-chart-checks')
+  );
+}
+
+// ── Main view loaders ─────────────────────────────
 async function loadAds(){
   const elMetrics=document.getElementById('ads-metrics');
   const campTbody=document.getElementById('ads-camp-tbody');
   const topTbody=document.getElementById('ads-top-tbody');
   elMetrics.innerHTML=spin();
+  document.getElementById('ads-alerts-urgent').innerHTML=spin();
+  document.getElementById('ads-alerts-opportunity').innerHTML=spin();
   campTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
-  topTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
+  topTbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
   try{
     const st=drInstances['ads-dr'];
     const r=await fetch(`/api/ads?from=${st.rangeFrom}&to=${st.rangeTo}`);
@@ -1102,25 +1243,23 @@ async function loadAds(){
       <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks totales</div><div class="metric-value">${fmt(totClicks)}</div></div>
       <div class="metric"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>`;
 
-    renderAdsInsights(campaigns,ads);
+    renderAdsAlerts(campaigns,ads);
 
     if(campaigns.length===0){
       campTbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)">Sin campañas en este período</td></tr>';
     }else{
       campTbody.innerHTML=campaigns.map(c=>{
         const m=c.metrics||{};
-        const cAcos=m.acos||0;
-        const acosClass=cAcos>50?'acos-alert':'';
-        const diag=diagnostico(m,c.budget);
+        const diag=diagnostico(m);
         return `
         <tr class="si-row" style="cursor:pointer" onclick="showAdsDetail(${c.id})">
-          <td>${c.name}</td>
+          <td><span class="camp-name-link">${c.name}</span></td>
           <td><span class="badge ${diag.cls}">${diag.label}</span></td>
           <td class="si-r">${c.budget!=null?fmtMXN(c.budget):'-'}</td>
           <td class="si-r">${fmtMXN(m.cost||0)}</td>
           <td class="si-r">${fmtMXN(m.total_amount||0)}</td>
           <td class="si-r">${fmtX(m.roas||0)}</td>
-          <td class="si-r ${acosClass}">${fmtPct(cAcos)}</td>
+          <td class="si-r">${fmtPct(m.acos||0)}</td>
         </tr>`;
       }).join('');
     }
@@ -1129,74 +1268,71 @@ async function loadAds(){
   }catch(e){
     elMetrics.innerHTML=`<div class="error">Error: ${e.message}</div>`;
     campTbody.innerHTML=`<tr><td colspan="7" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
-    topTbody.innerHTML=`<tr><td colspan="7" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
+    topTbody.innerHTML=`<tr><td colspan="8" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
   }
 }
 
-function renderAdsInsights(campaigns,ads){
-  const el=document.getElementById('ads-insights');
-  const insights=[];
+async function loadAdsTendencia(){
+  const ctx=document.getElementById('ads-tendencia-chart');
+  try{
+    const st=drInstances['ads-dr'];
+    const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    adsTendenciaDias=d.dias||[];
+    updateAdsChart();
+  }catch(e){
+    ctx.parentElement.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
+}
 
+// ── Alertas cruzadas ──────────────────────────────
+function renderAdsAlerts(campaigns,ads){
+  const urgent=[], opp=[];
   ads.forEach(a=>{
     const m=a.metrics||{};
     const name=a.title||a.item_id;
-    if(a.stock===0&&((m.cost||0)>0||(m.clicks||0)>0)){
-      insights.push({level:'critical',icon:'🔴',title:'Stock agotado en publicidad',desc:`${name} está en publicidad pero tiene stock 0 (gastando sin poder vender)`,action:'Ver producto',onclick:`verProductoAds('${a.item_id}')`});
-    }
-    if((m.acos||0)>25){
-      insights.push({level:'warning',icon:'🟡',title:'ACOS elevado',desc:`${name} tiene ACOS de ${fmtPct(m.acos)} (mayor a 25%)`,action:'Ver producto',onclick:`verProductoAds('${a.item_id}')`});
-    }
-    if(a.diasStock!=null&&a.diasStock<7&&(m.roas||0)>5){
-      insights.push({level:'warning',icon:'🟡',title:'Reabastecer urgente',desc:`${name} tiene ${a.diasStock}d de stock y ROAS ${fmtX(m.roas)}`,action:'Ver producto',onclick:`verProductoAds('${a.item_id}')`});
-    }
-    if((m.roas||0)>15){
-      insights.push({level:'opportunity',icon:'🟢',title:'Oportunidad de escalar',desc:`${name} tiene ROAS de ${fmtX(m.roas)} — considera aumentar presupuesto`,action:'Ver producto',onclick:`verProductoAds('${a.item_id}')`});
-    }
+    const cost=m.cost||0, roas=m.roas||0, dias=a.diasStock;
+    if(dias!=null&&dias<=1&&cost>0)
+      urgent.push({text:`<b>${name}</b> — Pausa publicidad: solo ${dias} día de stock con inversión activa`,action:'Ver',onclick:`verProductoAds('${a.item_id}')`});
+    if(dias!=null&&dias<=3&&roas>5)
+      urgent.push({text:`<b>${name}</b> — Reabastecer HOY o pausar ads (${dias}d de stock, ROAS ${fmtX(roas)})`,action:'Ver',onclick:`verProductoAds('${a.item_id}')`});
+    if(roas>15&&dias!=null&&dias>15)
+      opp.push({text:`<b>${name}</b> — Sube presupuesto: ROAS ${fmtX(roas)} con ${dias}d de stock`,action:'Ver',onclick:`verProductoAds('${a.item_id}')`});
+    if(roas>10&&dias!=null&&dias>0&&dias<15)
+      opp.push({text:`<b>${name}</b> — Reabastecer para aprovechar ROAS ${fmtX(roas)} (${dias}d de stock)`,action:'Ver',onclick:`verProductoAds('${a.item_id}')`});
   });
-
   campaigns.forEach(c=>{
     const m=c.metrics||{};
-    if(c.status==='active'&&(m.cost||0)>50&&(m.total_amount||0)===0){
-      insights.push({level:'critical',icon:'🔴',title:'Campaña sin ventas',desc:`${c.name} activa con ${fmtMXN(m.cost)} invertidos y $0 en ventas`,action:'Ver campaña',onclick:`showAdsDetail(${c.id})`});
-    }
+    if(c.status==='active'&&(m.cost||0)>50&&(m.total_amount||0)===0)
+      urgent.push({text:`Campaña <b>${c.name}</b> sin retorno: ${fmtMXN(m.cost)} invertidos y $0 en ventas`,action:'Ver',onclick:`showAdsDetail(${c.id})`});
   });
+  renderAlertList('ads-alerts-urgent',urgent.slice(0,5),'Sin alertas urgentes 🎉');
+  renderAlertList('ads-alerts-opportunity',opp.slice(0,3),'Sin oportunidades detectadas aún');
+}
 
-  const order={critical:0,warning:1,opportunity:2};
-  insights.sort((a,b)=>order[a.level]-order[b.level]);
-
-  if(insights.length===0){
-    el.innerHTML='<div class="insight-ok">✅ Todo en orden</div>';
-    return;
-  }
-  el.innerHTML=insights.slice(0,5).map(i=>`
-    <div class="insight-card insight-${i.level}">
-      <div class="insight-icon">${i.icon}</div>
-      <div class="insight-title">${i.title}</div>
-      <div class="insight-desc">${i.desc}</div>
-      <button type="button" class="insight-action" onclick="${i.onclick}">${i.action}</button>
+function renderAlertList(elId,items,emptyMsg){
+  const el=document.getElementById(elId);
+  if(!items.length){el.innerHTML=`<div class="alerts-empty">${emptyMsg}</div>`;return;}
+  el.innerHTML=items.map(i=>`
+    <div class="alert-row">
+      <div class="alert-row-text">${i.text}</div>
+      <button type="button" class="alert-row-action" onclick="${i.onclick}">${i.action}</button>
     </div>`).join('');
 }
 
+// ── Products table ────────────────────────────────
 function verProductoAds(itemId){
   document.getElementById('ads-top-search').value=itemId;
   renderAdsTop();
   setTimeout(()=>{
-    const target=document.getElementById(`ads-prod-${itemId}`);
-    if(target){
-      target.scrollIntoView({behavior:'smooth',block:'center'});
-      target.classList.remove('row-flash');
-      void target.offsetWidth;
-      target.classList.add('row-flash');
-    }
+    const t=document.getElementById(`ads-prod-${itemId}`);
+    if(t){t.scrollIntoView({behavior:'smooth',block:'center'});t.classList.remove('row-flash');void t.offsetWidth;t.classList.add('row-flash');}
   },50);
 }
 
 function sortAdsTop(key){
-  if(adsTopSort.key===key){
-    adsTopSort.dir=adsTopSort.dir==='desc'?'asc':'desc';
-  }else{
-    adsTopSort={key,dir:key==='title'?'asc':'desc'};
-  }
+  adsTopSort=adsTopSort.key===key?{key,dir:adsTopSort.dir==='desc'?'asc':'desc'}:{key,dir:key==='title'?'asc':'desc'};
   renderAdsTop();
 }
 
@@ -1207,144 +1343,121 @@ function renderAdsTop(){
   const {key,dir}=adsTopSort;
   items=items.slice().sort((a,b)=>{
     let av,bv;
-    if(key==='title'){av=a.title||'';bv=b.title||'';}
+    if(key==='title')     {av=a.title||'';bv=b.title||'';}
     else if(key==='stock'){av=a.stock??-1;bv=b.stock??-1;}
-    else{av=a.metrics?.[key]||0;bv=b.metrics?.[key]||0;}
+    else if(key==='diasStock'){av=a.diasStock??-1;bv=b.diasStock??-1;}
+    else                  {av=a.metrics?.[key]||0;bv=b.metrics?.[key]||0;}
     if(typeof av==='string')return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
     return dir==='asc'?av-bv:bv-av;
   });
   if(!search)items=items.slice(0,20);
-  document.querySelectorAll('#publicidad .sort-th').forEach(th=>{
-    th.classList.remove('sort-active');
-    th.querySelector('.arrow').textContent='';
+  document.querySelectorAll('#ads-main-view .sort-th').forEach(th=>{
+    th.classList.remove('sort-active');th.querySelector('.arrow').textContent='';
   });
-  const activeTh=[...document.querySelectorAll('#publicidad .sort-th')].find(th=>th.getAttribute('onclick')===`sortAdsTop('${key}')`);
-  if(activeTh){
-    activeTh.classList.add('sort-active');
-    activeTh.querySelector('.arrow').textContent=dir==='asc'?'▲':'▼';
-  }
-  if(items.length===0){
-    tbody.innerHTML='<tr><td colspan="7" style="padding:32px;text-align:center;color:var(--muted)">Sin resultados</td></tr>';
-    return;
-  }
+  const activeTh=[...document.querySelectorAll('#ads-main-view .sort-th')].find(th=>th.getAttribute('onclick')===`sortAdsTop('${key}')`);
+  if(activeTh){activeTh.classList.add('sort-active');activeTh.querySelector('.arrow').textContent=dir==='asc'?'▲':'▼';}
+  if(!items.length){tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)">Sin resultados</td></tr>';return;}
   tbody.innerHTML=items.map(a=>{
     const m=a.metrics||{};
-    const aAcos=m.acos||0;
-    const acosClass=aAcos>50?'acos-alert':'';
     return `
     <tr class="si-row" id="ads-prod-${a.item_id}">
       <td>${a.title||a.item_id}</td>
       <td class="si-r">${stockBadge(a.stock,a.diasStock)}</td>
+      <td class="si-r">${diasBadge(a.diasStock)}</td>
       <td class="si-r">${fmtMXN(m.cost||0)}</td>
       <td class="si-r">${fmtMXN(m.total_amount||0)}</td>
       <td class="si-r">${fmtX(m.roas||0)}</td>
-      <td class="si-r ${acosClass}">${fmtPct(aAcos)}</td>
+      <td class="si-r">${fmtPct(m.acos||0)}</td>
       <td class="si-r">${fmt(m.clicks||0)}</td>
     </tr>`;
   }).join('');
 }
 
-function renderVentasRoasChart(canvasEl,existingChart,dias){
-  const labels=dias.map(x=>{
-    const[,mo,da]=x.fecha.split('-');
-    return `${da}/${mo}`;
-  });
-  if(existingChart)existingChart.destroy();
-  return new Chart(canvasEl,{
-    data:{
-      labels,
-      datasets:[
-        {type:'bar',label:'Ventas',data:dias.map(x=>x.ventas),backgroundColor:'#2563eb',yAxisID:'y',order:2},
-        {type:'line',label:'ROAS',data:dias.map(x=>x.roas),borderColor:'#8b5cf6',backgroundColor:'#8b5cf6',tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2,yAxisID:'y1',order:1}
-      ]
-    },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      plugins:{
-        legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}},
-        tooltip:{callbacks:{label:ctx=>ctx.dataset.label==='ROAS'?`ROAS: ${fmtX(ctx.parsed.y)}`:`${ctx.dataset.label}: ${fmtMXN(ctx.parsed.y)}`}}
-      },
-      scales:{
-        y:{beginAtZero:true,position:'left',grid:{color:'#f3f4f6'},ticks:{callback:v=>fmtMXN(v)}},
-        y1:{beginAtZero:true,position:'right',grid:{display:false},ticks:{callback:v=>fmtX(v)}},
-        x:{grid:{display:false}}
-      }
-    }
-  });
-}
-
-async function loadAdsTendencia(){
-  const ctx=document.getElementById('ads-tendencia-chart');
-  try{
-    const st=drInstances['ads-dr'];
-    const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}`);
-    const d=await r.json();
-    if(d.error)throw new Error(errStr(d.error));
-    adsTendenciaChart=renderVentasRoasChart(ctx,adsTendenciaChart,d.dias||[]);
-  }catch(e){
-    ctx.parentElement.innerHTML=`<div class="error">Error: ${e.message}</div>`;
-  }
-}
-
-async function showAdsDetail(campId){
-  const c=adsCampaigns.find(x=>x.id===campId);
-  if(!c)return;
+// ── Campaign detail view ──────────────────────────
+function showAdsDetail(campId){
+  currentDetailCampId=campId;
   document.getElementById('ads-main-view').style.display='none';
   document.getElementById('ads-detail-view').style.display='block';
-
-  const m=c.metrics||{};
-  const diag=diagnostico(m,c.budget);
-  const isActive=c.status==='active';
-  document.getElementById('ads-detail-name').textContent=c.name;
-  document.getElementById('ads-detail-diag').innerHTML=`<span class="badge ${diag.cls}">${diag.label}</span>`;
-  document.getElementById('ads-detail-status').innerHTML=`<span class="badge ${isActive?'badge-green':'badge-red'}">${isActive?'Activa':'Pausada'}</span>`;
-
-  document.getElementById('ads-detail-metrics').innerHTML=`
-    <div class="metric"><div class="mi mi-b">🎯</div><div class="metric-label">Presupuesto</div><div class="metric-value">${c.budget!=null?fmtMXN(c.budget):'-'}</div></div>
-    <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión</div><div class="metric-value" style="color:var(--red)">${fmtMXN(m.cost||0)}</div></div>
-    <div class="metric"><div class="mi mi-g">💰</div><div class="metric-label">Ventas</div><div class="metric-value" style="color:var(--green)">${fmtMXN(m.total_amount||0)}</div></div>
-    <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS</div><div class="metric-value" style="color:var(--accent)">${fmtX(m.roas||0)}</div></div>
-    <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS</div><div class="metric-value">${fmtPct(m.acos||0)}</div></div>
-    <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks</div><div class="metric-value">${fmt(m.clicks||0)}</div></div>`;
-
-  const tbody=document.getElementById('ads-detail-tbody');
-  const campAds=adsAllData.filter(a=>a.campaign_id===campId);
-  if(campAds.length===0){
-    tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)">Sin productos</td></tr>';
-  }else{
-    tbody.innerHTML=campAds.map(a=>{
-      const am=a.metrics||{};
-      const aAcos=am.acos||0;
-      return `
-      <tr class="si-row">
-        <td>${a.title||a.item_id}</td>
-        <td class="si-r">${stockBadge(a.stock,a.diasStock)}</td>
-        <td class="si-r">${fmtMXN(am.cost||0)}</td>
-        <td class="si-r">${fmtMXN(am.total_amount||0)}</td>
-        <td class="si-r">${fmtX(am.roas||0)}</td>
-        <td class="si-r ${aAcos>50?'acos-alert':''}">${fmtPct(aAcos)}</td>
-        <td class="si-r">${fmt(am.clicks||0)}</td>
-        <td class="si-r">${fmt(am.prints||0)}</td>
-      </tr>`;
-    }).join('');
+  if(!adsDetailDrInited){
+    adsDetailDrInited=true;
+    initDateRange('ads-detail-dr',()=>loadAdsDetailData(currentDetailCampId));
   }
-
-  const ctx=document.getElementById('ads-detail-chart');
-  try{
-    const st=drInstances['ads-dr'];
-    const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}&campaign_id=${campId}`);
-    const d=await r.json();
-    if(d.error)throw new Error(errStr(d.error));
-    adsDetailChart=renderVentasRoasChart(ctx,adsDetailChart,d.dias||[]);
-  }catch(e){
-    ctx.parentElement.innerHTML=`<div class="error">Error: ${e.message}</div>`;
-  }
+  const mainSt=drInstances['ads-dr'];
+  const dst=drInstances['ads-detail-dr'];
+  dst.rangeFrom=mainSt.rangeFrom; dst.rangeTo=mainSt.rangeTo;
+  dst.start=mainSt.rangeFrom;     dst.end=mainSt.rangeTo;
+  updateDrInput('ads-detail-dr');
+  loadAdsDetailData(campId);
 }
 
 function backToAdsMain(){
   document.getElementById('ads-detail-view').style.display='none';
   document.getElementById('ads-main-view').style.display='block';
+}
+
+async function loadAdsDetailData(campId){
+  const st=drInstances['ads-detail-dr'];
+  const elMetrics=document.getElementById('ads-detail-metrics');
+  const tbody=document.getElementById('ads-detail-tbody');
+  elMetrics.innerHTML=spin();
+  tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr>';
+
+  try{
+    const r=await fetch(`/api/ads?from=${st.rangeFrom}&to=${st.rangeTo}&campaign_id=${campId}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    const c=(d.campaigns||[])[0];
+    const ads=d.ads||[];
+
+    if(!c){
+      elMetrics.innerHTML='<div style="color:var(--muted);font-size:13px">Sin datos en este período</div>';
+      tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)">Sin datos</td></tr>';
+    }else{
+      const m=c.metrics||{};
+      const diag=diagnostico(m);
+      const isActive=c.status==='active';
+      document.getElementById('ads-detail-name').textContent=c.name;
+      document.getElementById('ads-detail-diag').innerHTML=`<span class="badge ${diag.cls}">${diag.label}</span>`;
+      document.getElementById('ads-detail-status').innerHTML=`<span class="badge ${isActive?'badge-green':'badge-red'}">${isActive?'Activa':'Pausada'}</span>`;
+      elMetrics.innerHTML=`
+        <div class="metric"><div class="mi mi-b">🎯</div><div class="metric-label">Presupuesto</div><div class="metric-value">${c.budget!=null?fmtMXN(c.budget):'-'}</div></div>
+        <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión</div><div class="metric-value" style="color:var(--red)">${fmtMXN(m.cost||0)}</div></div>
+        <div class="metric"><div class="mi mi-g">💰</div><div class="metric-label">Ventas</div><div class="metric-value" style="color:var(--green)">${fmtMXN(m.total_amount||0)}</div></div>
+        <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS</div><div class="metric-value" style="color:var(--accent)">${fmtX(m.roas||0)}</div></div>
+        <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS</div><div class="metric-value">${fmtPct(m.acos||0)}</div></div>
+        <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks</div><div class="metric-value">${fmt(m.clicks||0)}</div></div>`;
+      tbody.innerHTML=!ads.length
+        ?'<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)">Sin productos</td></tr>'
+        :ads.map(a=>{
+          const am=a.metrics||{};
+          return `
+          <tr class="si-row">
+            <td>${a.title||a.item_id}</td>
+            <td class="si-r">${stockBadge(a.stock,a.diasStock)}</td>
+            <td class="si-r">${diasBadge(a.diasStock)}</td>
+            <td class="si-r">${fmtMXN(am.cost||0)}</td>
+            <td class="si-r">${fmtMXN(am.total_amount||0)}</td>
+            <td class="si-r">${fmtX(am.roas||0)}</td>
+            <td class="si-r">${fmtPct(am.acos||0)}</td>
+            <td class="si-r">${fmt(am.clicks||0)}</td>
+          </tr>`;
+        }).join('');
+    }
+  }catch(e){
+    elMetrics.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+    tbody.innerHTML=`<tr><td colspan="8" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
+  }
+
+  const ctx=document.getElementById('ads-detail-chart');
+  try{
+    const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}&campaign_id=${campId}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    adsDetailDias=d.dias||[];
+    updateAdsDetailChart();
+  }catch(e){
+    ctx.parentElement.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
 }
 
 function showVentasTab(tab,el){

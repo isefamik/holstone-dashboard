@@ -1203,6 +1203,7 @@ app.get('/api/ads', async (req, res) => {
   try {
     const from = req.query.from || dateNDaysAgo(6);
     const to = req.query.to || today();
+    const campaignId = req.query.campaign_id ? parseInt(req.query.campaign_id) : null;
 
     const campaignsResp = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`, {
       date_from: from, date_to: to, metrics: ADS_METRICS
@@ -1232,7 +1233,13 @@ app.get('/api/ads', async (req, res) => {
       diasStock: stockMap[ad.item_id]?.diasStock ?? null
     }));
 
-    res.json({ from, to, campaigns: campaignsResp.results, ads });
+    let campaigns = campaignsResp.results;
+    if (campaignId) {
+      campaigns = campaigns.filter(c => c.id === campaignId);
+      ads = ads.filter(a => a.campaign_id === campaignId);
+    }
+
+    res.json({ from, to, campaigns, ads });
   } catch (e) {
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
@@ -1253,14 +1260,16 @@ app.get('/api/ads-tendencia', async (req, res) => {
       const batch = dateList.slice(i, i + CONCURRENCY);
       const results = await Promise.all(batch.map(async fecha => {
         const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`, {
-          date_from: fecha, date_to: fecha, metrics: 'cost,total_amount'
+          date_from: fecha, date_to: fecha, metrics: 'cost,total_amount,clicks'
         });
         let results2 = d.results || [];
         if (campaignId) results2 = results2.filter(c => c.id === campaignId);
         const inversion = results2.reduce((s, c) => s + (c.metrics?.cost || 0), 0);
         const ventas = results2.reduce((s, c) => s + (c.metrics?.total_amount || 0), 0);
+        const clicks = results2.reduce((s, c) => s + (c.metrics?.clicks || 0), 0);
         const roas = inversion > 0 ? ventas / inversion : 0;
-        return { fecha, inversion, ventas, roas };
+        const acos = ventas > 0 ? (inversion / ventas) * 100 : 0;
+        return { fecha, inversion, ventas, roas, acos, clicks };
       }));
       dias.push(...results);
     }
