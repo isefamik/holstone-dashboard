@@ -48,6 +48,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tb-time{font-size:11.5px;color:var(--muted)}
 .btn-refresh{background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;transition:opacity .14s}
 .btn-refresh:hover{opacity:.85}
+@keyframes spin-icon{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
+.refresh-icon{display:inline-block;transition:none}
+.refresh-icon.spinning{animation:spin-icon .7s linear infinite}
 .content{padding:26px 28px;flex:1}
 
 /* ── SECTIONS ── */
@@ -402,7 +405,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="tb-title" id="page-title">Inicio</div>
     <div class="tb-right">
       <span class="tb-time" id="last-update"></span>
-      <button class="btn-refresh" onclick="loadAll()">↻ Actualizar</button>
+      <button class="btn-refresh" id="refresh-btn" onclick="refreshActiveSection()"><span id="refresh-icon" class="refresh-icon">↻</span> Actualizar</button>
     </div>
   </div>
 
@@ -1145,7 +1148,9 @@ const PAGE_TITLES={
   devoluciones:'Devoluciones',reputacion:'Reputación',preguntas:'Preguntas'
 };
 
+let _activeSection = 'inicio';
 function showSection(name,el){
+  _activeSection = name;
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(t=>t.classList.remove('active'));
   document.getElementById(name).classList.add('active');
@@ -3254,6 +3259,32 @@ function timeAgo(dateStr) {
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/\n/g,' '); }
+
+const SECTION_RELOADERS = {
+  inicio:       () => { loadVentas(); loadStock(); loadReputacion(); loadPublicaciones(); loadPerformance(); loadEnvios('today'); loadTendencia('7days'); },
+  ventas:       () => loadVentasResumen(),
+  stock:        () => siReload(),
+  publicidad:   () => { loadAds(); loadAdsTendencia(); },
+  finanzas:     () => {
+    const activeTab = document.querySelector('#finanzas .fin-tab.active');
+    if (activeTab) activeTab.click(); else if (typeof loadRentabilidad==='function') loadRentabilidad();
+  },
+  preguntas:    () => initPreguntasSection(),
+  devoluciones: () => loadDevoluciones(),
+  reputacion:   () => loadReputacion()
+};
+
+function refreshActiveSection() {
+  const btn  = document.getElementById('refresh-btn');
+  const icon = document.getElementById('refresh-icon');
+  if (btn._busy) return;
+  btn._busy = true;
+  icon.classList.add('spinning');
+  document.getElementById('last-update').textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  const reloader = SECTION_RELOADERS[_activeSection];
+  if (reloader) reloader();
+  setTimeout(() => { icon.classList.remove('spinning'); btn._busy = false; }, 1400);
+}
 
 function loadAll(){
   document.getElementById('last-update').textContent='Actualizado: '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
