@@ -480,39 +480,46 @@ app.get('/api/reputacion', async (req, res) => {
 });
 
 
+async function getAllItemIds(status) {
+  let ids = [], offset = 0, total = 1;
+  while (offset < total) {
+    const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status, limit: 50, offset });
+    total = r.paging.total;
+    ids = ids.concat(r.results);
+    offset += 50;
+  }
+  return ids;
+}
+
 app.get('/api/publicaciones', async (req, res) => {
   try {
-    const [actR, pausR] = await Promise.all([
-      mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status: 'active', limit: 1 }),
-      mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status: 'paused', limit: 1 })
+    // Phase 1: fetch active and paused ID lists in parallel
+    const [activeIds, pausedIds] = await Promise.all([
+      getAllItemIds('active'),
+      getAllItemIds('paused')
     ]);
-    const activas = actR.paging.total;
-    const pausadas = pausR.paging.total;
+    const allIds = activeIds.concat(pausedIds);
+    const activas = activeIds.length;
+    const pausadas = pausedIds.length;
 
-    async function getAllIds(status) {
-      let ids = [];
-      let offset = 0;
-      let total = 1;
-      while (offset < total) {
-        const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status, limit: 50, offset });
-        total = r.paging.total;
-        ids = ids.concat(r.results);
-        offset += 50;
-      }
-      return ids;
-    }
-    const allIds = (await getAllIds('active')).concat(await getAllIds('paused'));
+    // Phase 2: fetch listing-type details in parallel batches of 20, concurrency 5
+    let premium = 0, clasica = 0;
+    const BATCH = 20, CONCURRENCY = 5;
+    const batches = [];
+    for (let i = 0; i < allIds.length; i += BATCH) batches.push(allIds.slice(i, i + BATCH));
 
-    let premium = 0;
-    let clasica = 0;
-    for (let i = 0; i < allIds.length; i += 20) {
-      const ids = allIds.slice(i, i + 20).join(',');
-      const details = await mlGet(`https://api.mercadolibre.com/items?ids=${ids}&attributes=id,listing_type_id`);
-      details.filter(d => d.code === 200).forEach(d => {
-        const lt = d.body.listing_type_id;
-        if (lt === 'gold_pro') premium++;
-        else if (lt === 'gold_special') clasica++;
-      });
+    for (let i = 0; i < batches.length; i += CONCURRENCY) {
+      const group = batches.slice(i, i + CONCURRENCY);
+      await Promise.all(group.map(async batch => {
+        const ids = batch.join(',');
+        const details = await mlGet(`https://api.mercadolibre.com/items?ids=${ids}&attributes=id,listing_type_id`);
+        if (!Array.isArray(details)) return;
+        details.filter(d => d.code === 200).forEach(d => {
+          const lt = d.body?.listing_type_id;
+          if (lt === 'gold_pro') premium++;
+          else if (lt === 'gold_special') clasica++;
+        });
+      }));
     }
 
     res.json({ activas, pausadas, total: activas + pausadas, premium, clasica });
