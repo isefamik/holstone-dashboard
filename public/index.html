@@ -1094,10 +1094,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="preguntas" class="section">
 
       <!-- Métricas de respuesta -->
-      <div id="preg-metricas" class="grid-3" style="display:grid;margin-bottom:24px">
-        <div class="metric"><div class="metric-label">Tiempo promedio de respuesta</div><div class="metric-value" id="preg-m-tiempo">—</div><div class="metric-sub" id="preg-m-tiempo-sub"></div></div>
-        <div class="metric"><div class="metric-label">Total respondidas</div><div class="metric-value" id="preg-m-total">—</div><div class="metric-sub">preguntas respondidas</div></div>
-        <div class="metric"><div class="metric-label">Respondidas en &lt;1 hora</div><div class="metric-value" id="preg-m-pct">—</div><div class="metric-sub" id="preg-m-pct-sub"></div></div>
+      <div class="grid-3" style="margin-bottom:24px">
+        <div class="metric">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">⏱</div>
+          <div class="metric-label">Tiempo promedio de respuesta</div>
+          <div class="metric-value" id="preg-m-tiempo" style="font-size:22px">—</div>
+          <div class="metric-sub" id="preg-m-tiempo-sub">calculando…</div>
+        </div>
+        <div class="metric">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">💬</div>
+          <div class="metric-label">Total respondidas</div>
+          <div class="metric-value" id="preg-m-total" style="font-size:22px">—</div>
+          <div class="metric-sub">preguntas respondidas</div>
+        </div>
+        <div class="metric">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">⚡</div>
+          <div class="metric-label">Respondidas en &lt;1 hora</div>
+          <div class="metric-value" id="preg-m-pct" style="font-size:22px">—</div>
+          <div class="metric-sub" id="preg-m-pct-sub">calculando…</div>
+        </div>
       </div>
 
       <div class="preg-tabs-nav" style="display:flex;border-bottom:2px solid var(--border);margin-bottom:0;gap:0">
@@ -1112,6 +1127,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       <!-- Tab historial -->
       <div id="preg-pane-historial" class="preg-pane" style="display:none;padding-top:20px">
+        <div style="position:relative;margin-bottom:16px">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px;pointer-events:none">🔍</span>
+          <input id="preg-hist-search" type="text" placeholder="Buscar por pregunta o producto…"
+            oninput="filterHistorial(this.value)"
+            style="width:100%;box-sizing:border-box;padding:9px 12px 9px 36px;border:1px solid var(--border);border-radius:9px;font-size:13px;background:var(--card);color:var(--text);outline:none;font-family:inherit">
+        </div>
         <div id="preg-hist-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
       </div>
 
@@ -2979,7 +3000,8 @@ function renderTendencia(){
 // ═══ PREGUNTAS ═══
 let _pregState = {
   pendOffset: 0, pendTotal: 0,
-  histOffset: 0, histTotal: 0
+  histOffset: 0, histTotal: 0,
+  histQuestions: []
 };
 
 const QUICK_REPLIES = {
@@ -2991,7 +3013,6 @@ const QUICK_REPLIES = {
 };
 
 function initPreguntasSection() {
-  document.getElementById('preg-metricas').style.display = 'grid';
   loadPregMetricas();
   loadPendientes(true);
   loadPreguntasBadge();
@@ -3068,9 +3089,12 @@ async function loadPendientes(reset=false) {
 function renderPendientes(questions, total) {
   const el = document.getElementById('preg-pend-content');
   if (!questions.length) {
-    el.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
-      <div style="font-size:40px;margin-bottom:12px">✅</div>
-      <div style="font-size:15px;font-weight:600">Sin preguntas pendientes</div>
+    el.innerHTML = `<div style="display:flex;justify-content:center;padding:40px 16px">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:16px;padding:48px 40px;text-align:center;max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.06)">
+        <div style="font-size:56px;margin-bottom:16px">🎉</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">¡Todo al día!</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.5">No tienes preguntas pendientes por responder</div>
+      </div>
     </div>`;
     return;
   }
@@ -3157,7 +3181,37 @@ async function loadHistorial(dir=0) {
   }
 }
 
+function histCard(q) {
+  const ans = q.answer?.text || '';
+  const fecha = q.answer?.date_created
+    ? new Date(q.answer.date_created).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})
+    : '';
+  const thumb = q.item?.thumbnail
+    ? `<img class="preg-thumb" src="${q.item.thumbnail.replace('http:','https:')}" onerror="this.style.display='none'">`
+    : `<div class="preg-thumb-ph">👕</div>`;
+  return `<div class="preg-card" style="flex-direction:column;gap:0;padding:0;overflow:hidden">
+    <div style="display:flex;gap:14px;align-items:flex-start;padding:16px">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div class="preg-item-title" style="color:var(--accent)">${esc(q.item?.title||q.item_id)}</div>
+          ${fecha ? `<span style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0">${fecha}</span>` : ''}
+        </div>
+        <div class="preg-question" style="margin-top:6px">"${esc(q.text)}"</div>
+      </div>
+    </div>
+    ${ans ? `<div style="background:#f0fdf4;border-top:1px solid #d1fae5;padding:12px 16px 12px 90px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#16a34a;margin-bottom:4px">Respuesta</div>
+      <div style="font-size:13px;color:#166534;line-height:1.5">${esc(ans)}</div>
+    </div>` : ''}
+  </div>`;
+}
+
 function renderHistorial(questions, total) {
+  _pregState.histQuestions = questions;
+  const search = document.getElementById('preg-hist-search');
+  if (search) search.value = '';
+
   const el = document.getElementById('preg-hist-content');
   if (!questions.length) {
     el.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
@@ -3166,38 +3220,27 @@ function renderHistorial(questions, total) {
     </div>`;
     return;
   }
-  const cards = questions.map(q => {
-    const ans = q.answer?.text || '';
-    const fecha = q.answer?.date_created
-      ? new Date(q.answer.date_created).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})
-      : '';
-    const thumb = q.item?.thumbnail
-      ? `<img class="preg-thumb" src="${q.item.thumbnail.replace('http:','https:')}" onerror="this.style.display='none'">`
-      : `<div class="preg-thumb-ph">👕</div>`;
-    return `<div class="preg-card" style="flex-direction:column;gap:0;padding:0;overflow:hidden">
-      <div style="display:flex;gap:14px;align-items:flex-start;padding:16px">
-        ${thumb}
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-            <div class="preg-item-title" style="color:var(--accent)">${esc(q.item?.title||q.item_id)}</div>
-            ${fecha ? `<span style="font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0">${fecha}</span>` : ''}
-          </div>
-          <div class="preg-question" style="margin-top:6px">"${esc(q.text)}"</div>
-        </div>
-      </div>
-      ${ans ? `<div style="background:#f0fdf4;border-top:1px solid #d1fae5;padding:12px 16px 12px 90px">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#16a34a;margin-bottom:4px">Respuesta</div>
-        <div style="font-size:13px;color:#166534;line-height:1.5">${esc(ans)}</div>
-      </div>` : ''}
-    </div>`;
-  }).join('');
-
   const pag = total > 20 ? `<div style="display:flex;gap:10px;align-items:center;margin-top:16px">
     ${_pregState.histOffset > 0 ? `<button class="btn-refresh" onclick="loadHistorial(-1)">← Anterior</button>` : ''}
     <span style="font-size:12px;color:var(--muted)">Mostrando ${_pregState.histOffset+1}–${Math.min(_pregState.histOffset+20,total)} de ${total}</span>
     ${_pregState.histOffset+20 < total ? `<button class="btn-refresh" onclick="loadHistorial(1)">Siguiente →</button>` : ''}
   </div>` : '';
-  el.innerHTML = cards + pag;
+  el.innerHTML = questions.map(histCard).join('') + pag;
+}
+
+function filterHistorial(query) {
+  const el = document.getElementById('preg-hist-content');
+  const q = query.trim().toLowerCase();
+  if (!q) { renderHistorial(_pregState.histQuestions, _pregState.histTotal); return; }
+  const filtered = _pregState.histQuestions.filter(item =>
+    (item.text||'').toLowerCase().includes(q) ||
+    (item.item?.title||'').toLowerCase().includes(q)
+  );
+  if (!filtered.length) {
+    el.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Sin resultados para "${esc(query)}"</div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(histCard).join('');
 }
 
 function showPregTab(tab, btn) {
