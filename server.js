@@ -792,7 +792,7 @@ app.get('/api/envios', async (req, res) => {
       const shipment = o.shipping?.id ? shipmentMap[o.shipping.id] : null;
       const isFull = shipment?.logistic_type === 'fulfillment' || o.fulfilled === true;
       const tipoKey = isFull ? 'full' : 'me';
-      const costo = shipment?.base_cost || 0;
+      const costo = shipment?.shipping_option?.list_cost ?? shipment?.base_cost ?? 0;
 
       totalEnvios++;
       costoTotal += costo;
@@ -1350,7 +1350,7 @@ app.get('/api/rentabilidad', async (req, res) => {
       const results = await Promise.all(batch.map(id =>
         mlGet(`https://api.mercadolibre.com/shipments/${id}`).catch(() => null)
       ));
-      results.forEach((r, j) => { if (r) shippingCosts[batch[j]] = r.base_cost || 0; });
+      results.forEach((r, j) => { if (r) shippingCosts[batch[j]] = r.shipping_option?.list_cost ?? r.base_cost ?? 0; });
     }
 
     // Repartir costo de envío equitativamente entre órdenes del mismo shipment
