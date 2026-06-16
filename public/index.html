@@ -1089,6 +1089,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
     <!-- ═══ PREGUNTAS ═══ -->
     <div id="preguntas" class="section">
+
+      <!-- Métricas de respuesta -->
+      <div id="preg-metricas" class="grid-3" style="margin-bottom:24px">
+        <div class="metric"><div class="metric-label">Tiempo promedio de respuesta</div><div class="metric-value" id="preg-m-tiempo">—</div><div class="metric-sub" id="preg-m-tiempo-sub"></div></div>
+        <div class="metric"><div class="metric-label">Total respondidas</div><div class="metric-value" id="preg-m-total">—</div><div class="metric-sub">preguntas respondidas</div></div>
+        <div class="metric"><div class="metric-label">Respondidas en &lt;1 hora</div><div class="metric-value" id="preg-m-pct">—</div><div class="metric-sub" id="preg-m-pct-sub"></div></div>
+      </div>
+
       <div class="preg-tabs-nav" style="display:flex;border-bottom:2px solid var(--border);margin-bottom:0;gap:0">
         <button type="button" class="preg-tab active" id="preg-tab-pend-btn" onclick="showPregTab('pendientes',this)">Pendientes <span id="preg-pend-count" style="display:none;margin-left:5px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px"></span></button>
         <button type="button" class="preg-tab" id="preg-tab-hist-btn" onclick="showPregTab('historial',this)">Historial</button>
@@ -2978,8 +2986,41 @@ const QUICK_REPLIES = {
 };
 
 async function loadPreguntas() {
-  await loadPendientes(true);
-  await loadPreguntasBadge();
+  await Promise.all([loadPendientes(true), loadPreguntasBadge(), loadPregMetricas()]);
+}
+
+async function loadPregMetricas() {
+  try {
+    const r = await fetch('/api/preguntas/metricas');
+    const d = await r.json();
+
+    // Tiempo promedio
+    const h = d.tiempo_promedio_horas || 0;
+    let tiempoStr, tiempoColor;
+    if (h < 1) {
+      tiempoStr = `${Math.round(h * 60)} min`;
+      tiempoColor = 'var(--green)';
+    } else if (h < 4) {
+      tiempoStr = `${h.toFixed(1)} h`;
+      tiempoColor = '#f59e0b';
+    } else {
+      tiempoStr = h >= 24 ? `${(h/24).toFixed(1)} días` : `${h.toFixed(1)} h`;
+      tiempoColor = 'var(--red)';
+    }
+    const semaforo = h < 1 ? '🟢' : h < 4 ? '🟡' : '🔴';
+    document.getElementById('preg-m-tiempo').textContent = tiempoStr;
+    document.getElementById('preg-m-tiempo').style.color = tiempoColor;
+    document.getElementById('preg-m-tiempo-sub').textContent = `${semaforo} sobre las últimas ${d.muestra || 0} respuestas`;
+
+    // Total
+    document.getElementById('preg-m-total').textContent = (d.total_respondidas || 0).toLocaleString('es-MX');
+
+    // % < 1h
+    const pct = d.pct_menos_1h || 0;
+    document.getElementById('preg-m-pct').textContent = `${pct}%`;
+    document.getElementById('preg-m-pct').style.color = pct >= 70 ? 'var(--green)' : pct >= 40 ? '#f59e0b' : 'var(--red)';
+    document.getElementById('preg-m-pct-sub').textContent = `${d.respondidas_menos_1h || 0} de ${d.muestra || 0} respuestas`;
+  } catch(e) { console.warn('Métricas preguntas error:', e); }
 }
 
 async function loadPreguntasBadge() {

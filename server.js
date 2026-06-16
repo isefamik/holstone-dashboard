@@ -1796,6 +1796,41 @@ app.get('/api/tendencia-financiera', async (req, res) => {
 
 // ── Preguntas ────────────────────────────────────────────────────────────────
 
+// GET /api/preguntas/metricas — tiempos de respuesta de las últimas 100 ANSWERED
+app.get('/api/preguntas/metricas', async (req, res) => {
+  try {
+    const data = await mlGet('https://api.mercadolibre.com/questions/search', {
+      seller_id: SELLER_ID, status: 'ANSWERED', limit: 100, offset: 0
+    });
+    const questions = (data.questions || []).filter(q => q.answer?.date_created);
+
+    let sumHoras = 0;
+    let menos1h = 0, entre1y4h = 0, mas4h = 0;
+
+    for (const q of questions) {
+      const diffMs = new Date(q.answer.date_created) - new Date(q.date_created);
+      const horas  = diffMs / 3600000;
+      sumHoras += horas;
+      if (horas < 1)       menos1h++;
+      else if (horas <= 4) entre1y4h++;
+      else                 mas4h++;
+    }
+
+    const total = questions.length;
+    res.json({
+      total_respondidas:      data.total || 0,
+      muestra:                total,
+      tiempo_promedio_horas:  total > 0 ? sumHoras / total : 0,
+      respondidas_menos_1h:   menos1h,
+      respondidas_1_4h:       entre1y4h,
+      respondidas_mas_4h:     mas4h,
+      pct_menos_1h:           total > 0 ? Math.round(menos1h / total * 100) : 0
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
 // GET /api/preguntas?status=UNANSWERED|ANSWERED&limit=50&offset=0
 app.get('/api/preguntas', async (req, res) => {
   try {
