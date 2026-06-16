@@ -1489,15 +1489,14 @@ async function getBillingResumen(month, year) {
 
   const key  = `${year}-${String(month).padStart(2,'0')}-01`;
   const base = `https://api.mercadolibre.com/billing/integration/periods/key/${key}/group/ML/details`;
-  const qparams = `user_id=${SELLER_ID}&document_type=BILL&limit=100`;
+  const LIMIT = 1000;  // máximo soportado por la API
 
   const sums = {};
-  let lastId = null, fetched = 0, total = null, prevLastId = null;
+  let offset = 0, fetched = 0, total = Infinity;
 
-  while (true) {
-    const url = `${base}?${qparams}${lastId ? '&last_id=' + lastId : ''}`;
+  while (fetched < total) {
+    const url = `${base}?user_id=${SELLER_ID}&document_type=BILL&limit=${LIMIT}&offset=${offset}`;
     let r;
-    // Retry una vez si hay rate-limit (429)
     try {
       r = await mlGet(url, {});
     } catch (e) {
@@ -1506,7 +1505,7 @@ async function getBillingResumen(month, year) {
         r = await mlGet(url, {});
       } else throw e;
     }
-    if (total === null) total = r.total || 0;
+    if (total === Infinity) total = r.total || 0;
     const results = r.results || [];
     if (!results.length) break;
 
@@ -1515,29 +1514,34 @@ async function getBillingResumen(month, year) {
       sums[sub] = (sums[sub] || 0) + (rec.charge_info?.detail_amount || 0);
     }
     fetched += results.length;
+    offset  += results.length;
 
-    const nextId = r.last_id;
-    if (!nextId || nextId === prevLastId || fetched >= total) break;
-    prevLastId = lastId;
-    lastId = nextId;
+    // Pausa breve entre páginas para no saturar el rate-limit de billing (5 req/min)
+    if (fetched < total) await new Promise(res => setTimeout(res, 1500));
   }
 
   const g = (keys) => keys.reduce((s, k) => s + (sums[k] || 0), 0);
-  const comisiones_venta   = g(['CV']);
-  const costo_envios       = g(['CFF', 'CXD']);
-  const publicidad         = g(['PADS']);
-  const anulaciones        = g(['BV', 'BFF', 'BXD']);        // crédito positivo (reduce costos)
-  const almacenamiento_full= g(['CFWA']);
-  const mantenimiento_pagina = g(['CESM']);
-  const cargos_devolucion  = g(['CDSD']);
-  const afiliados          = g(['CVAF']);
+  const comisiones_venta    = g(['CV']);
+  const costo_envios        = g(['CFF', 'CXD']);
+  const publicidad          = g(['PADS']);
+  const anulaciones         = g(['BV', 'BFF', 'BXD']);       // crédito positivo (reduce costos)
+  const almacenamiento_full = g(['CFWA']);
+  const mantenimiento_pagina= g(['CESM']);
+  const cargos_devolucion   = g(['CDSD']);
+  const afiliados           = g(['CVAF']);
+  // Cargos logísticos Full adicionales
+  const retiro_stock_full   = g(['CFRS']);                    // retiro de stock Full
+  const cargo_picking_full  = g(['CPAC']);                    // cargo por activación/picking
+  const cargo_cross_full    = g(['CFCB', 'CFBA']);            // cross-docking y bulto almacenado
   const total_cargos = comisiones_venta + costo_envios + publicidad - anulaciones
-    + almacenamiento_full + mantenimiento_pagina + cargos_devolucion + afiliados;
+    + almacenamiento_full + mantenimiento_pagina + cargos_devolucion + afiliados
+    + retiro_stock_full + cargo_picking_full + cargo_cross_full;
 
   const data = {
     key, month, year,
     comisiones_venta, costo_envios, publicidad, anulaciones,
     almacenamiento_full, mantenimiento_pagina, cargos_devolucion, afiliados,
+    retiro_stock_full, cargo_picking_full, cargo_cross_full,
     total_cargos, raw: sums
   };
   billingCache.set(cacheKey, { data, ts: Date.now() });
