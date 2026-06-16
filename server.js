@@ -1824,7 +1824,13 @@ app.get('/api/preguntas', async (req, res) => {
       item: itemMap[q.item_id] || { title: q.item_id, thumbnail: null }
     }));
 
-    res.json({ total: data.total, offset, limit, questions: enriched });
+    // Para UNANSWERED, ML cierra preguntas después de 30 días; filtrarlas
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const filtered = status === 'UNANSWERED'
+      ? enriched.filter(q => new Date(q.date_created).getTime() >= cutoff)
+      : enriched;
+
+    res.json({ total: filtered.length, offset, limit, questions: filtered });
   } catch (e) {
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }

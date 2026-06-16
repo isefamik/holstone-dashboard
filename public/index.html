@@ -3057,20 +3057,23 @@ function renderPendientes(questions, total) {
     </div>`;
     return;
   }
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const cards = questions.map(q => {
     const ago = timeAgo(q.date_created);
+    const expired = new Date(q.date_created).getTime() < cutoff;
     const thumb = q.item?.thumbnail
       ? `<img class="preg-thumb" src="${q.item.thumbnail.replace('http:','https:')}" onerror="this.style.display='none'">`
       : `<div class="preg-thumb-ph">👕</div>`;
+    const action = expired
+      ? `<span style="background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">Expirada</span>`
+      : `<button class="btn-refresh" onclick="openPregPanel(${q.id},'${escAttr(q.text)}','${escAttr(q.item?.title||q.item_id)}')">💬 Responder</button>`;
     return `<div class="preg-card">
       ${thumb}
       <div class="preg-body">
         <div class="preg-item-title">${esc(q.item?.title || q.item_id)}</div>
         <div class="preg-question">"${esc(q.text)}"</div>
         <div class="preg-meta">${ago}</div>
-        <div class="preg-actions">
-          <button class="btn-refresh" onclick="openPregPanel(${q.id},'${escAttr(q.text)}','${escAttr(q.item?.title||q.item_id)}')">💬 Responder</button>
-        </div>
+        <div class="preg-actions">${action}</div>
       </div>
     </div>`;
   }).join('');
