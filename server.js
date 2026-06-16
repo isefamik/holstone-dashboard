@@ -1480,17 +1480,66 @@ app.get('/api/precio-sugerido', async (req, res) => {
 });
 
 // ── Billing resumen: pagina /billing/integration/...details y agrupa por sub-tipo ──
+// Caché en dos capas: Map en memoria (rápido) + Supabase billing_cache (persiste reinicios)
+// SQL para crear la tabla en Supabase:
+//   CREATE TABLE billing_cache (
+//     period_key text PRIMARY KEY,
+//     data       jsonb NOT NULL,
+//     updated_at timestamptz NOT NULL DEFAULT now()
+//   );
+
+async function saveBillingToSupabase(periodKey, data) {
+  try {
+    await supabase.from('billing_cache').upsert({
+      period_key: periodKey,
+      data,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'period_key' });
+  } catch (e) {
+    console.warn('billing_cache upsert error:', e.message);
+  }
+}
+
+async function loadBillingFromSupabase(periodKey) {
+  try {
+    const { data, error } = await supabase
+      .from('billing_cache')
+      .select('data, updated_at')
+      .eq('period_key', periodKey)
+      .maybeSingle();
+    if (error || !data) return null;
+    return { data: data.data, updatedAt: new Date(data.updated_at).getTime() };
+  } catch (e) {
+    console.warn('billing_cache select error:', e.message);
+    return null;
+  }
+}
+
 async function getBillingResumen(month, year) {
   const cacheKey = `${year}-${month}`;
+  const periodKey = `${year}-${String(month).padStart(2,'0')}`;
   const now = Date.now();
-  const BILLING_TTL = 60 * 60 * 1000; // 1 hora para mes actual
-  const cached = billingCache.get(cacheKey);
+  const BILLING_TTL = 60 * 60 * 1000;
   const isCurrentMonth = (month === new Date().getMonth() + 1 && year === new Date().getFullYear());
-  if (cached && (!isCurrentMonth || (now - cached.ts) < BILLING_TTL)) return cached.data;
 
+  // 1. Caché en memoria
+  const mem = billingCache.get(cacheKey);
+  if (mem && (!isCurrentMonth || (now - mem.ts) < BILLING_TTL)) return mem.data;
+
+  // 2. Caché en Supabase (meses pasados: permanente; mes actual: 1h)
+  const sb = await loadBillingFromSupabase(periodKey);
+  if (sb) {
+    const fresh = !isCurrentMonth || (now - sb.updatedAt) < BILLING_TTL;
+    if (fresh) {
+      billingCache.set(cacheKey, { data: sb.data, ts: sb.updatedAt });
+      return sb.data;
+    }
+  }
+
+  // 3. Consultar API de billing paginando con offset
   const key  = `${year}-${String(month).padStart(2,'0')}-01`;
   const base = `https://api.mercadolibre.com/billing/integration/periods/key/${key}/group/ML/details`;
-  const LIMIT = 1000;  // máximo soportado por la API
+  const LIMIT = 1000;
 
   const WITH_IVA = new Set(['CPAC','CFRS','CFWA','CESM','CFCB','CFBA','CVAF','CDSD']);
   const sums = {};
@@ -1532,9 +1581,9 @@ async function getBillingResumen(month, year) {
   const mantenimiento_pagina= g(['CESM']);
   const cargos_devolucion   = g(['CDSD']);
   const afiliados           = g(['CVAF']);
-  const asesoria_otros      = g(['CPAC']);                    // "Otros cargos" / asesoría
-  const envios_full         = g(['CFRS']);                    // envíos Full (retiro de stock)
-  const cross_docking_full  = g(['CFCB', 'CFBA']);            // cross-docking y bulto Full
+  const asesoria_otros      = g(['CPAC']);
+  const envios_full         = g(['CFRS']);
+  const cross_docking_full  = g(['CFCB', 'CFBA']);
   const total_cargos = comisiones_venta + costo_envios + publicidad - anulaciones
     + almacenamiento_full + mantenimiento_pagina + cargos_devolucion + afiliados
     + asesoria_otros + envios_full + cross_docking_full;
@@ -1546,7 +1595,10 @@ async function getBillingResumen(month, year) {
     asesoria_otros, envios_full, cross_docking_full,
     total_cargos, raw: sums
   };
-  billingCache.set(cacheKey, { data, ts: Date.now() });
+
+  // Guarda en ambas capas de caché
+  billingCache.set(cacheKey, { data, ts: now });
+  await saveBillingToSupabase(periodKey, data);
   return data;
 }
 
