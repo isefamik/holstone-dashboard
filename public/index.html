@@ -1112,17 +1112,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       <!-- Tab historial -->
       <div id="preg-pane-historial" class="preg-pane" style="display:none;padding-top:20px">
-        <div class="mes-selector" style="margin-bottom:18px">
-          <select id="preg-hist-mes" onchange="loadHistorial(0)">
-            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
-            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-          </select>
-          <select id="preg-hist-year" onchange="loadHistorial(0)">
-            <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
-          </select>
-        </div>
         <div id="preg-hist-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
       </div>
 
@@ -3002,13 +2991,6 @@ const QUICK_REPLIES = {
 };
 
 function initPreguntasSection() {
-  // Establecer mes/año actual en el selector del historial
-  const now = new Date();
-  const mSel = document.getElementById('preg-hist-mes');
-  const ySel = document.getElementById('preg-hist-year');
-  if (mSel) mSel.value = now.getMonth() + 1;
-  if (ySel) ySel.value = now.getFullYear();
-
   document.getElementById('preg-metricas').style.display = 'grid';
   loadPregMetricas();
   loadPendientes(true);
@@ -3163,18 +3145,10 @@ function navPendientes(dir) {
 async function loadHistorial(dir=0) {
   if (dir === 0) _pregState.histOffset = 0;
   else _pregState.histOffset = Math.max(0, _pregState.histOffset + dir * 20);
-
-  const mes  = parseInt(document.getElementById('preg-hist-mes')?.value  || new Date().getMonth() + 1);
-  const year = parseInt(document.getElementById('preg-hist-year')?.value || new Date().getFullYear());
-  const lastDay = new Date(year, mes, 0).getDate();
-  const date_from = `${year}-${String(mes).padStart(2,'0')}-01T00:00:00.000Z`;
-  const date_to   = `${year}-${String(mes).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}T23:59:59.999Z`;
-
   const el = document.getElementById('preg-hist-content');
   el.innerHTML = spin();
   try {
-    const params = new URLSearchParams({ status: 'ANSWERED', limit: 20, offset: _pregState.histOffset, date_from, date_to });
-    const r = await fetch(`/api/preguntas?${params}`);
+    const r = await fetch(`/api/preguntas?status=ANSWERED&limit=20&offset=${_pregState.histOffset}`);
     const d = await r.json();
     _pregState.histTotal = d.total || 0;
     renderHistorial(d.questions || [], d.total || 0);

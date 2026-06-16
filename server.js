@@ -1831,37 +1831,20 @@ app.get('/api/preguntas/metricas', async (req, res) => {
   }
 });
 
-// GET /api/preguntas?status=UNANSWERED|ANSWERED&limit=50&offset=0&date_from=&date_to=
+// GET /api/preguntas?status=UNANSWERED|ANSWERED&limit=50&offset=0
 app.get('/api/preguntas', async (req, res) => {
   try {
-    const status    = req.query.status || 'UNANSWERED';
-    const limit     = Math.min(parseInt(req.query.limit) || 50, 50);
-    const offset    = parseInt(req.query.offset) || 0;
-    const date_from = req.query.date_from || null;
-    const date_to   = req.query.date_to   || null;
+    const status = req.query.status || 'UNANSWERED';
+    const limit  = Math.min(parseInt(req.query.limit) || 50, 50);
+    const offset = parseInt(req.query.offset) || 0;
 
     const mlParams = { seller_id: SELLER_ID, status, limit, offset };
-    if (date_from) mlParams.from_date = date_from;
-    if (date_to)   mlParams.to_date   = date_to;
+    // ML acepta sort=date_created_desc / date_created_asc
+    if (status === 'ANSWERED') mlParams.sort = 'date_created_desc';
 
     const data = await mlGet('https://api.mercadolibre.com/questions/search', mlParams);
 
-    let questions = data.questions || [];
-
-    // Ordenar ANSWERED más recientes primero
-    if (status === 'ANSWERED') {
-      questions.sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
-    }
-
-    // Filtrar por rango de fecha en el servidor (por si ML no lo aplica)
-    if (date_from || date_to) {
-      const from = date_from ? new Date(date_from).getTime() : 0;
-      const to   = date_to   ? new Date(date_to).getTime()   : Infinity;
-      questions = questions.filter(q => {
-        const t = new Date(q.date_created).getTime();
-        return t >= from && t <= to;
-      });
-    }
+    const questions = data.questions || [];
 
     // Enriquece con título e imagen de cada item (dedupado)
     const itemIds = [...new Set(questions.map(q => q.item_id).filter(Boolean))];
