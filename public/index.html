@@ -1912,7 +1912,7 @@ function renderPyL(d){
     </tr>`;
   }
   const utilBruta=c.venta_bruta-c.comision_ml-c.costo_envio-c.costo_producto;
-  const utilNeta=c.utilidad_neta!=null?c.utilidad_neta:(c.utilidad-(cb.almacenamiento_full||0)-(cb.mantenimiento_pagina||0)-(cb.cargos_devolucion||0)-(cb.afiliados||0)+(cb.anulaciones||0));
+  const utilNeta=c.utilidad_neta!=null?c.utilidad_neta:(c.utilidad-(cb.asesoria_otros||0)-(cb.envios_full||0)-(cb.almacenamiento_full||0)-(cb.mantenimiento_pagina||0)-(cb.cargos_devolucion||0)-(cb.afiliados||0)-(cb.cross_docking_full||0)+(cb.anulaciones||0));
   const margenNeto=vb>0?utilNeta/vb*100:0;
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -1940,11 +1940,14 @@ function renderPyL(d){
           ${subtotal('= Utilidad bruta',utilBruta)}
           ${row('(−) Inversión publicidad',c.inversion_publicidad,p.inversion_publicidad,dt.inversion_publicidad,false)}
           ${subtotal('= Utilidad operativa',c.utilidad)}
+          ${(cb.asesoria_otros||0)>0?row('(−) Asesoría y otros cargos ML (CPAC)',cb.asesoria_otros||0,pb.asesoria_otros||0,dt.asesoria_otros,false,true):''}
+          ${(cb.envios_full||0)>0?row('(−) Envíos Full adicionales (CFRS)',cb.envios_full||0,pb.envios_full||0,dt.envios_full,false,true):''}
+          ${(cb.cross_docking_full||0)>0?row('(−) Cross-docking Full (CFCB+CFBA)',cb.cross_docking_full||0,pb.cross_docking_full||0,dt.cross_docking_full,false,true):''}
           ${(cb.almacenamiento_full||0)>0?row('(−) Almacenamiento Full (CFWA)',cb.almacenamiento_full||0,pb.almacenamiento_full||0,dt.almacenamiento_full,false,true):''}
           ${(cb.mantenimiento_pagina||0)>0?row('(−) Mantenimiento Mi Página (CESM)',cb.mantenimiento_pagina||0,pb.mantenimiento_pagina||0,dt.mantenimiento_pagina,false,true):''}
           ${(cb.cargos_devolucion||0)>0?row('(−) Cargos devolución (CDSD)',cb.cargos_devolucion||0,pb.cargos_devolucion||0,dt.cargos_devolucion,false,true):''}
           ${(cb.afiliados||0)>0?row('(−) Afiliados (CVAF)',cb.afiliados||0,pb.afiliados||0,dt.afiliados,false,true):''}
-          ${(cb.anulaciones||0)>0?row('(+) Anulaciones ML (BV+BFF+BXD)',cb.anulaciones||0,pb.anulaciones||0,dt.anulaciones,true,true):''}
+          ${(cb.anulaciones||0)>0?row('(+) Anulaciones ML',cb.anulaciones||0,pb.anulaciones||0,dt.anulaciones,true,true):''}
           ${subtotal('= Utilidad neta final',utilNeta,true)}
         </tbody>
       </table>
@@ -1958,8 +1961,9 @@ function exportPyL(){
   const MES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const uB=c.venta_bruta-c.comision_ml-c.costo_envio-c.costo_producto;
   const puB=p.venta_bruta-p.comision_ml-p.costo_envio-p.costo_producto;
-  const uN=c.utilidad_neta!=null?c.utilidad_neta:(c.utilidad-(cb.almacenamiento_full||0)-(cb.mantenimiento_pagina||0)-(cb.cargos_devolucion||0)-(cb.afiliados||0)+(cb.anulaciones||0));
-  const puN=p.utilidad_neta!=null?p.utilidad_neta:(p.utilidad-(pb.almacenamiento_full||0)-(pb.mantenimiento_pagina||0)-(pb.cargos_devolucion||0)-(pb.afiliados||0)+(pb.anulaciones||0));
+  const xtraNet=(b)=>-(b.asesoria_otros||0)-(b.envios_full||0)-(b.cross_docking_full||0)-(b.almacenamiento_full||0)-(b.mantenimiento_pagina||0)-(b.cargos_devolucion||0)-(b.afiliados||0)+(b.anulaciones||0);
+  const uN=c.utilidad_neta!=null?c.utilidad_neta:(c.utilidad+xtraNet(cb));
+  const puN=p.utilidad_neta!=null?p.utilidad_neta:(p.utilidad+xtraNet(pb));
   const K=`${MES[d.month]} ${d.year}`,P=MES[d.month-1===0?12:d.month-1];
   const rows=[
     {'Concepto':'(+) Ventas brutas',[K]:c.venta_bruta,[P]:p.venta_bruta},
@@ -1969,6 +1973,9 @@ function exportPyL(){
     {'Concepto':'= Utilidad bruta',[K]:uB,[P]:puB},
     {'Concepto':'(-) Publicidad',[K]:-(c.inversion_publicidad||0),[P]:-(p.inversion_publicidad||0)},
     {'Concepto':'= Utilidad operativa',[K]:c.utilidad,[P]:p.utilidad},
+    {'Concepto':'(-) Asesoría y otros cargos ML',[K]:-(cb.asesoria_otros||0),[P]:-(pb.asesoria_otros||0)},
+    {'Concepto':'(-) Envíos Full adicionales',[K]:-(cb.envios_full||0),[P]:-(pb.envios_full||0)},
+    {'Concepto':'(-) Cross-docking Full',[K]:-(cb.cross_docking_full||0),[P]:-(pb.cross_docking_full||0)},
     {'Concepto':'(-) Almacenamiento Full',[K]:-(cb.almacenamiento_full||0),[P]:-(pb.almacenamiento_full||0)},
     {'Concepto':'(-) Mantenimiento Mi Página',[K]:-(cb.mantenimiento_pagina||0),[P]:-(pb.mantenimiento_pagina||0)},
     {'Concepto':'(-) Cargos devolución',[K]:-(cb.cargos_devolucion||0),[P]:-(pb.cargos_devolucion||0)},

@@ -26,6 +26,7 @@ let costosCache = null;                       // Array de costos_productos
 let costosCacheTime = 0;
 const COSTOS_TTL = 30 * 60 * 1000;           // 30 minutos
 const billingCache = new Map();               // "YYYY-M" → { data, ts }; meses pasados: indefinido, mes actual: 1h
+billingCache.clear();                         // fuerza recalculo al reiniciar (importa al cambiar lógica de IVA)
 
 async function loadTokenFromSupabase() {
   try {
@@ -1511,7 +1512,7 @@ async function getBillingResumen(month, year) {
 
     for (const rec of results) {
       const sub = rec.charge_info?.detail_sub_type || 'OTHER';
-      sums[sub] = (sums[sub] || 0) + (rec.charge_info?.detail_amount || 0);
+      sums[sub] = (sums[sub] || 0) + (rec.charge_info?.detail_amount || 0) / 1.16;
     }
     fetched += results.length;
     offset  += results.length;
@@ -1524,24 +1525,23 @@ async function getBillingResumen(month, year) {
   const comisiones_venta    = g(['CV']);
   const costo_envios        = g(['CFF', 'CXD']);
   const publicidad          = g(['PADS']);
-  const anulaciones         = g(['BV', 'BFF', 'BXD']);       // crédito positivo (reduce costos)
+  const anulaciones         = g(['BV', 'BFF', 'BXD']);
   const almacenamiento_full = g(['CFWA']);
   const mantenimiento_pagina= g(['CESM']);
   const cargos_devolucion   = g(['CDSD']);
   const afiliados           = g(['CVAF']);
-  // Cargos logísticos Full adicionales
-  const retiro_stock_full   = g(['CFRS']);                    // retiro de stock Full
-  const cargo_picking_full  = g(['CPAC']);                    // cargo por activación/picking
-  const cargo_cross_full    = g(['CFCB', 'CFBA']);            // cross-docking y bulto almacenado
+  const asesoria_otros      = g(['CPAC']);                    // "Otros cargos" / asesoría
+  const envios_full         = g(['CFRS']);                    // envíos Full (retiro de stock)
+  const cross_docking_full  = g(['CFCB', 'CFBA']);            // cross-docking y bulto Full
   const total_cargos = comisiones_venta + costo_envios + publicidad - anulaciones
     + almacenamiento_full + mantenimiento_pagina + cargos_devolucion + afiliados
-    + retiro_stock_full + cargo_picking_full + cargo_cross_full;
+    + asesoria_otros + envios_full + cross_docking_full;
 
   const data = {
     key, month, year,
     comisiones_venta, costo_envios, publicidad, anulaciones,
     almacenamiento_full, mantenimiento_pagina, cargos_devolucion, afiliados,
-    retiro_stock_full, cargo_picking_full, cargo_cross_full,
+    asesoria_otros, envios_full, cross_docking_full,
     total_cargos, raw: sums
   };
   billingCache.set(cacheKey, { data, ts: Date.now() });
@@ -1579,15 +1579,18 @@ app.get('/api/estado-resultados', async (req, res) => {
       getBillingResumen(pm, py),
     ]);
 
-    // Utilidad neta = utilidad operativa − cargos extra ML + anulaciones
-    const utilNeta     = curr.totals.utilidad - billing.almacenamiento_full - billing.mantenimiento_pagina - billing.cargos_devolucion - billing.afiliados + billing.anulaciones;
-    const utilNetaPrev = prev.totals.utilidad - billingPrev.almacenamiento_full - billingPrev.mantenimiento_pagina - billingPrev.cargos_devolucion - billingPrev.afiliados + billingPrev.anulaciones;
+    // Utilidad neta = utilidad operativa − todos los cargos extra ML (sin IVA) + anulaciones
+    const extraNet = (b) => -(b.asesoria_otros||0) - (b.envios_full||0) - (b.cross_docking_full||0)
+      - (b.almacenamiento_full||0) - (b.mantenimiento_pagina||0) - (b.cargos_devolucion||0)
+      - (b.afiliados||0) + (b.anulaciones||0);
+    const utilNeta     = curr.totals.utilidad + extraNet(billing);
+    const utilNetaPrev = prev.totals.utilidad + extraNet(billingPrev);
 
     const delta = (a, b) => b > 0 ? (a - b) / b * 100 : null;
     res.json({
       month, year, from, to,
-      current:  { ...curr.totals,  total_ordenes: curr.total_ordenes,  billing,      utilidad_neta: utilNeta     },
-      previous: { ...prev.totals, total_ordenes: prev.total_ordenes, billing: billingPrev, utilidad_neta: utilNetaPrev },
+      current:  { ...curr.totals,  total_ordenes: curr.total_ordenes,  billing,            utilidad_neta: utilNeta     },
+      previous: { ...prev.totals,  total_ordenes: prev.total_ordenes,  billing: billingPrev, utilidad_neta: utilNetaPrev },
       delta: {
         venta_bruta:          delta(curr.totals.venta_bruta,          prev.totals.venta_bruta),
         comision_ml:          delta(curr.totals.comision_ml,          prev.totals.comision_ml),
@@ -1595,6 +1598,9 @@ app.get('/api/estado-resultados', async (req, res) => {
         costo_producto:       delta(curr.totals.costo_producto,       prev.totals.costo_producto),
         inversion_publicidad: delta(curr.totals.inversion_publicidad, prev.totals.inversion_publicidad),
         utilidad:             delta(curr.totals.utilidad,             prev.totals.utilidad),
+        asesoria_otros:       delta(billing.asesoria_otros,           billingPrev.asesoria_otros),
+        envios_full:          delta(billing.envios_full,              billingPrev.envios_full),
+        cross_docking_full:   delta(billing.cross_docking_full,       billingPrev.cross_docking_full),
         almacenamiento_full:  delta(billing.almacenamiento_full,      billingPrev.almacenamiento_full),
         mantenimiento_pagina: delta(billing.mantenimiento_pagina,     billingPrev.mantenimiento_pagina),
         cargos_devolucion:    delta(billing.cargos_devolucion,        billingPrev.cargos_devolucion),
