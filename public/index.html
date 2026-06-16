@@ -1132,7 +1132,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
           <textarea id="preg-reply-ta" rows="4" placeholder="Escribe tu respuesta..." style="width:100%;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box"></textarea>
           <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-            <button type="button" class="btn-refresh" id="preg-ai-btn" onclick="sugerirAI()" style="background:#7c3aed;color:#fff;border-color:#7c3aed">✨ Sugerir con AI</button>
             <button type="button" class="btn-refresh" id="preg-send-btn" onclick="enviarRespuesta()" style="flex:1">Enviar respuesta</button>
           </div>
           <div id="preg-reply-status" style="margin-top:10px;font-size:12px;text-align:center"></div>
@@ -3167,31 +3166,6 @@ function insertQuick(key) {
   ta.focus();
 }
 
-async function sugerirAI() {
-  const btn = document.getElementById('preg-ai-btn');
-  const sta = document.getElementById('preg-reply-status');
-  btn.disabled = true;
-  btn.textContent = '✨ Pensando...';
-  sta.textContent = '';
-  try {
-    const params = new URLSearchParams({
-      question: _pregState.activeQuestion,
-      item_title: _pregState.activeItemTitle
-    });
-    const r = await fetch(`/api/preguntas/${_pregState.activeId}/sugerir?${params}`);
-    const d = await r.json();
-    if (d.suggestion) {
-      document.getElementById('preg-reply-ta').value = d.suggestion;
-    } else if (d.error) {
-      sta.innerHTML = `<span style="color:var(--red)">${esc(d.error)}</span>`;
-    }
-  } catch(e) {
-    sta.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '✨ Sugerir con AI';
-  }
-}
 
 async function enviarRespuesta() {
   const ta = document.getElementById('preg-reply-ta');

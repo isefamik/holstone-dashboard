@@ -5,7 +5,6 @@ const path = require('path');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const { createClient } = require('@supabase/supabase-js');
-const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
 
 const app = express();
@@ -1848,26 +1847,3 @@ app.post('/api/preguntas/:id/responder', async (req, res) => {
   }
 });
 
-// GET /api/preguntas/:id/sugerir  — genera respuesta con Claude
-app.get('/api/preguntas/:id/sugerir', async (req, res) => {
-  try {
-    const { question, item_title } = req.query;
-    if (!question) return res.status(400).json({ error: 'question requerido' });
-
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(503).json({ error: 'ANTHROPIC_API_KEY no configurada' });
-    }
-
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
-      system: `Eres el asistente de ventas de Holstone, una marca mexicana de ropa casual de hombre que vende en MercadoLibre México. Responde preguntas de compradores de forma amable, breve y profesional en español. Usa "¡Hola!" al inicio. Menciona el producto si es relevante. Máximo 3 oraciones.`,
-      messages: [{ role: 'user', content: `Producto: "${item_title || 'pantalón Holstone'}"\nPregunta del comprador: "${question}"\nEscribe una respuesta para el vendedor.` }]
-    });
-
-    res.json({ suggestion: msg.content[0].text });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
