@@ -1510,9 +1510,11 @@ async function getBillingResumen(month, year) {
     const results = r.results || [];
     if (!results.length) break;
 
+    const WITH_IVA = new Set(['CPAC','CFRS','CFWA','CESM','CFCB','CFBA','CVAF','CDSD']);
     for (const rec of results) {
       const sub = rec.charge_info?.detail_sub_type || 'OTHER';
-      sums[sub] = (sums[sub] || 0) + (rec.charge_info?.detail_amount || 0) / 1.16;
+      const amt = rec.charge_info?.detail_amount || 0;
+      sums[sub] = (sums[sub] || 0) + (WITH_IVA.has(sub) ? amt / 1.16 : amt);
     }
     fetched += results.length;
     offset  += results.length;
