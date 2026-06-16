@@ -377,7 +377,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="nav-item" onclick="showSection('finanzas',this);initFinanzasSection()">
       <span class="nav-icon">💰</span><span>Finanzas</span>
     </div>
-    <div class="nav-item" onclick="showSection('preguntas',this);loadPreguntas()">
+    <div class="nav-item" onclick="showSection('preguntas',this);initPreguntasSection()">
       <span class="nav-icon">💬</span><span>Preguntas</span><span id="preguntas-badge" style="display:none;margin-left:auto;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px"></span>
     </div>
     <div class="nav-item" onclick="showSection('devoluciones',this)">
@@ -1091,7 +1091,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="preguntas" class="section">
 
       <!-- Métricas de respuesta -->
-      <div id="preg-metricas" class="grid-3" style="margin-bottom:24px">
+      <div id="preg-metricas" class="grid-3" style="display:grid;margin-bottom:24px">
         <div class="metric"><div class="metric-label">Tiempo promedio de respuesta</div><div class="metric-value" id="preg-m-tiempo">—</div><div class="metric-sub" id="preg-m-tiempo-sub"></div></div>
         <div class="metric"><div class="metric-label">Total respondidas</div><div class="metric-value" id="preg-m-total">—</div><div class="metric-sub">preguntas respondidas</div></div>
         <div class="metric"><div class="metric-label">Respondidas en &lt;1 hora</div><div class="metric-value" id="preg-m-pct">—</div><div class="metric-sub" id="preg-m-pct-sub"></div></div>
@@ -2985,8 +2985,15 @@ const QUICK_REPLIES = {
   factura: 'Sí, emitimos factura. Al realizar tu compra escríbenos tus datos fiscales y con gusto te la enviamos.'
 };
 
+function initPreguntasSection() {
+  document.getElementById('preg-metricas').style.display = 'grid';
+  loadPregMetricas();
+  loadPendientes(true);
+  loadPreguntasBadge();
+}
+
 async function loadPreguntas() {
-  await Promise.all([loadPendientes(true), loadPreguntasBadge(), loadPregMetricas()]);
+  initPreguntasSection();
 }
 
 async function loadPregMetricas() {
