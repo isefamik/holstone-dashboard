@@ -1109,34 +1109,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
       </div>
 
-      <!-- Panel responder (overlay) -->
-      <div id="preg-reply-panel" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center" onclick="if(event.target===this)closePregPanel()">
-        <div style="background:#fff;width:100%;max-width:620px;border-radius:16px 16px 0 0;padding:24px 24px 32px;max-height:80vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,.18)">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
-            <div>
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px">Respondiendo a</div>
-              <div id="preg-reply-item" style="font-size:14px;font-weight:600;color:var(--text)"></div>
-              <div id="preg-reply-text" style="font-size:13px;color:var(--muted);margin-top:6px;font-style:italic"></div>
-            </div>
-            <button type="button" onclick="closePregPanel()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px">✕</button>
-          </div>
-          <div style="margin-bottom:12px">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px">Respuestas rápidas</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px">
-              <button type="button" class="qr-btn" onclick="insertQuick('saludo')">👋 Saludo</button>
-              <button type="button" class="qr-btn" onclick="insertQuick('envios')">🚚 Envíos</button>
-              <button type="button" class="qr-btn" onclick="insertQuick('tallas')">📏 Tallas</button>
-              <button type="button" class="qr-btn" onclick="insertQuick('devolucion')">🔄 Devolución</button>
-              <button type="button" class="qr-btn" onclick="insertQuick('factura')">🧾 Factura</button>
-            </div>
-          </div>
-          <textarea id="preg-reply-ta" rows="4" placeholder="Escribe tu respuesta..." style="width:100%;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box"></textarea>
-          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-            <button type="button" class="btn-refresh" id="preg-send-btn" onclick="enviarRespuesta()" style="flex:1">Enviar respuesta</button>
-          </div>
-          <div id="preg-reply-status" style="margin-top:10px;font-size:12px;text-align:center"></div>
-        </div>
-      </div>
     </div>
 
   </div><!-- .content -->
@@ -2998,9 +2970,8 @@ function renderTendencia(){
 
 // ═══ PREGUNTAS ═══
 let _pregState = {
-  pendOffset: 0, pendTotal: 0, pendPage: [],
-  histOffset: 0, histTotal: 0,
-  activeId: null, activeQuestion: '', activeItemTitle: ''
+  pendOffset: 0, pendTotal: 0,
+  histOffset: 0, histTotal: 0
 };
 
 const QUICK_REPLIES = {
@@ -3023,8 +2994,7 @@ async function loadPreguntasBadge() {
     const badge = document.getElementById('preguntas-badge');
     const pend  = document.getElementById('preg-pend-count');
     if (d.total > 0) {
-      badge.textContent = d.total;
-      badge.style.display = '';
+      badge.textContent = d.total; badge.style.display = '';
       if (pend) { pend.textContent = d.total; pend.style.display = ''; }
     } else {
       badge.style.display = 'none';
@@ -3041,7 +3011,6 @@ async function loadPendientes(reset=false) {
     const r = await fetch(`/api/preguntas?status=UNANSWERED&limit=20&offset=${_pregState.pendOffset}`);
     const d = await r.json();
     _pregState.pendTotal = d.total || 0;
-    _pregState.pendPage  = d.questions || [];
     renderPendientes(d.questions || [], d.total || 0);
   } catch(e) {
     el.innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
@@ -3064,26 +3033,60 @@ function renderPendientes(questions, total) {
     const thumb = q.item?.thumbnail
       ? `<img class="preg-thumb" src="${q.item.thumbnail.replace('http:','https:')}" onerror="this.style.display='none'">`
       : `<div class="preg-thumb-ph">👕</div>`;
+    const replySection = expired ? '' : `
+      <div id="preg-inline-${q.id}" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px">Respuestas rápidas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          <button type="button" class="qr-btn" onclick="insertQuick('saludo',${q.id})">👋 Saludo</button>
+          <button type="button" class="qr-btn" onclick="insertQuick('envios',${q.id})">🚚 Envíos</button>
+          <button type="button" class="qr-btn" onclick="insertQuick('tallas',${q.id})">📏 Tallas</button>
+          <button type="button" class="qr-btn" onclick="insertQuick('devolucion',${q.id})">🔄 Devolución</button>
+          <button type="button" class="qr-btn" onclick="insertQuick('factura',${q.id})">🧾 Factura</button>
+        </div>
+        <textarea id="preg-ta-${q.id}" rows="3" placeholder="Escribe tu respuesta..." style="width:100%;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box"></textarea>
+        <div style="margin-top:8px">
+          <button type="button" id="preg-send-${q.id}" class="btn-refresh" onclick="enviarRespuesta(${q.id})" style="width:100%">Enviar respuesta</button>
+        </div>
+        <div id="preg-sta-${q.id}" style="margin-top:8px;font-size:12px;text-align:center"></div>
+      </div>`;
     const action = expired
       ? `<span style="background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px">Expirada</span>`
-      : `<button class="btn-refresh" onclick="openPregPanel(${q.id},'${escAttr(q.text)}','${escAttr(q.item?.title||q.item_id)}')">💬 Responder</button>`;
-    return `<div class="preg-card">
+      : `<button type="button" class="btn-refresh" id="preg-btn-${q.id}" onclick="togglePregReply(${q.id},this)">💬 Responder</button>`;
+    return `<div class="preg-card" id="preg-card-${q.id}">
       ${thumb}
-      <div class="preg-body">
+      <div class="preg-body" style="width:100%">
         <div class="preg-item-title">${esc(q.item?.title || q.item_id)}</div>
         <div class="preg-question">"${esc(q.text)}"</div>
         <div class="preg-meta">${ago}</div>
         <div class="preg-actions">${action}</div>
+        ${replySection}
       </div>
     </div>`;
   }).join('');
 
   const pag = total > 20 ? `<div style="display:flex;gap:10px;align-items:center;margin-top:16px">
-    ${_pregState.pendOffset > 0 ? `<button class="btn-refresh" onclick="loadPendientes(false,-1)">← Anterior</button>` : ''}
+    ${_pregState.pendOffset > 0 ? `<button class="btn-refresh" onclick="navPendientes(-1)">← Anterior</button>` : ''}
     <span style="font-size:12px;color:var(--muted)">Mostrando ${_pregState.pendOffset+1}–${Math.min(_pregState.pendOffset+20,total)} de ${total}</span>
     ${_pregState.pendOffset+20 < total ? `<button class="btn-refresh" onclick="navPendientes(1)">Siguiente →</button>` : ''}
   </div>` : '';
   el.innerHTML = cards + pag;
+}
+
+function togglePregReply(id, btn) {
+  // Close any other open reply panels
+  document.querySelectorAll('[id^="preg-inline-"]').forEach(el => {
+    if (el.id !== `preg-inline-${id}` && el.style.display !== 'none') {
+      el.style.display = 'none';
+      const otherId = el.id.replace('preg-inline-', '');
+      const otherBtn = document.getElementById(`preg-btn-${otherId}`);
+      if (otherBtn) otherBtn.textContent = '💬 Responder';
+    }
+  });
+  const panel = document.getElementById(`preg-inline-${id}`);
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? '' : 'none';
+  btn.textContent = open ? '✕ Cancelar' : '💬 Responder';
+  if (open) document.getElementById(`preg-ta-${id}`).focus();
 }
 
 function navPendientes(dir) {
@@ -3147,40 +3150,22 @@ function showPregTab(tab, btn) {
   if (tab === 'historial' && _pregState.histTotal === 0) loadHistorial(0);
 }
 
-function openPregPanel(id, question, itemTitle) {
-  _pregState.activeId = id;
-  _pregState.activeQuestion = question;
-  _pregState.activeItemTitle = itemTitle;
-  document.getElementById('preg-reply-item').textContent = itemTitle;
-  document.getElementById('preg-reply-text').textContent = `"${question}"`;
-  document.getElementById('preg-reply-ta').value = '';
-  document.getElementById('preg-reply-status').textContent = '';
-  const panel = document.getElementById('preg-reply-panel');
-  panel.style.display = 'flex';
+function insertQuick(key, id) {
+  const ta = document.getElementById(`preg-ta-${id}`);
+  if (ta) { ta.value = QUICK_REPLIES[key] || ''; ta.focus(); }
 }
 
-function closePregPanel() {
-  document.getElementById('preg-reply-panel').style.display = 'none';
-}
-
-function insertQuick(key) {
-  const ta = document.getElementById('preg-reply-ta');
-  ta.value = QUICK_REPLIES[key] || '';
-  ta.focus();
-}
-
-
-async function enviarRespuesta() {
-  const ta = document.getElementById('preg-reply-ta');
-  const btn = document.getElementById('preg-send-btn');
-  const sta = document.getElementById('preg-reply-status');
+async function enviarRespuesta(id) {
+  const ta  = document.getElementById(`preg-ta-${id}`);
+  const btn = document.getElementById(`preg-send-${id}`);
+  const sta = document.getElementById(`preg-sta-${id}`);
   const text = ta.value.trim();
   if (!text) { sta.innerHTML = '<span style="color:var(--red)">Escribe una respuesta.</span>'; return; }
   btn.disabled = true;
   btn.textContent = 'Enviando...';
   sta.textContent = '';
   try {
-    const r = await fetch(`/api/preguntas/${_pregState.activeId}/responder`, {
+    const r = await fetch(`/api/preguntas/${id}/responder`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
@@ -3189,16 +3174,17 @@ async function enviarRespuesta() {
     if (r.ok) {
       sta.innerHTML = '<span style="color:var(--green)">✓ Respuesta enviada</span>';
       setTimeout(() => {
-        closePregPanel();
-        loadPendientes(true);
+        const card = document.getElementById(`preg-card-${id}`);
+        if (card) card.remove();
         loadPreguntasBadge();
-      }, 1200);
+      }, 900);
     } else {
       sta.innerHTML = `<span style="color:var(--red)">Error: ${esc(d.message||JSON.stringify(d))}</span>`;
+      btn.disabled = false;
+      btn.textContent = 'Enviar respuesta';
     }
   } catch(e) {
     sta.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
-  } finally {
     btn.disabled = false;
     btn.textContent = 'Enviar respuesta';
   }
