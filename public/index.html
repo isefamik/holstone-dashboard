@@ -54,6 +54,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .section{display:none}
 .section.active{display:block}
 
+/* ── PREGUNTAS ── */
+.preg-tab{background:none;border:none;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s}
+.preg-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.preg-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;display:flex;gap:14px;align-items:flex-start}
+.preg-thumb{width:60px;height:60px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--bg)}
+.preg-thumb-ph{width:60px;height:60px;border-radius:8px;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.preg-body{flex:1;min-width:0}
+.preg-item-title{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.preg-question{font-size:14px;color:var(--text);margin-bottom:6px;line-height:1.4}
+.preg-meta{font-size:11px;color:var(--muted)}
+.preg-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.qr-btn{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11px;cursor:pointer;transition:background .12s}
+.qr-btn:hover{background:var(--border)}
+
 /* ── GRIDS ── */
 .grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
@@ -362,6 +376,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="nav-group">Gestión</div>
     <div class="nav-item" onclick="showSection('finanzas',this);initFinanzasSection()">
       <span class="nav-icon">💰</span><span>Finanzas</span>
+    </div>
+    <div class="nav-item" onclick="showSection('preguntas',this);loadPreguntas()">
+      <span class="nav-icon">💬</span><span>Preguntas</span><span id="preguntas-badge" style="display:none;margin-left:auto;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px"></span>
     </div>
     <div class="nav-item" onclick="showSection('devoluciones',this)">
       <span class="nav-icon">🔄</span><span>Devoluciones</span>
@@ -1070,6 +1087,59 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div id="rep-content"><div class="loading"><div class="spin"></div>Cargando reputación...</div></div>
     </div>
 
+    <!-- ═══ PREGUNTAS ═══ -->
+    <div id="preguntas" class="section">
+      <div class="preg-tabs-nav" style="display:flex;border-bottom:2px solid var(--border);margin-bottom:0;gap:0">
+        <button type="button" class="preg-tab active" id="preg-tab-pend-btn" onclick="showPregTab('pendientes',this)">Pendientes <span id="preg-pend-count" style="display:none;margin-left:5px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px"></span></button>
+        <button type="button" class="preg-tab" id="preg-tab-hist-btn" onclick="showPregTab('historial',this)">Historial</button>
+      </div>
+
+      <!-- Tab pendientes -->
+      <div id="preg-pane-pendientes" class="preg-pane" style="padding-top:20px">
+        <div id="preg-pend-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
+      </div>
+
+      <!-- Tab historial -->
+      <div id="preg-pane-historial" class="preg-pane" style="display:none;padding-top:20px">
+        <div id="preg-hist-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
+        <div style="margin-top:16px;display:flex;gap:10px;align-items:center" id="preg-hist-pagination" style="display:none">
+          <button type="button" class="btn-refresh" id="preg-hist-prev" onclick="loadHistorial(-1)">← Anterior</button>
+          <span id="preg-hist-page-info" style="font-size:12px;color:var(--muted)"></span>
+          <button type="button" class="btn-refresh" id="preg-hist-next" onclick="loadHistorial(1)">Siguiente →</button>
+        </div>
+      </div>
+
+      <!-- Panel responder (overlay) -->
+      <div id="preg-reply-panel" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center" onclick="if(event.target===this)closePregPanel()">
+        <div style="background:#fff;width:100%;max-width:620px;border-radius:16px 16px 0 0;padding:24px 24px 32px;max-height:80vh;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,.18)">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+            <div>
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px">Respondiendo a</div>
+              <div id="preg-reply-item" style="font-size:14px;font-weight:600;color:var(--text)"></div>
+              <div id="preg-reply-text" style="font-size:13px;color:var(--muted);margin-top:6px;font-style:italic"></div>
+            </div>
+            <button type="button" onclick="closePregPanel()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px">✕</button>
+          </div>
+          <div style="margin-bottom:12px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px">Respuestas rápidas</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <button type="button" class="qr-btn" onclick="insertQuick('saludo')">👋 Saludo</button>
+              <button type="button" class="qr-btn" onclick="insertQuick('envios')">🚚 Envíos</button>
+              <button type="button" class="qr-btn" onclick="insertQuick('tallas')">📏 Tallas</button>
+              <button type="button" class="qr-btn" onclick="insertQuick('devolucion')">🔄 Devolución</button>
+              <button type="button" class="qr-btn" onclick="insertQuick('factura')">🧾 Factura</button>
+            </div>
+          </div>
+          <textarea id="preg-reply-ta" rows="4" placeholder="Escribe tu respuesta..." style="width:100%;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box"></textarea>
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+            <button type="button" class="btn-refresh" id="preg-ai-btn" onclick="sugerirAI()" style="background:#7c3aed;color:#fff;border-color:#7c3aed">✨ Sugerir con AI</button>
+            <button type="button" class="btn-refresh" id="preg-send-btn" onclick="enviarRespuesta()" style="flex:1">Enviar respuesta</button>
+          </div>
+          <div id="preg-reply-status" style="margin-top:10px;font-size:12px;text-align:center"></div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- .content -->
 </div><!-- .main -->
 
@@ -1098,7 +1168,7 @@ function renderDelta(elId,current,previous,label='vs ayer'){
 const PAGE_TITLES={
   inicio:'Inicio',ventas:'Ventas',
   stock:'Stock',publicidad:'Publicidad',finanzas:'Finanzas',
-  devoluciones:'Devoluciones',reputacion:'Reputación'
+  devoluciones:'Devoluciones',reputacion:'Reputación',preguntas:'Preguntas'
 };
 
 function showSection(name,el){
@@ -2927,6 +2997,249 @@ function renderTendencia(){
   });
 }
 
+// ═══ PREGUNTAS ═══
+let _pregState = {
+  pendOffset: 0, pendTotal: 0, pendPage: [],
+  histOffset: 0, histTotal: 0,
+  activeId: null, activeQuestion: '', activeItemTitle: ''
+};
+
+const QUICK_REPLIES = {
+  saludo: '¡Hola! Gracias por tu interés. ¿En qué puedo ayudarte?',
+  envios: 'El envío está incluido en el precio. Hacemos envíos a toda la República Mexicana. Los tiempos de entrega son de 2 a 5 días hábiles.',
+  tallas: 'Manejamos tallas S, M, L, XL y XXL. Si tienes dudas sobre tu talla, con gusto te orientamos con nuestra guía de tallas.',
+  devolucion: 'Aceptamos devoluciones dentro de los primeros 30 días. El producto debe estar en su estado original con etiquetas.',
+  factura: 'Sí, emitimos factura. Al realizar tu compra escríbenos tus datos fiscales y con gusto te la enviamos.'
+};
+
+async function loadPreguntas() {
+  await loadPendientes(true);
+  await loadPreguntasBadge();
+}
+
+async function loadPreguntasBadge() {
+  try {
+    const r = await fetch('/api/preguntas?status=UNANSWERED&limit=1&offset=0');
+    const d = await r.json();
+    const badge = document.getElementById('preguntas-badge');
+    const pend  = document.getElementById('preg-pend-count');
+    if (d.total > 0) {
+      badge.textContent = d.total;
+      badge.style.display = '';
+      if (pend) { pend.textContent = d.total; pend.style.display = ''; }
+    } else {
+      badge.style.display = 'none';
+      if (pend) pend.style.display = 'none';
+    }
+  } catch(e) { console.warn('Badge error:', e); }
+}
+
+async function loadPendientes(reset=false) {
+  if (reset) _pregState.pendOffset = 0;
+  const el = document.getElementById('preg-pend-content');
+  el.innerHTML = spin();
+  try {
+    const r = await fetch(`/api/preguntas?status=UNANSWERED&limit=20&offset=${_pregState.pendOffset}`);
+    const d = await r.json();
+    _pregState.pendTotal = d.total || 0;
+    _pregState.pendPage  = d.questions || [];
+    renderPendientes(d.questions || [], d.total || 0);
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+  }
+}
+
+function renderPendientes(questions, total) {
+  const el = document.getElementById('preg-pend-content');
+  if (!questions.length) {
+    el.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
+      <div style="font-size:40px;margin-bottom:12px">✅</div>
+      <div style="font-size:15px;font-weight:600">Sin preguntas pendientes</div>
+    </div>`;
+    return;
+  }
+  const cards = questions.map(q => {
+    const ago = timeAgo(q.date_created);
+    const thumb = q.item?.thumbnail
+      ? `<img class="preg-thumb" src="${q.item.thumbnail.replace('http:','https:')}" onerror="this.style.display='none'">`
+      : `<div class="preg-thumb-ph">👕</div>`;
+    return `<div class="preg-card">
+      ${thumb}
+      <div class="preg-body">
+        <div class="preg-item-title">${esc(q.item?.title || q.item_id)}</div>
+        <div class="preg-question">"${esc(q.text)}"</div>
+        <div class="preg-meta">${ago}</div>
+        <div class="preg-actions">
+          <button class="btn-refresh" onclick="openPregPanel(${q.id},'${escAttr(q.text)}','${escAttr(q.item?.title||q.item_id)}')">💬 Responder</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const pag = total > 20 ? `<div style="display:flex;gap:10px;align-items:center;margin-top:16px">
+    ${_pregState.pendOffset > 0 ? `<button class="btn-refresh" onclick="loadPendientes(false,-1)">← Anterior</button>` : ''}
+    <span style="font-size:12px;color:var(--muted)">Mostrando ${_pregState.pendOffset+1}–${Math.min(_pregState.pendOffset+20,total)} de ${total}</span>
+    ${_pregState.pendOffset+20 < total ? `<button class="btn-refresh" onclick="navPendientes(1)">Siguiente →</button>` : ''}
+  </div>` : '';
+  el.innerHTML = cards + pag;
+}
+
+function navPendientes(dir) {
+  _pregState.pendOffset = Math.max(0, _pregState.pendOffset + dir * 20);
+  loadPendientes(false);
+}
+
+async function loadHistorial(dir=0) {
+  if (dir !== 0) _pregState.histOffset = Math.max(0, _pregState.histOffset + dir * 20);
+  const el = document.getElementById('preg-hist-content');
+  el.innerHTML = spin();
+  try {
+    const r = await fetch(`/api/preguntas?status=ANSWERED&limit=20&offset=${_pregState.histOffset}`);
+    const d = await r.json();
+    _pregState.histTotal = d.total || 0;
+    renderHistorial(d.questions || [], d.total || 0);
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);padding:20px">Error: ${e.message}</div>`;
+  }
+}
+
+function renderHistorial(questions, total) {
+  const el = document.getElementById('preg-hist-content');
+  const pag = document.getElementById('preg-hist-pagination');
+  if (!questions.length) {
+    el.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">
+      <div style="font-size:14px">Sin preguntas respondidas</div>
+    </div>`;
+    if (pag) pag.style.display = 'none';
+    return;
+  }
+  const rows = questions.map(q => {
+    const ans = q.answer?.text || '—';
+    return `<tr>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(q.item?.title||q.item_id)}</td>
+      <td>${esc(q.text)}</td>
+      <td>${esc(ans)}</td>
+      <td style="white-space:nowrap">${q.answer?.date_created ? new Date(q.answer.date_created).toLocaleDateString('es-MX') : '—'}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<div style="overflow-x:auto">
+    <table class="tabla-ventas" style="min-width:600px">
+      <thead><tr><th>Producto</th><th>Pregunta</th><th>Respuesta</th><th>Fecha</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+  if (pag) {
+    pag.style.display = total > 20 ? '' : 'none';
+    document.getElementById('preg-hist-page-info').textContent =
+      `${_pregState.histOffset+1}–${Math.min(_pregState.histOffset+20,total)} de ${total}`;
+    document.getElementById('preg-hist-prev').style.display = _pregState.histOffset > 0 ? '' : 'none';
+    document.getElementById('preg-hist-next').style.display = _pregState.histOffset+20 < total ? '' : 'none';
+  }
+}
+
+function showPregTab(tab, btn) {
+  document.querySelectorAll('.preg-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.preg-pane').forEach(p => p.style.display = 'none');
+  btn.classList.add('active');
+  document.getElementById(`preg-pane-${tab}`).style.display = '';
+  if (tab === 'historial' && _pregState.histTotal === 0) loadHistorial(0);
+}
+
+function openPregPanel(id, question, itemTitle) {
+  _pregState.activeId = id;
+  _pregState.activeQuestion = question;
+  _pregState.activeItemTitle = itemTitle;
+  document.getElementById('preg-reply-item').textContent = itemTitle;
+  document.getElementById('preg-reply-text').textContent = `"${question}"`;
+  document.getElementById('preg-reply-ta').value = '';
+  document.getElementById('preg-reply-status').textContent = '';
+  const panel = document.getElementById('preg-reply-panel');
+  panel.style.display = 'flex';
+}
+
+function closePregPanel() {
+  document.getElementById('preg-reply-panel').style.display = 'none';
+}
+
+function insertQuick(key) {
+  const ta = document.getElementById('preg-reply-ta');
+  ta.value = QUICK_REPLIES[key] || '';
+  ta.focus();
+}
+
+async function sugerirAI() {
+  const btn = document.getElementById('preg-ai-btn');
+  const sta = document.getElementById('preg-reply-status');
+  btn.disabled = true;
+  btn.textContent = '✨ Pensando...';
+  sta.textContent = '';
+  try {
+    const params = new URLSearchParams({
+      question: _pregState.activeQuestion,
+      item_title: _pregState.activeItemTitle
+    });
+    const r = await fetch(`/api/preguntas/${_pregState.activeId}/sugerir?${params}`);
+    const d = await r.json();
+    if (d.suggestion) {
+      document.getElementById('preg-reply-ta').value = d.suggestion;
+    } else if (d.error) {
+      sta.innerHTML = `<span style="color:var(--red)">${esc(d.error)}</span>`;
+    }
+  } catch(e) {
+    sta.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✨ Sugerir con AI';
+  }
+}
+
+async function enviarRespuesta() {
+  const ta = document.getElementById('preg-reply-ta');
+  const btn = document.getElementById('preg-send-btn');
+  const sta = document.getElementById('preg-reply-status');
+  const text = ta.value.trim();
+  if (!text) { sta.innerHTML = '<span style="color:var(--red)">Escribe una respuesta.</span>'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  sta.textContent = '';
+  try {
+    const r = await fetch(`/api/preguntas/${_pregState.activeId}/responder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const d = await r.json();
+    if (r.ok) {
+      sta.innerHTML = '<span style="color:var(--green)">✓ Respuesta enviada</span>';
+      setTimeout(() => {
+        closePregPanel();
+        loadPendientes(true);
+        loadPreguntasBadge();
+      }, 1200);
+    } else {
+      sta.innerHTML = `<span style="color:var(--red)">Error: ${esc(d.message||JSON.stringify(d))}</span>`;
+    }
+  } catch(e) {
+    sta.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar respuesta';
+  }
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (d > 0) return `Hace ${d} día${d>1?'s':''}`;
+  if (h > 0) return `Hace ${h} hora${h>1?'s':''}`;
+  if (m > 0) return `Hace ${m} minuto${m>1?'s':''}`;
+  return 'Hace un momento';
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/\n/g,' '); }
+
 function loadAll(){
   document.getElementById('last-update').textContent='Actualizado: '+new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
   loadVentas();
@@ -2936,6 +3249,7 @@ function loadAll(){
   loadPerformance();
   loadEnvios('today');
   loadTendencia('7days');
+  loadPreguntasBadge();
 }
 
 loadAll();

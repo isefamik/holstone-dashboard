@@ -5,6 +5,7 @@ const path = require('path');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const { createClient } = require('@supabase/supabase-js');
+const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
 
 const app = express();
@@ -1791,5 +1792,82 @@ app.get('/api/tendencia-financiera', async (req, res) => {
     res.json({ months: monthData });
   } catch (e) {
     res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── Preguntas ────────────────────────────────────────────────────────────────
+
+// GET /api/preguntas?status=UNANSWERED|ANSWERED&limit=50&offset=0
+app.get('/api/preguntas', async (req, res) => {
+  try {
+    const status = req.query.status || 'UNANSWERED';
+    const limit  = Math.min(parseInt(req.query.limit)  || 50, 50);
+    const offset = parseInt(req.query.offset) || 0;
+
+    const data = await mlGet('https://api.mercadolibre.com/questions/search', {
+      seller_id: SELLER_ID, status, limit, offset
+    });
+
+    const questions = data.questions || [];
+
+    // Enriquece con título e imagen de cada item (dedupado)
+    const itemIds = [...new Set(questions.map(q => q.item_id).filter(Boolean))];
+    const itemMap = {};
+    await Promise.all(itemIds.map(async id => {
+      try {
+        const item = await mlGet(`https://api.mercadolibre.com/items/${id}`, { attributes: 'id,title,thumbnail' });
+        itemMap[id] = { title: item.title, thumbnail: item.thumbnail };
+      } catch { itemMap[id] = { title: id, thumbnail: null }; }
+    }));
+
+    const enriched = questions.map(q => ({
+      ...q,
+      item: itemMap[q.item_id] || { title: q.item_id, thumbnail: null }
+    }));
+
+    res.json({ total: data.total, offset, limit, questions: enriched });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// POST /api/preguntas/:id/responder  body: { text }
+app.post('/api/preguntas/:id/responder', async (req, res) => {
+  try {
+    const token = await getToken();
+    const { text } = req.body;
+    if (!text?.trim()) return res.status(400).json({ error: 'text requerido' });
+    const r = await axios.post(
+      'https://api.mercadolibre.com/answers',
+      { question_id: parseInt(req.params.id), text: text.trim() },
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    );
+    res.json(r.data);
+  } catch (e) {
+    res.status(e.response?.status || 500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// GET /api/preguntas/:id/sugerir  — genera respuesta con Claude
+app.get('/api/preguntas/:id/sugerir', async (req, res) => {
+  try {
+    const { question, item_title } = req.query;
+    if (!question) return res.status(400).json({ error: 'question requerido' });
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(503).json({ error: 'ANTHROPIC_API_KEY no configurada' });
+    }
+
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      system: `Eres el asistente de ventas de Holstone, una marca mexicana de ropa casual de hombre que vende en MercadoLibre México. Responde preguntas de compradores de forma amable, breve y profesional en español. Usa "¡Hola!" al inicio. Menciona el producto si es relevante. Máximo 3 oraciones.`,
+      messages: [{ role: 'user', content: `Producto: "${item_title || 'pantalón Holstone'}"\nPregunta del comprador: "${question}"\nEscribe una respuesta para el vendedor.` }]
+    });
+
+    res.json({ suggestion: msg.content[0].text });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
