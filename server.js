@@ -1321,100 +1321,263 @@ app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// ── FINANZAS: helper compartido ──────────────────────────────────────────────
+
+async function getFinancialPeriod(from, to) {
+  const fromISO = `${from}T00:00:00.000-06:00`;
+  const toISO   = `${to}T23:59:59.000-06:00`;
+
+  // 1. Paginar órdenes
+  let orders = [], offset = 0, total = 1;
+  while (offset < total && orders.length < 2000) {
+    const r = await mlGet('https://api.mercadolibre.com/orders/search', {
+      seller: SELLER_ID, 'order.status': 'paid',
+      'order.date_created.from': fromISO, 'order.date_created.to': toISO,
+      limit: 50, offset
+    });
+    total = r.paging.total;
+    orders = orders.concat(r.results);
+    offset += 50;
+  }
+
+  // 2. Costos de envío (deduplicado, concurrencia 5)
+  const shippingIds = [...new Set(orders.filter(o => o.shipping?.id).map(o => o.shipping.id))];
+  const shippingCosts = {};
+  for (let i = 0; i < shippingIds.length; i += 5) {
+    const batch = shippingIds.slice(i, i + 5);
+    const results = await Promise.all(batch.map(id =>
+      mlGet(`https://api.mercadolibre.com/shipments/${id}`).catch(() => null)
+    ));
+    results.forEach((r, j) => { if (r) shippingCosts[batch[j]] = r.shipping_option?.list_cost ?? r.base_cost ?? 0; });
+  }
+  const shipOrderCount = {};
+  orders.forEach(o => { if (o.shipping?.id) shipOrderCount[o.shipping.id] = (shipOrderCount[o.shipping.id] || 0) + 1; });
+
+  // 3. Inversión publicidad (total de campañas + desglose por item)
+  let inversion_publicidad = 0;
+  const adsItemMap = {};
+  try {
+    const campResp = await mlGetAds(
+      `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`,
+      { date_from: from, date_to: to, metrics: 'cost' }
+    );
+    inversion_publicidad = (campResp.results || []).reduce((s, c) => s + (c.metrics?.cost || 0), 0);
+    let ao = 0, at = 1;
+    while (ao < at) {
+      const d = await mlGetAds(
+        `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/ads/search`,
+        { date_from: from, date_to: to, metrics: 'cost', limit: 50, offset: ao }
+      );
+      at = d.paging.total;
+      (d.results || []).forEach(a => { if (a.item_id) adsItemMap[a.item_id] = (adsItemMap[a.item_id] || 0) + (a.metrics?.cost || 0); });
+      ao += 50;
+    }
+  } catch (e) { /* ads no disponibles */ }
+
+  // 4. Costos de Supabase
+  const { data: costosData } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
+  const costosMap = {};
+  (costosData || []).forEach(c => { costosMap[c.item_id] = c; });
+
+  // 5. Agregar por item_id
+  const byItem = {};
+  const totals = { venta_bruta: 0, comision_ml: 0, costo_envio: 0, costo_producto: 0 };
+  orders.forEach(o => {
+    const sid = o.shipping?.id;
+    const orderEnvioCost = sid ? (shippingCosts[sid] || 0) / (shipOrderCount[sid] || 1) : 0;
+    const totalQty = (o.order_items || []).reduce((s, i) => s + (i.quantity || 1), 0);
+    (o.order_items || []).forEach(oi => {
+      const itemId = oi.item?.id;
+      if (!itemId) return;
+      const qty     = oi.quantity || 1;
+      const venta   = (oi.unit_price || 0) * qty;
+      const comision= oi.sale_fee || 0;
+      const envio   = totalQty > 0 ? orderEnvioCost * qty / totalQty : 0;
+      const costoE  = costosMap[itemId];
+      const costo   = costoE ? costoE.costo_total * qty : 0;
+      if (!byItem[itemId]) byItem[itemId] = {
+        item_id: itemId, title: oi.item?.title || itemId,
+        unidades: 0, venta_bruta: 0, comision_ml: 0,
+        costo_envio: 0, costo_producto: 0, tiene_costo: !!costoE
+      };
+      byItem[itemId].unidades      += qty;
+      byItem[itemId].venta_bruta   += venta;
+      byItem[itemId].comision_ml   += comision;
+      byItem[itemId].costo_envio   += envio;
+      byItem[itemId].costo_producto+= costo;
+      totals.venta_bruta    += venta;
+      totals.comision_ml    += comision;
+      totals.costo_envio    += envio;
+      totals.costo_producto += costo;
+    });
+  });
+
+  Object.keys(byItem).forEach(id => { byItem[id].publicidad = adsItemMap[id] || 0; });
+
+  const items = Object.values(byItem).map(it => {
+    const utilidad = it.venta_bruta - it.comision_ml - it.costo_envio - it.costo_producto - it.publicidad;
+    const margen   = it.venta_bruta > 0 ? utilidad / it.venta_bruta * 100 : 0;
+    return { ...it, utilidad, margen };
+  }).sort((a, b) => b.utilidad - a.utilidad);
+
+  totals.inversion_publicidad = inversion_publicidad;
+  totals.utilidad       = totals.venta_bruta - totals.comision_ml - totals.costo_envio - totals.costo_producto - inversion_publicidad;
+  totals.margen_promedio= totals.venta_bruta > 0 ? totals.utilidad / totals.venta_bruta * 100 : 0;
+
+  return { items, totals, total_ordenes: orders.length, costosMap };
+}
+
 app.get('/api/rentabilidad', async (req, res) => {
   try {
     const from = req.query.from || dateNDaysAgo(6);
     const to   = req.query.to   || today();
-    const fromISO = `${from}T00:00:00.000-06:00`;
-    const toISO   = `${to}T23:59:59.000-06:00`;
+    const data = await getFinancialPeriod(from, to);
+    res.json({ from, to, ...data });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
 
-    // ── 1. Paginar todas las órdenes del período (cap 2000) ──────────────────
-    let orders = [], offset = 0, total = 1;
-    while (offset < total && orders.length < 2000) {
-      const r = await mlGet('https://api.mercadolibre.com/orders/search', {
-        seller: SELLER_ID, 'order.status': 'paid',
-        'order.date_created.from': fromISO, 'order.date_created.to': toISO,
-        limit: 50, offset
+app.get('/api/precio-sugerido', async (req, res) => {
+  try {
+    const from = req.query.from || dateNDaysAgo(29);
+    const to   = req.query.to   || today();
+    const { items } = await getFinancialPeriod(from, to);
+    const result = items.filter(it => it.tiene_costo && it.unidades > 0).map(it => {
+      const precio_actual  = it.venta_bruta / it.unidades;
+      const costo_unitario = (it.comision_ml + it.costo_envio + it.costo_producto) / it.unidades;
+      return {
+        item_id: it.item_id, title: it.title, unidades: it.unidades,
+        precio_actual, margen_actual: it.margen,
+        precio_para_20: costo_unitario / 0.80,
+        precio_para_25: costo_unitario / 0.75,
+        precio_para_30: costo_unitario / 0.70,
+      };
+    });
+    res.json({ from, to, items: result });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+app.get('/api/estado-resultados', async (req, res) => {
+  try {
+    const now = new Date();
+    const month = parseInt(req.query.month) || (now.getMonth() + 1);
+    const year  = parseInt(req.query.year)  || now.getFullYear();
+    const from  = `${year}-${String(month).padStart(2,'0')}-01`;
+    const to    = `${year}-${String(month).padStart(2,'0')}-${String(new Date(year, month, 0).getDate()).padStart(2,'0')}`;
+    const prevD = new Date(year, month - 2, 1);
+    const pm = prevD.getMonth() + 1, py = prevD.getFullYear();
+    const pfrom = `${py}-${String(pm).padStart(2,'0')}-01`;
+    const pto   = `${py}-${String(pm).padStart(2,'0')}-${String(new Date(py, pm, 0).getDate()).padStart(2,'0')}`;
+    const [curr, prev] = await Promise.all([getFinancialPeriod(from, to), getFinancialPeriod(pfrom, pto)]);
+    const delta = (a, b) => b > 0 ? (a - b) / b * 100 : null;
+    res.json({
+      month, year, from, to,
+      current:  { ...curr.totals, total_ordenes: curr.total_ordenes },
+      previous: { ...prev.totals, total_ordenes: prev.total_ordenes },
+      delta: {
+        venta_bruta:         delta(curr.totals.venta_bruta,         prev.totals.venta_bruta),
+        comision_ml:         delta(curr.totals.comision_ml,         prev.totals.comision_ml),
+        costo_envio:         delta(curr.totals.costo_envio,         prev.totals.costo_envio),
+        costo_producto:      delta(curr.totals.costo_producto,      prev.totals.costo_producto),
+        inversion_publicidad:delta(curr.totals.inversion_publicidad,prev.totals.inversion_publicidad),
+        utilidad:            delta(curr.totals.utilidad,            prev.totals.utilidad),
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+app.get('/api/tendencia-financiera', async (req, res) => {
+  try {
+    const n = Math.min(parseInt(req.query.months) || 6, 12);
+    const now = new Date();
+    const ranges = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear(), m = d.getMonth() + 1;
+      const ms = String(m).padStart(2,'0');
+      ranges.push({
+        label: d.toLocaleString('es-MX', { month: 'short', year: 'numeric' }),
+        from: `${y}-${ms}-01`,
+        to:   `${y}-${ms}-${String(new Date(y, m, 0).getDate()).padStart(2,'0')}`
       });
-      total = r.paging.total;
-      orders = orders.concat(r.results);
-      offset += 50;
     }
 
-    // ── 2. Obtener costo de envío por shipment (deduplicado, concurrencia 5) ─
-    const shippingIds = [...new Set(orders.filter(o => o.shipping?.id).map(o => o.shipping.id))];
+    // Órdenes en paralelo por mes
+    const fromISOs = ranges.map(r => `${r.from}T00:00:00.000-06:00`);
+    const toISOs   = ranges.map(r => `${r.to}T23:59:59.000-06:00`);
+    const monthOrders = await Promise.all(ranges.map(async (r, ri) => {
+      let orders = [], offset = 0, total = 1;
+      while (offset < total && orders.length < 2000) {
+        const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+          seller: SELLER_ID, 'order.status': 'paid',
+          'order.date_created.from': fromISOs[ri], 'order.date_created.to': toISOs[ri],
+          limit: 50, offset
+        });
+        total = d.paging.total;
+        orders = orders.concat(d.results);
+        offset += 50;
+      }
+      return orders;
+    }));
+
+    // Todos los shipment IDs únicos de todos los meses en una sola pasada
+    const allShipIds = [...new Set(monthOrders.flat().filter(o => o.shipping?.id).map(o => o.shipping.id))];
     const shippingCosts = {};
-    const SC = 5;
-    for (let i = 0; i < shippingIds.length; i += SC) {
-      const batch = shippingIds.slice(i, i + SC);
+    for (let i = 0; i < allShipIds.length; i += 10) {
+      const batch = allShipIds.slice(i, i + 10);
       const results = await Promise.all(batch.map(id =>
         mlGet(`https://api.mercadolibre.com/shipments/${id}`).catch(() => null)
       ));
       results.forEach((r, j) => { if (r) shippingCosts[batch[j]] = r.shipping_option?.list_cost ?? r.base_cost ?? 0; });
     }
-
-    // Repartir costo de envío equitativamente entre órdenes del mismo shipment
     const shipOrderCount = {};
-    orders.forEach(o => {
-      const sid = o.shipping?.id;
-      if (sid) shipOrderCount[sid] = (shipOrderCount[sid] || 0) + 1;
-    });
+    monthOrders.flat().forEach(o => { if (o.shipping?.id) shipOrderCount[o.shipping.id] = (shipOrderCount[o.shipping.id] || 0) + 1; });
 
-    // ── 3. Costos de Supabase ─────────────────────────────────────────────────
+    // Costos de producto una sola vez
     const { data: costosData } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
     const costosMap = {};
     (costosData || []).forEach(c => { costosMap[c.item_id] = c; });
 
-    // ── 4. Agregar por item_id ────────────────────────────────────────────────
-    const byItem = {};
-    const totals = { venta_bruta: 0, comision_ml: 0, costo_envio: 0, costo_producto: 0 };
+    // Ads en paralelo por mes
+    const adsPerMonth = await Promise.all(ranges.map(async r => {
+      try {
+        const d = await mlGetAds(
+          `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`,
+          { date_from: r.from, date_to: r.to, metrics: 'cost' }
+        );
+        return (d.results || []).reduce((s, c) => s + (c.metrics?.cost || 0), 0);
+      } catch (e) { return 0; }
+    }));
 
-    orders.forEach(o => {
-      const sid = o.shipping?.id;
-      const orderEnvioCost = sid ? (shippingCosts[sid] || 0) / (shipOrderCount[sid] || 1) : 0;
-      const totalQty = (o.order_items || []).reduce((s, i) => s + (i.quantity || 1), 0);
-
-      (o.order_items || []).forEach(oi => {
-        const itemId = oi.item?.id;
-        if (!itemId) return;
-        const qty     = oi.quantity || 1;
-        const venta   = (oi.unit_price || 0) * qty;
-        const comision= (oi.sale_fee  || 0);           // sale_fee ya es por unidad total
-        const envio   = totalQty > 0 ? orderEnvioCost * qty / totalQty : 0;
-        const costoE  = costosMap[itemId];
-        const costo   = costoE ? costoE.costo_total * qty : 0;
-
-        if (!byItem[itemId]) {
-          byItem[itemId] = {
-            item_id: itemId, title: oi.item?.title || itemId,
-            unidades: 0, venta_bruta: 0, comision_ml: 0,
-            costo_envio: 0, costo_producto: 0, tiene_costo: !!costoE
-          };
-        }
-        byItem[itemId].unidades      += qty;
-        byItem[itemId].venta_bruta   += venta;
-        byItem[itemId].comision_ml   += comision;
-        byItem[itemId].costo_envio   += envio;
-        byItem[itemId].costo_producto+= costo;
-
-        totals.venta_bruta    += venta;
-        totals.comision_ml    += comision;
-        totals.costo_envio    += envio;
-        totals.costo_producto += costo;
+    // Agregar por mes
+    const monthData = ranges.map((r, mi) => {
+      const orders = monthOrders[mi];
+      let venta_bruta = 0, comision_ml = 0, costo_envio = 0, costo_producto = 0;
+      orders.forEach(o => {
+        const sid = o.shipping?.id;
+        const envioOrden = sid ? (shippingCosts[sid] || 0) / (shipOrderCount[sid] || 1) : 0;
+        const totalQty = (o.order_items || []).reduce((s, i) => s + (i.quantity || 1), 0);
+        (o.order_items || []).forEach(oi => {
+          const qty = oi.quantity || 1;
+          venta_bruta   += (oi.unit_price || 0) * qty;
+          comision_ml   += oi.sale_fee || 0;
+          costo_envio   += totalQty > 0 ? envioOrden * qty / totalQty : 0;
+          const ce = costosMap[oi.item?.id];
+          costo_producto += ce ? ce.costo_total * qty : 0;
+        });
       });
+      const inversion_publicidad = adsPerMonth[mi];
+      const utilidad = venta_bruta - comision_ml - costo_envio - costo_producto - inversion_publicidad;
+      const margen   = venta_bruta > 0 ? utilidad / venta_bruta * 100 : 0;
+      return { label: r.label, from: r.from, to: r.to, venta_bruta, comision_ml, costo_envio, costo_producto, inversion_publicidad, utilidad, margen, total_ordenes: orders.length };
     });
 
-    // ── 5. Calcular utilidad y margen ─────────────────────────────────────────
-    const items = Object.values(byItem).map(it => {
-      const utilidad = it.venta_bruta - it.comision_ml - it.costo_envio - it.costo_producto;
-      const margen   = it.venta_bruta > 0 ? utilidad / it.venta_bruta * 100 : 0;
-      return { ...it, utilidad, margen };
-    }).sort((a, b) => b.utilidad - a.utilidad);
-
-    totals.utilidad       = totals.venta_bruta - totals.comision_ml - totals.costo_envio - totals.costo_producto;
-    totals.margen_promedio= totals.venta_bruta > 0 ? totals.utilidad / totals.venta_bruta * 100 : 0;
-
-    res.json({ from, to, total_ordenes: orders.length, items, totals });
+    res.json({ months: monthData });
   } catch (e) {
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
