@@ -26,7 +26,6 @@ let costosCache = null;                       // Array de costos_productos
 let costosCacheTime = 0;
 const COSTOS_TTL = 30 * 60 * 1000;           // 30 minutos
 const billingCache = new Map();               // "YYYY-M" → { data, ts }; meses pasados: indefinido, mes actual: 1h
-billingCache.clear();                         // fuerza recalculo al reiniciar (importa al cambiar lógica de IVA)
 
 async function loadTokenFromSupabase() {
   try {
@@ -143,6 +142,12 @@ async function initTokens() {
 }
 
 initTokens();
+
+// Limpia caché de billing al arrancar (fuerza recalculo con lógica actual)
+billingCache.clear();
+supabase.from('billing_cache').delete().neq('period_key', 'x')
+  .then(() => console.log('billing_cache limpiado en Supabase'))
+  .catch(e => console.warn('No se pudo limpiar billing_cache:', e.message));
 
 function today() {
   // en-CA produce el formato YYYY-MM-DD directamente
@@ -1541,7 +1546,6 @@ async function getBillingResumen(month, year) {
   const base = `https://api.mercadolibre.com/billing/integration/periods/key/${key}/group/ML/details`;
   const LIMIT = 1000;
 
-  const WITH_IVA = new Set(['CPAC','CFRS','CFWA','CESM','CFCB','CFBA','CVAF','CDSD']);
   const sums = {};
   let offset = 0, fetched = 0, total = Infinity;
 
@@ -1563,7 +1567,7 @@ async function getBillingResumen(month, year) {
     for (const rec of results) {
       const sub = rec.charge_info?.detail_sub_type || 'OTHER';
       const amt = rec.charge_info?.detail_amount || 0;
-      sums[sub] = (sums[sub] || 0) + (WITH_IVA.has(sub) ? amt / 1.16 : amt);
+      sums[sub] = (sums[sub] || 0) + amt;
     }
     fetched += results.length;
     offset  += results.length;
@@ -1633,34 +1637,55 @@ app.get('/api/estado-resultados', async (req, res) => {
       getBillingResumen(pm, py),
     ]);
 
-    // Utilidad neta = utilidad operativa − todos los cargos extra ML (sin IVA) + anulaciones
-    const extraNet = (b) => -(b.asesoria_otros||0) - (b.envios_full||0) - (b.cross_docking_full||0)
-      - (b.almacenamiento_full||0) - (b.mantenimiento_pagina||0) - (b.cargos_devolucion||0)
-      - (b.afiliados||0) + (b.anulaciones||0);
-    const utilNeta     = curr.totals.utilidad + extraNet(billing);
-    const utilNetaPrev = prev.totals.utilidad + extraNet(billingPrev);
+    // Construye los totales del mes mezclando órdenes y billing:
+    // comision_ml, costo_envio, inversion_publicidad vienen de billing (fuente oficial ML)
+    // venta_bruta y costo_producto vienen de órdenes (billing no los tiene)
+    const buildTotals = (orders, b) => {
+      const vb   = orders.totals.venta_bruta;
+      const cp   = orders.totals.costo_producto;
+      const cm   = b.comisiones_venta  || 0;
+      const ce   = b.costo_envios      || 0;
+      const pub  = b.publicidad        || 0;
+      const utilBruta = vb - cm - ce - cp;
+      const extraNet  = -(b.asesoria_otros||0) - (b.envios_full||0) - (b.cross_docking_full||0)
+        - (b.almacenamiento_full||0) - (b.mantenimiento_pagina||0)
+        - (b.cargos_devolucion||0) - (b.afiliados||0) + (b.anulaciones||0);
+      const utilidad      = utilBruta - pub;
+      const utilidad_neta = utilidad + extraNet;
+      const margen_promedio = vb > 0 ? utilidad_neta / vb * 100 : 0;
+      return {
+        venta_bruta: vb, costo_producto: cp,
+        comision_ml: cm, costo_envio: ce, inversion_publicidad: pub,
+        utilidad, utilidad_neta, margen_promedio,
+        total_ordenes: orders.total_ordenes,
+        billing: b,
+      };
+    };
+
+    const cTotals = buildTotals(curr, billing);
+    const pTotals = buildTotals(prev, billingPrev);
 
     const delta = (a, b) => b > 0 ? (a - b) / b * 100 : null;
     res.json({
       month, year, from, to,
-      current:  { ...curr.totals,  total_ordenes: curr.total_ordenes,  billing,            utilidad_neta: utilNeta     },
-      previous: { ...prev.totals,  total_ordenes: prev.total_ordenes,  billing: billingPrev, utilidad_neta: utilNetaPrev },
+      current:  cTotals,
+      previous: pTotals,
       delta: {
-        venta_bruta:          delta(curr.totals.venta_bruta,          prev.totals.venta_bruta),
-        comision_ml:          delta(curr.totals.comision_ml,          prev.totals.comision_ml),
-        costo_envio:          delta(curr.totals.costo_envio,          prev.totals.costo_envio),
-        costo_producto:       delta(curr.totals.costo_producto,       prev.totals.costo_producto),
-        inversion_publicidad: delta(curr.totals.inversion_publicidad, prev.totals.inversion_publicidad),
-        utilidad:             delta(curr.totals.utilidad,             prev.totals.utilidad),
-        asesoria_otros:       delta(billing.asesoria_otros,           billingPrev.asesoria_otros),
-        envios_full:          delta(billing.envios_full,              billingPrev.envios_full),
-        cross_docking_full:   delta(billing.cross_docking_full,       billingPrev.cross_docking_full),
-        almacenamiento_full:  delta(billing.almacenamiento_full,      billingPrev.almacenamiento_full),
-        mantenimiento_pagina: delta(billing.mantenimiento_pagina,     billingPrev.mantenimiento_pagina),
-        cargos_devolucion:    delta(billing.cargos_devolucion,        billingPrev.cargos_devolucion),
-        afiliados:            delta(billing.afiliados,                billingPrev.afiliados),
-        anulaciones:          delta(billing.anulaciones,              billingPrev.anulaciones),
-        utilidad_neta:        delta(utilNeta,                         utilNetaPrev),
+        venta_bruta:          delta(cTotals.venta_bruta,          pTotals.venta_bruta),
+        comision_ml:          delta(cTotals.comision_ml,          pTotals.comision_ml),
+        costo_envio:          delta(cTotals.costo_envio,          pTotals.costo_envio),
+        costo_producto:       delta(cTotals.costo_producto,       pTotals.costo_producto),
+        inversion_publicidad: delta(cTotals.inversion_publicidad, pTotals.inversion_publicidad),
+        utilidad:             delta(cTotals.utilidad,             pTotals.utilidad),
+        asesoria_otros:       delta(billing.asesoria_otros,       billingPrev.asesoria_otros),
+        envios_full:          delta(billing.envios_full,          billingPrev.envios_full),
+        cross_docking_full:   delta(billing.cross_docking_full,   billingPrev.cross_docking_full),
+        almacenamiento_full:  delta(billing.almacenamiento_full,  billingPrev.almacenamiento_full),
+        mantenimiento_pagina: delta(billing.mantenimiento_pagina, billingPrev.mantenimiento_pagina),
+        cargos_devolucion:    delta(billing.cargos_devolucion,    billingPrev.cargos_devolucion),
+        afiliados:            delta(billing.afiliados,            billingPrev.afiliados),
+        anulaciones:          delta(billing.anulaciones,          billingPrev.anulaciones),
+        utilidad_neta:        delta(cTotals.utilidad_neta,        pTotals.utilidad_neta),
       }
     });
   } catch (e) {
