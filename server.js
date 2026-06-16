@@ -25,6 +25,7 @@ const shipmentCache = new Map();              // id → objeto shipment completo
 let costosCache = null;                       // Array de costos_productos
 let costosCacheTime = 0;
 const COSTOS_TTL = 30 * 60 * 1000;           // 30 minutos
+const billingCache = new Map();               // "YYYY-M" → { data, ts }; meses pasados: indefinido, mes actual: 1h
 
 async function loadTokenFromSupabase() {
   try {
@@ -1477,6 +1478,84 @@ app.get('/api/precio-sugerido', async (req, res) => {
   }
 });
 
+// ── Billing resumen: pagina /billing/integration/...details y agrupa por sub-tipo ──
+async function getBillingResumen(month, year) {
+  const cacheKey = `${year}-${month}`;
+  const now = Date.now();
+  const BILLING_TTL = 60 * 60 * 1000; // 1 hora para mes actual
+  const cached = billingCache.get(cacheKey);
+  const isCurrentMonth = (month === new Date().getMonth() + 1 && year === new Date().getFullYear());
+  if (cached && (!isCurrentMonth || (now - cached.ts) < BILLING_TTL)) return cached.data;
+
+  const key  = `${year}-${String(month).padStart(2,'0')}-01`;
+  const base = `https://api.mercadolibre.com/billing/integration/periods/key/${key}/group/ML/details`;
+  const qparams = `user_id=${SELLER_ID}&document_type=BILL&limit=100`;
+
+  const sums = {};
+  let lastId = null, fetched = 0, total = null, prevLastId = null;
+
+  while (true) {
+    const url = `${base}?${qparams}${lastId ? '&last_id=' + lastId : ''}`;
+    let r;
+    // Retry una vez si hay rate-limit (429)
+    try {
+      r = await mlGet(url, {});
+    } catch (e) {
+      if (e.response?.status === 429) {
+        await new Promise(res => setTimeout(res, 15000));
+        r = await mlGet(url, {});
+      } else throw e;
+    }
+    if (total === null) total = r.total || 0;
+    const results = r.results || [];
+    if (!results.length) break;
+
+    for (const rec of results) {
+      const sub = rec.charge_info?.detail_sub_type || 'OTHER';
+      sums[sub] = (sums[sub] || 0) + (rec.charge_info?.detail_amount || 0);
+    }
+    fetched += results.length;
+
+    const nextId = r.last_id;
+    if (!nextId || nextId === prevLastId || fetched >= total) break;
+    prevLastId = lastId;
+    lastId = nextId;
+  }
+
+  const g = (keys) => keys.reduce((s, k) => s + (sums[k] || 0), 0);
+  const comisiones_venta   = g(['CV']);
+  const costo_envios       = g(['CFF', 'CXD']);
+  const publicidad         = g(['PADS']);
+  const anulaciones        = g(['BV', 'BFF', 'BXD']);        // crédito positivo (reduce costos)
+  const almacenamiento_full= g(['CFWA']);
+  const mantenimiento_pagina = g(['CESM']);
+  const cargos_devolucion  = g(['CDSD']);
+  const afiliados          = g(['CVAF']);
+  const total_cargos = comisiones_venta + costo_envios + publicidad - anulaciones
+    + almacenamiento_full + mantenimiento_pagina + cargos_devolucion + afiliados;
+
+  const data = {
+    key, month, year,
+    comisiones_venta, costo_envios, publicidad, anulaciones,
+    almacenamiento_full, mantenimiento_pagina, cargos_devolucion, afiliados,
+    total_cargos, raw: sums
+  };
+  billingCache.set(cacheKey, { data, ts: Date.now() });
+  return data;
+}
+
+app.get('/api/billing-resumen', async (req, res) => {
+  try {
+    const now   = new Date();
+    const month = parseInt(req.query.month) || (now.getMonth() + 1);
+    const year  = parseInt(req.query.year)  || now.getFullYear();
+    const data  = await getBillingResumen(month, year);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
 app.get('/api/estado-resultados', async (req, res) => {
   try {
     const now = new Date();
@@ -1488,19 +1567,36 @@ app.get('/api/estado-resultados', async (req, res) => {
     const pm = prevD.getMonth() + 1, py = prevD.getFullYear();
     const pfrom = `${py}-${String(pm).padStart(2,'0')}-01`;
     const pto   = `${py}-${String(pm).padStart(2,'0')}-${String(new Date(py, pm, 0).getDate()).padStart(2,'0')}`;
-    const [curr, prev] = await Promise.all([getFinancialPeriod(from, to), getFinancialPeriod(pfrom, pto)]);
+
+    const [curr, prev, billing, billingPrev] = await Promise.all([
+      getFinancialPeriod(from, to),
+      getFinancialPeriod(pfrom, pto),
+      getBillingResumen(month, year),
+      getBillingResumen(pm, py),
+    ]);
+
+    // Utilidad neta = utilidad operativa − cargos extra ML + anulaciones
+    const utilNeta     = curr.totals.utilidad - billing.almacenamiento_full - billing.mantenimiento_pagina - billing.cargos_devolucion - billing.afiliados + billing.anulaciones;
+    const utilNetaPrev = prev.totals.utilidad - billingPrev.almacenamiento_full - billingPrev.mantenimiento_pagina - billingPrev.cargos_devolucion - billingPrev.afiliados + billingPrev.anulaciones;
+
     const delta = (a, b) => b > 0 ? (a - b) / b * 100 : null;
     res.json({
       month, year, from, to,
-      current:  { ...curr.totals, total_ordenes: curr.total_ordenes },
-      previous: { ...prev.totals, total_ordenes: prev.total_ordenes },
+      current:  { ...curr.totals,  total_ordenes: curr.total_ordenes,  billing,      utilidad_neta: utilNeta     },
+      previous: { ...prev.totals, total_ordenes: prev.total_ordenes, billing: billingPrev, utilidad_neta: utilNetaPrev },
       delta: {
-        venta_bruta:         delta(curr.totals.venta_bruta,         prev.totals.venta_bruta),
-        comision_ml:         delta(curr.totals.comision_ml,         prev.totals.comision_ml),
-        costo_envio:         delta(curr.totals.costo_envio,         prev.totals.costo_envio),
-        costo_producto:      delta(curr.totals.costo_producto,      prev.totals.costo_producto),
-        inversion_publicidad:delta(curr.totals.inversion_publicidad,prev.totals.inversion_publicidad),
-        utilidad:            delta(curr.totals.utilidad,            prev.totals.utilidad),
+        venta_bruta:          delta(curr.totals.venta_bruta,          prev.totals.venta_bruta),
+        comision_ml:          delta(curr.totals.comision_ml,          prev.totals.comision_ml),
+        costo_envio:          delta(curr.totals.costo_envio,          prev.totals.costo_envio),
+        costo_producto:       delta(curr.totals.costo_producto,       prev.totals.costo_producto),
+        inversion_publicidad: delta(curr.totals.inversion_publicidad, prev.totals.inversion_publicidad),
+        utilidad:             delta(curr.totals.utilidad,             prev.totals.utilidad),
+        almacenamiento_full:  delta(billing.almacenamiento_full,      billingPrev.almacenamiento_full),
+        mantenimiento_pagina: delta(billing.mantenimiento_pagina,     billingPrev.mantenimiento_pagina),
+        cargos_devolucion:    delta(billing.cargos_devolucion,        billingPrev.cargos_devolucion),
+        afiliados:            delta(billing.afiliados,                billingPrev.afiliados),
+        anulaciones:          delta(billing.anulaciones,              billingPrev.anulaciones),
+        utilidad_neta:        delta(utilNeta,                         utilNetaPrev),
       }
     });
   } catch (e) {

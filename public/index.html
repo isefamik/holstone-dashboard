@@ -1884,13 +1884,14 @@ async function loadEstadoResultados(){
 function renderPyL(d){
   const el=document.getElementById('fin-pyl-content');
   const c=d.current,p=d.previous,dt=d.delta;
+  const cb=c.billing||{},pb=p.billing||{};
   const vb=c.venta_bruta||0;
   const MES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const pm=d.month-1===0?12:d.month-1;
   const prevLabel=MES[pm];
-  function row(label,curr,prev,delta,isPositive){
+  function row(label,curr,prev,delta,isPositive,muted){
     const pct=vb>0?curr/vb*100:0;
-    const color=isPositive?'var(--green)':'var(--red)';
+    const color=muted?'var(--muted)':isPositive?'var(--green)':'var(--red)';
     const sign=isPositive?'':'− ';
     const dv=delta!=null?`<span style="font-size:11px;font-weight:600;color:${delta>=0?'var(--green)':'var(--red)'}">${delta>=0?'▲':'▼'} ${Math.abs(delta).toFixed(1)}%</span>`:'<span style="color:var(--muted);font-size:11px">—</span>';
     return`<tr class="si-row">
@@ -1901,23 +1902,25 @@ function renderPyL(d){
       <td class="si-r" style="padding:10px 14px">${dv}</td>
     </tr>`;
   }
-  function subtotal(label,curr){
+  function subtotal(label,curr,bold){
     const pct=vb>0?curr/vb*100:0;
     return`<tr style="background:#f8fafc">
-      <td style="padding:11px 14px;font-weight:800;font-size:13px;border-top:2px solid var(--border)">${label}</td>
-      <td class="si-r" style="padding:11px 14px;font-weight:800;font-size:15px;color:${curr>=0?'var(--green)':'var(--red)'};border-top:2px solid var(--border)">${fmtMXN(curr)}</td>
+      <td style="padding:11px 14px;font-weight:800;font-size:${bold?'14px':'13px'};border-top:2px solid var(--border)">${label}</td>
+      <td class="si-r" style="padding:11px 14px;font-weight:800;font-size:${bold?'16px':'15px'};color:${curr>=0?'var(--green)':'var(--red)'};border-top:2px solid var(--border)">${fmtMXN(curr)}</td>
       <td class="si-r" style="padding:11px 14px;font-size:12px;color:var(--muted);border-top:2px solid var(--border)">${fmtPct(pct)}</td>
       <td colspan="2" style="border-top:2px solid var(--border)"></td>
     </tr>`;
   }
   const utilBruta=c.venta_bruta-c.comision_ml-c.costo_envio-c.costo_producto;
-  const prevUtilBruta=p.venta_bruta-p.comision_ml-p.costo_envio-p.costo_producto;
+  const utilNeta=c.utilidad_neta!=null?c.utilidad_neta:(c.utilidad-(cb.almacenamiento_full||0)-(cb.mantenimiento_pagina||0)-(cb.cargos_devolucion||0)-(cb.afiliados||0)+(cb.anulaciones||0));
+  const margenNeto=vb>0?utilNeta/vb*100:0;
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div><div style="font-size:18px;font-weight:800">${MES[d.month]} ${d.year}</div><div style="font-size:12px;color:var(--muted)">${fmt(c.total_ordenes||0)} órdenes · vs ${fmt(p.total_ordenes||0)} en ${prevLabel}</div></div>
       <div style="display:flex;gap:20px">
         <div style="text-align:center"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.7px">Margen bruto</div><div style="font-size:20px;font-weight:800;color:${utilBruta>=0?'var(--green)':'var(--red)'}">${fmtPct(vb>0?utilBruta/vb*100:0)}</div></div>
         <div style="text-align:center"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.7px">Margen operativo</div><div style="font-size:20px;font-weight:800;color:${c.utilidad>=0?'var(--green)':'var(--red)'}">${fmtPct(vb>0?c.utilidad/vb*100:0)}</div></div>
+        <div style="text-align:center"><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.7px">Margen neto</div><div style="font-size:20px;font-weight:800;color:${utilNeta>=0?'var(--green)':'var(--red)'}">${fmtPct(margenNeto)}</div></div>
       </div>
     </div>
     <div class="card" style="padding:0;overflow-x:auto">
@@ -1937,6 +1940,12 @@ function renderPyL(d){
           ${subtotal('= Utilidad bruta',utilBruta)}
           ${row('(−) Inversión publicidad',c.inversion_publicidad,p.inversion_publicidad,dt.inversion_publicidad,false)}
           ${subtotal('= Utilidad operativa',c.utilidad)}
+          ${(cb.almacenamiento_full||0)>0?row('(−) Almacenamiento Full (CFWA)',cb.almacenamiento_full||0,pb.almacenamiento_full||0,dt.almacenamiento_full,false,true):''}
+          ${(cb.mantenimiento_pagina||0)>0?row('(−) Mantenimiento Mi Página (CESM)',cb.mantenimiento_pagina||0,pb.mantenimiento_pagina||0,dt.mantenimiento_pagina,false,true):''}
+          ${(cb.cargos_devolucion||0)>0?row('(−) Cargos devolución (CDSD)',cb.cargos_devolucion||0,pb.cargos_devolucion||0,dt.cargos_devolucion,false,true):''}
+          ${(cb.afiliados||0)>0?row('(−) Afiliados (CVAF)',cb.afiliados||0,pb.afiliados||0,dt.afiliados,false,true):''}
+          ${(cb.anulaciones||0)>0?row('(+) Anulaciones ML (BV+BFF+BXD)',cb.anulaciones||0,pb.anulaciones||0,dt.anulaciones,true,true):''}
+          ${subtotal('= Utilidad neta final',utilNeta,true)}
         </tbody>
       </table>
     </div>`;
@@ -1945,9 +1954,12 @@ function renderPyL(d){
 function exportPyL(){
   if(!finPylData)return;
   const d=finPylData,c=d.current,p=d.previous;
+  const cb=c.billing||{},pb=p.billing||{};
   const MES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const uB=c.venta_bruta-c.comision_ml-c.costo_envio-c.costo_producto;
   const puB=p.venta_bruta-p.comision_ml-p.costo_envio-p.costo_producto;
+  const uN=c.utilidad_neta!=null?c.utilidad_neta:(c.utilidad-(cb.almacenamiento_full||0)-(cb.mantenimiento_pagina||0)-(cb.cargos_devolucion||0)-(cb.afiliados||0)+(cb.anulaciones||0));
+  const puN=p.utilidad_neta!=null?p.utilidad_neta:(p.utilidad-(pb.almacenamiento_full||0)-(pb.mantenimiento_pagina||0)-(pb.cargos_devolucion||0)-(pb.afiliados||0)+(pb.anulaciones||0));
   const K=`${MES[d.month]} ${d.year}`,P=MES[d.month-1===0?12:d.month-1];
   const rows=[
     {'Concepto':'(+) Ventas brutas',[K]:c.venta_bruta,[P]:p.venta_bruta},
@@ -1955,8 +1967,14 @@ function exportPyL(){
     {'Concepto':'(-) Costo envíos',[K]:-c.costo_envio,[P]:-p.costo_envio},
     {'Concepto':'(-) Costo productos',[K]:-c.costo_producto,[P]:-p.costo_producto},
     {'Concepto':'= Utilidad bruta',[K]:uB,[P]:puB},
-    {'Concepto':'(-) Publicidad',[K]:-c.inversion_publicidad,[P]:-p.inversion_publicidad},
+    {'Concepto':'(-) Publicidad',[K]:-(c.inversion_publicidad||0),[P]:-(p.inversion_publicidad||0)},
     {'Concepto':'= Utilidad operativa',[K]:c.utilidad,[P]:p.utilidad},
+    {'Concepto':'(-) Almacenamiento Full',[K]:-(cb.almacenamiento_full||0),[P]:-(pb.almacenamiento_full||0)},
+    {'Concepto':'(-) Mantenimiento Mi Página',[K]:-(cb.mantenimiento_pagina||0),[P]:-(pb.mantenimiento_pagina||0)},
+    {'Concepto':'(-) Cargos devolución',[K]:-(cb.cargos_devolucion||0),[P]:-(pb.cargos_devolucion||0)},
+    {'Concepto':'(-) Afiliados',[K]:-(cb.afiliados||0),[P]:-(pb.afiliados||0)},
+    {'Concepto':'(+) Anulaciones ML',[K]:(cb.anulaciones||0),[P]:(pb.anulaciones||0)},
+    {'Concepto':'= Utilidad neta final',[K]:uN,[P]:puN},
   ];
   const ws=XLSX.utils.json_to_sheet(rows);
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'P&L');
