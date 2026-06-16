@@ -355,6 +355,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span class="nav-icon">📢</span><span>Publicidad</span>
     </div>
     <div class="nav-group">Gestión</div>
+    <div class="nav-item" onclick="showSection('finanzas',this);initFinanzasSection()">
+      <span class="nav-icon">💰</span><span>Finanzas</span>
+    </div>
     <div class="nav-item" onclick="showSection('devoluciones',this)">
       <span class="nav-icon">🔄</span><span>Devoluciones</span>
     </div>
@@ -876,6 +879,100 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
     </div>
 
+    <!-- ── FINANZAS ── -->
+    <div id="finanzas" class="section">
+
+      <!-- Fila superior: fechas + upload -->
+      <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:22px">
+        <div class="dr-wrap" id="fin-dr-wrap" style="margin-bottom:0;flex:0 0 auto">
+          <div class="dr-input-wrap" onclick="toggleDatePicker('fin-dr')">
+            <input type="text" id="fin-dr-input" class="dr-input" readonly placeholder="Selecciona un rango">
+            <span class="dr-icon">📅</span>
+          </div>
+          <div class="dr-picker" id="fin-dr-picker" style="display:none">
+            <div class="dr-quick">
+              <button type="button" onclick="drQuick('fin-dr','hoy')">Hoy</button>
+              <button type="button" onclick="drQuick('fin-dr','ayer')">Ayer</button>
+              <button type="button" onclick="drQuick('fin-dr','7days')">Últimos 7 días</button>
+              <button type="button" onclick="drQuick('fin-dr','30days')">Últimos 30 días</button>
+              <button type="button" onclick="drQuick('fin-dr','thismonth')">Este mes</button>
+              <button type="button" onclick="drQuick('fin-dr','lastmonth')">Mes anterior</button>
+            </div>
+            <div class="dr-calendars">
+              <button type="button" class="dr-nav-btn" onclick="drNav('fin-dr',-1)">‹</button>
+              <div class="dr-cal" id="fin-dr-cal-wrap-0">
+                <div class="dr-cal-label" id="fin-dr-cal-label-0"></div>
+                <div class="dr-cal-grid" id="fin-dr-cal-grid-0"></div>
+              </div>
+              <div class="dr-cal" id="fin-dr-cal-wrap-1">
+                <div class="dr-cal-label" id="fin-dr-cal-label-1"></div>
+                <div class="dr-cal-grid" id="fin-dr-cal-grid-1"></div>
+              </div>
+              <button type="button" class="dr-nav-btn" onclick="drNav('fin-dr',1)">›</button>
+            </div>
+            <div class="dr-actions">
+              <button type="button" class="dr-cancel" onclick="closeDatePicker('fin-dr')">Cancelar</button>
+              <button type="button" class="dr-apply" onclick="applyDateRange('fin-dr')">Aplicar</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button type="button" class="btn-refresh" onclick="document.getElementById('fin-xlsx-input').click()">📂 Subir costos (.xlsx)</button>
+            <input type="file" id="fin-xlsx-input" accept=".xlsx" style="display:none" onchange="uploadCostos(this)">
+            <span id="fin-upload-status" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+          <span style="font-size:11px;color:var(--muted)">Columnas requeridas: item_id · title · tipo_prenda · pack · costo_base · costo_total</span>
+        </div>
+      </div>
+
+      <!-- Métricas -->
+      <div id="fin-metrics" class="grid-5" style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px">
+        <div class="loading"><div class="spin"></div></div>
+      </div>
+
+      <!-- Gráfica + tabla lado a lado (en mobile se apilan) -->
+      <div style="display:grid;grid-template-columns:320px 1fr;gap:20px;margin-bottom:22px;align-items:start">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title">Distribución de costos</div>
+          <div style="position:relative;height:260px">
+            <canvas id="fin-dona-chart"></canvas>
+          </div>
+          <div id="fin-dona-legend" style="margin-top:10px;font-size:12px;display:flex;flex-direction:column;gap:5px"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title">Rentabilidad por producto</div>
+          <div class="si-filter-bar">
+            <div class="si-search-wrap">
+              <input class="si-search" id="fin-search" type="text" placeholder="Buscar producto..." oninput="renderFinTable()">
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="si-table">
+              <thead>
+                <tr>
+                  <th class="sort-th" onclick="sortFinTable('title')">Producto<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortFinTable('unidades')">Uds<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortFinTable('venta_bruta')">Venta bruta<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortFinTable('comision_ml')">Comisión ML<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortFinTable('costo_envio')">Costo envío<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortFinTable('costo_producto')">Costo producto<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortFinTable('utilidad')">Utilidad<span class="arrow"></span></th>
+                  <th class="si-r sort-th" onclick="sortFinTable('margen')">Margen<span class="arrow"></span></th>
+                </tr>
+              </thead>
+              <tbody id="fin-tbody">
+                <tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)">Selecciona un rango de fechas</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
     <!-- ── REPUTACIÓN ── -->
     <div id="reputacion" class="section">
       <div id="rep-content"><div class="loading"><div class="spin"></div>Cargando reputación...</div></div>
@@ -908,7 +1005,8 @@ function renderDelta(elId,current,previous,label='vs ayer'){
 
 const PAGE_TITLES={
   inicio:'Inicio',ventas:'Ventas',
-  stock:'Stock',publicidad:'Publicidad',devoluciones:'Devoluciones',reputacion:'Reputación'
+  stock:'Stock',publicidad:'Publicidad',finanzas:'Finanzas',
+  devoluciones:'Devoluciones',reputacion:'Reputación'
 };
 
 function showSection(name,el){
@@ -1458,6 +1556,156 @@ async function loadAdsDetailData(campId){
   }catch(e){
     ctx.parentElement.innerHTML=`<div class="error">Error: ${e.message}</div>`;
   }
+}
+
+// ── FINANZAS ──────────────────────────────────────
+let finInited=false;
+let finData=[];
+let finSort={key:'utilidad',dir:'desc'};
+let finDonaChart=null;
+
+const FIN_COLORS={
+  comision_ml:'#ef4444',
+  costo_envio:'#f59e0b',
+  costo_producto:'#8b5cf6',
+  utilidad:'#10b981'
+};
+
+function initFinanzasSection(){
+  if(finInited)return;
+  finInited=true;
+  initDateRange('fin-dr',()=>loadRentabilidad());
+}
+
+async function uploadCostos(input){
+  const file=input.files[0];
+  if(!file)return;
+  const st=document.getElementById('fin-upload-status');
+  st.textContent='Subiendo...';
+  st.style.color='var(--muted)';
+  try{
+    const fd=new FormData();
+    fd.append('file',file);
+    const r=await fetch('/api/costos/upload',{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    st.textContent=`✅ ${d.saved} productos cargados`;
+    st.style.color='var(--green)';
+  }catch(e){
+    st.textContent=`❌ ${e.message}`;
+    st.style.color='var(--red)';
+  }
+  input.value='';
+}
+
+async function loadRentabilidad(){
+  const elM=document.getElementById('fin-metrics');
+  const tbody=document.getElementById('fin-tbody');
+  elM.innerHTML='<div class="loading"><div class="spin"></div>Cargando...</div>';
+  tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)"><div class="loading"><div class="spin"></div>Calculando rentabilidad...</div></td></tr>';
+  try{
+    const st=drInstances['fin-dr'];
+    const r=await fetch(`/api/rentabilidad?from=${st.rangeFrom}&to=${st.rangeTo}`);
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    finData=d.items||[];
+    const t=d.totals||{};
+
+    elM.style.display='grid';
+    elM.innerHTML=`
+      <div class="metric"><div class="mi mi-g">💵</div><div class="metric-label">Venta bruta</div><div class="metric-value" style="color:var(--green)">${fmtMXN(t.venta_bruta||0)}</div><div class="metric-delta">${fmt(d.total_ordenes||0)} órdenes</div></div>
+      <div class="metric"><div class="mi mi-r">🏪</div><div class="metric-label">Comisiones ML</div><div class="metric-value" style="color:var(--red)">${fmtMXN(t.comision_ml||0)}</div><div class="metric-delta">${fmtPct(t.venta_bruta?(t.comision_ml/t.venta_bruta*100):0)} de ventas</div></div>
+      <div class="metric"><div class="mi mi-y">🚚</div><div class="metric-label">Costo envíos</div><div class="metric-value" style="color:#f59e0b">${fmtMXN(t.costo_envio||0)}</div><div class="metric-delta">${fmtPct(t.venta_bruta?(t.costo_envio/t.venta_bruta*100):0)} de ventas</div></div>
+      <div class="metric"><div class="mi mi-b">📦</div><div class="metric-label">Costo productos</div><div class="metric-value" style="color:var(--accent)">${fmtMXN(t.costo_producto||0)}</div><div class="metric-delta">${fmtPct(t.venta_bruta?(t.costo_producto/t.venta_bruta*100):0)} de ventas</div></div>
+      <div class="metric"><div class="mi mi-g">✨</div><div class="metric-label">Utilidad neta</div><div class="metric-value" style="color:${(t.utilidad||0)>=0?'var(--green)':'var(--red)'}">${fmtMXN(t.utilidad||0)}</div><div class="metric-delta">Margen ${fmtPct(t.margen_promedio||0)}</div></div>`;
+
+    renderFinDona(t);
+    renderFinTable();
+  }catch(e){
+    elM.innerHTML=`<div class="error" style="grid-column:1/-1">Error: ${e.message}</div>`;
+    tbody.innerHTML=`<tr><td colspan="8" style="padding:32px;text-align:center" class="error">${e.message}</td></tr>`;
+  }
+}
+
+function renderFinDona(t){
+  const ctx=document.getElementById('fin-dona-chart');
+  if(finDonaChart){finDonaChart.destroy();finDonaChart=null;}
+  const vb=t.venta_bruta||0;
+  if(vb===0){ctx.parentElement.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px">Sin datos</div>';return;}
+  const segments=[
+    {label:'Comisión ML',   value:t.comision_ml||0,    color:FIN_COLORS.comision_ml},
+    {label:'Costo envíos',  value:t.costo_envio||0,    color:FIN_COLORS.costo_envio},
+    {label:'Costo producto',value:t.costo_producto||0,  color:FIN_COLORS.costo_producto},
+    {label:'Utilidad',      value:Math.max(0,t.utilidad||0), color:FIN_COLORS.utilidad}
+  ].filter(s=>s.value>0);
+  finDonaChart=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:segments.map(s=>s.label),
+      datasets:[{data:segments.map(s=>s.value),backgroundColor:segments.map(s=>s.color),borderWidth:2,borderColor:'#fff'}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'65%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>`${c.label}: ${fmtMXN(c.parsed)} (${fmtPct(c.parsed/vb*100)})`}}
+      }
+    }
+  });
+  document.getElementById('fin-dona-legend').innerHTML=segments.map(s=>`
+    <div style="display:flex;align-items:center;gap:7px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${s.color};flex-shrink:0"></span>
+      <span style="flex:1;color:var(--muted)">${s.label}</span>
+      <span style="font-weight:600;color:var(--text)">${fmtMXN(s.value)}</span>
+      <span style="color:var(--muted)">${fmtPct(s.value/vb*100)}</span>
+    </div>`).join('');
+}
+
+function sortFinTable(key){
+  finSort=finSort.key===key?{key,dir:finSort.dir==='desc'?'asc':'desc'}:{key,dir:key==='title'?'asc':'desc'};
+  renderFinTable();
+}
+
+function renderFinTable(){
+  const tbody=document.getElementById('fin-tbody');
+  if(!finData.length){
+    tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)">Sin datos</td></tr>';
+    return;
+  }
+  const search=(document.getElementById('fin-search')?.value||'').toLowerCase();
+  let items=finData.filter(i=>(i.title||'').toLowerCase().includes(search)||(i.item_id||'').toLowerCase().includes(search));
+  const {key,dir}=finSort;
+  items=items.slice().sort((a,b)=>{
+    const av=key==='title'?a.title||'':a[key]||0;
+    const bv=key==='title'?b.title||'':b[key]||0;
+    if(typeof av==='string')return dir==='asc'?av.localeCompare(bv,'es'):bv.localeCompare(av,'es');
+    return dir==='asc'?av-bv:bv-av;
+  });
+
+  document.querySelectorAll('#finanzas .sort-th').forEach(th=>{
+    th.classList.remove('sort-active');th.querySelector('.arrow').textContent='';
+  });
+  const activeTh=[...document.querySelectorAll('#finanzas .sort-th')].find(th=>th.getAttribute('onclick')===`sortFinTable('${key}')`);
+  if(activeTh){activeTh.classList.add('sort-active');activeTh.querySelector('.arrow').textContent=dir==='asc'?'▲':'▼';}
+
+  if(!items.length){tbody.innerHTML='<tr><td colspan="8" style="padding:32px;text-align:center;color:var(--muted)">Sin resultados</td></tr>';return;}
+
+  tbody.innerHTML=items.map(it=>{
+    const m=it.margen;
+    let mCls='badge-red'; if(m>=30)mCls='badge-green'; else if(m>=15)mCls='badge-yellow';
+    const noCosto=!it.tiene_costo?'<span title="Sin costo cargado" style="color:var(--muted);font-size:10px"> ⚠️</span>':'';
+    return `
+    <tr class="si-row">
+      <td style="font-size:12px;max-width:240px;white-space:normal;line-height:1.3">${it.title||it.item_id}${noCosto}</td>
+      <td class="si-r">${fmt(it.unidades)}</td>
+      <td class="si-r">${fmtMXN(it.venta_bruta)}</td>
+      <td class="si-r" style="color:var(--red)">${fmtMXN(it.comision_ml)}</td>
+      <td class="si-r" style="color:#f59e0b">${fmtMXN(it.costo_envio)}</td>
+      <td class="si-r" style="color:var(--accent)">${it.tiene_costo?fmtMXN(it.costo_producto):'<span style="color:var(--muted)">-</span>'}</td>
+      <td class="si-r" style="font-weight:700;color:${it.utilidad>=0?'var(--green)':'var(--red)'}">${fmtMXN(it.utilidad)}</td>
+      <td class="si-r"><span class="badge ${mCls}">${fmtPct(m)}</span></td>
+    </tr>`;
+  }).join('');
 }
 
 function showVentasTab(tab,el){

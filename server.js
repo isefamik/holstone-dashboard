@@ -2,6 +2,8 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer');
+const XLSX = require('xlsx');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -1282,6 +1284,137 @@ app.get('/api/ads-tendencia', async (req, res) => {
     }
 
     res.json({ from, to, dias });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── COSTOS Y RENTABILIDAD ─────────────────────────────────────────────────────
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws);
+
+    const records = rows.map(r => ({
+      item_id:     String(r.item_id    || '').trim(),
+      title:       String(r.title      || '').trim(),
+      tipo_prenda: String(r.tipo_prenda|| '').trim(),
+      pack:        parseInt(r.pack)    || 1,
+      costo_base:  parseFloat(r.costo_base)  || 0,
+      costo_total: parseFloat(r.costo_total) || 0,
+      updated_at:  new Date().toISOString()
+    })).filter(r => r.item_id);
+
+    if (!records.length) return res.status(400).json({ error: 'Sin registros válidos en el Excel' });
+
+    const { error } = await supabase.from('costos_productos').upsert(records, { onConflict: 'item_id' });
+    if (error) throw new Error(error.message);
+
+    res.json({ saved: records.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/rentabilidad', async (req, res) => {
+  try {
+    const from = req.query.from || dateNDaysAgo(6);
+    const to   = req.query.to   || today();
+    const fromISO = `${from}T00:00:00.000-06:00`;
+    const toISO   = `${to}T23:59:59.000-06:00`;
+
+    // ── 1. Paginar todas las órdenes del período (cap 2000) ──────────────────
+    let orders = [], offset = 0, total = 1;
+    while (offset < total && orders.length < 2000) {
+      const r = await mlGet('https://api.mercadolibre.com/orders/search', {
+        seller: SELLER_ID, 'order.status': 'paid',
+        'order.date_created.from': fromISO, 'order.date_created.to': toISO,
+        limit: 50, offset
+      });
+      total = r.paging.total;
+      orders = orders.concat(r.results);
+      offset += 50;
+    }
+
+    // ── 2. Obtener costo de envío por shipment (deduplicado, concurrencia 5) ─
+    const shippingIds = [...new Set(orders.filter(o => o.shipping?.id).map(o => o.shipping.id))];
+    const shippingCosts = {};
+    const SC = 5;
+    for (let i = 0; i < shippingIds.length; i += SC) {
+      const batch = shippingIds.slice(i, i + SC);
+      const results = await Promise.all(batch.map(id =>
+        mlGet(`https://api.mercadolibre.com/shipments/${id}`).catch(() => null)
+      ));
+      results.forEach((r, j) => { if (r) shippingCosts[batch[j]] = r.base_cost || 0; });
+    }
+
+    // Repartir costo de envío equitativamente entre órdenes del mismo shipment
+    const shipOrderCount = {};
+    orders.forEach(o => {
+      const sid = o.shipping?.id;
+      if (sid) shipOrderCount[sid] = (shipOrderCount[sid] || 0) + 1;
+    });
+
+    // ── 3. Costos de Supabase ─────────────────────────────────────────────────
+    const { data: costosData } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
+    const costosMap = {};
+    (costosData || []).forEach(c => { costosMap[c.item_id] = c; });
+
+    // ── 4. Agregar por item_id ────────────────────────────────────────────────
+    const byItem = {};
+    const totals = { venta_bruta: 0, comision_ml: 0, costo_envio: 0, costo_producto: 0 };
+
+    orders.forEach(o => {
+      const sid = o.shipping?.id;
+      const orderEnvioCost = sid ? (shippingCosts[sid] || 0) / (shipOrderCount[sid] || 1) : 0;
+      const totalQty = (o.order_items || []).reduce((s, i) => s + (i.quantity || 1), 0);
+
+      (o.order_items || []).forEach(oi => {
+        const itemId = oi.item?.id;
+        if (!itemId) return;
+        const qty     = oi.quantity || 1;
+        const venta   = (oi.unit_price || 0) * qty;
+        const comision= (oi.sale_fee  || 0);           // sale_fee ya es por unidad total
+        const envio   = totalQty > 0 ? orderEnvioCost * qty / totalQty : 0;
+        const costoE  = costosMap[itemId];
+        const costo   = costoE ? costoE.costo_total * qty : 0;
+
+        if (!byItem[itemId]) {
+          byItem[itemId] = {
+            item_id: itemId, title: oi.item?.title || itemId,
+            unidades: 0, venta_bruta: 0, comision_ml: 0,
+            costo_envio: 0, costo_producto: 0, tiene_costo: !!costoE
+          };
+        }
+        byItem[itemId].unidades      += qty;
+        byItem[itemId].venta_bruta   += venta;
+        byItem[itemId].comision_ml   += comision;
+        byItem[itemId].costo_envio   += envio;
+        byItem[itemId].costo_producto+= costo;
+
+        totals.venta_bruta    += venta;
+        totals.comision_ml    += comision;
+        totals.costo_envio    += envio;
+        totals.costo_producto += costo;
+      });
+    });
+
+    // ── 5. Calcular utilidad y margen ─────────────────────────────────────────
+    const items = Object.values(byItem).map(it => {
+      const utilidad = it.venta_bruta - it.comision_ml - it.costo_envio - it.costo_producto;
+      const margen   = it.venta_bruta > 0 ? utilidad / it.venta_bruta * 100 : 0;
+      return { ...it, utilidad, margen };
+    }).sort((a, b) => b.utilidad - a.utilidad);
+
+    totals.utilidad       = totals.venta_bruta - totals.comision_ml - totals.costo_envio - totals.costo_producto;
+    totals.margen_promedio= totals.venta_bruta > 0 ? totals.utilidad / totals.venta_bruta * 100 : 0;
+
+    res.json({ from, to, total_ordenes: orders.length, items, totals });
   } catch (e) {
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
