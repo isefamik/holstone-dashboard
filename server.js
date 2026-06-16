@@ -1492,6 +1492,7 @@ async function getBillingResumen(month, year) {
   const base = `https://api.mercadolibre.com/billing/integration/periods/key/${key}/group/ML/details`;
   const LIMIT = 1000;  // máximo soportado por la API
 
+  const WITH_IVA = new Set(['CPAC','CFRS','CFWA','CESM','CFCB','CFBA','CVAF','CDSD']);
   const sums = {};
   let offset = 0, fetched = 0, total = Infinity;
 
@@ -1510,7 +1511,6 @@ async function getBillingResumen(month, year) {
     const results = r.results || [];
     if (!results.length) break;
 
-    const WITH_IVA = new Set(['CPAC','CFRS','CFWA','CESM','CFCB','CFBA','CVAF','CDSD']);
     for (const rec of results) {
       const sub = rec.charge_info?.detail_sub_type || 'OTHER';
       const amt = rec.charge_info?.detail_amount || 0;
@@ -1519,8 +1519,8 @@ async function getBillingResumen(month, year) {
     fetched += results.length;
     offset  += results.length;
 
-    // 12s entre páginas para respetar el rate-limit de billing (5 req/min)
-    if (fetched < total) await new Promise(res => setTimeout(res, 12000));
+    // 15s entre páginas para respetar el rate-limit de billing (5 req/min)
+    if (fetched < total) await new Promise(res => setTimeout(res, 15000));
   }
 
   const g = (keys) => keys.reduce((s, k) => s + (sums[k] || 0), 0);
