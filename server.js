@@ -1517,8 +1517,8 @@ async function getBillingResumen(month, year) {
     fetched += results.length;
     offset  += results.length;
 
-    // Pausa breve entre páginas para no saturar el rate-limit de billing (5 req/min)
-    if (fetched < total) await new Promise(res => setTimeout(res, 1500));
+    // 12s entre páginas para respetar el rate-limit de billing (5 req/min)
+    if (fetched < total) await new Promise(res => setTimeout(res, 12000));
   }
 
   const g = (keys) => keys.reduce((s, k) => s + (sums[k] || 0), 0);
