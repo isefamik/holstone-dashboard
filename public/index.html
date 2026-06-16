@@ -1000,21 +1000,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div style="overflow-x:auto">
           <table class="si-table" style="table-layout:fixed;width:100%">
             <colgroup>
-              <col style="width:auto">
-              <col style="width:130px">
-              <col style="width:110px">
-              <col style="width:140px">
-              <col style="width:140px">
-              <col style="width:140px">
+              <col style="width:35%">
+              <col style="width:13%">
+              <col style="width:13%">
+              <col style="width:13%">
+              <col style="width:13%">
+              <col style="width:13%">
             </colgroup>
             <thead>
               <tr>
                 <th style="text-align:left">Producto</th>
-                <th style="text-align:center">Precio actual</th>
-                <th style="text-align:center">Costo all-in/u</th>
-                <th style="text-align:center;background:#fef9c3">Para 20% margen</th>
-                <th style="text-align:center;background:#d1fae5">Para 25% margen</th>
-                <th style="text-align:center;background:#dbeafe">Para 30% margen</th>
+                <th style="text-align:right">Precio actual</th>
+                <th style="text-align:right">Costo all-in/u</th>
+                <th style="text-align:right;background:#fef9c3">Para 20% margen</th>
+                <th style="text-align:right;background:#d1fae5">Para 25% margen</th>
+                <th style="text-align:right;background:#dbeafe">Para 30% margen</th>
               </tr>
             </thead>
             <tbody id="fin-precios-tbody">
@@ -1846,17 +1846,17 @@ function renderFinPrecios(){
     const p20=cu/0.80,p25=cu/0.75,p30=cu/0.70;
     const m=it.margen;
     let mCls='badge-red';if(m>=25)mCls='badge-green';else if(m>=10)mCls='badge-yellow';
-    const td=(price,color)=>`<td style="text-align:center;padding:10px 8px;vertical-align:middle">
+    const td=(price,color)=>`<td style="text-align:right;padding:10px 12px;vertical-align:middle">
       <div style="font-weight:700;font-size:14px;color:${color}">${fmtMXN(price)}</div>
       ${dEl(price-pa)}
     </td>`;
     return`<tr class="si-row">
-      <td style="font-size:12px;white-space:normal;line-height:1.4;padding:10px 12px;vertical-align:middle">${it.title||it.item_id}</td>
-      <td style="text-align:center;padding:10px 8px;vertical-align:middle">
+      <td style="font-size:12px;white-space:normal;line-height:1.4;padding:10px 12px;vertical-align:middle;text-align:left">${it.title||it.item_id}</td>
+      <td style="text-align:right;padding:10px 12px;vertical-align:middle">
         <div style="font-weight:700;font-size:14px">${fmtMXN(pa)}</div>
         <span class="badge ${mCls}" style="font-size:10px;margin-top:3px;display:inline-block">${fmtPct(m)}</span>
       </td>
-      <td style="text-align:center;padding:10px 8px;vertical-align:middle;color:var(--muted);font-size:13px">${fmtMXN(cu)}</td>
+      <td style="text-align:right;padding:10px 12px;vertical-align:middle;color:var(--muted);font-size:13px">${fmtMXN(cu)}</td>
       ${td(p20,'#ca8a04')}${td(p25,'#10b981')}${td(p30,'#2563eb')}
     </tr>`;
   }).join('');
