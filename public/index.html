@@ -998,15 +998,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           Fórmula: precio = (costo_prod + comisión + envío) ÷ (1 − margen objetivo)
         </div>
         <div style="overflow-x:auto">
-          <table class="si-table">
+          <table class="si-table" style="table-layout:fixed;width:100%">
+            <colgroup>
+              <col style="width:auto">
+              <col style="width:130px">
+              <col style="width:110px">
+              <col style="width:140px">
+              <col style="width:140px">
+              <col style="width:140px">
+            </colgroup>
             <thead>
               <tr>
-                <th>Producto</th>
-                <th class="si-r">Precio actual</th>
-                <th class="si-r">Costo all-in/u</th>
-                <th class="si-r" style="background:#fef9c3">Para 20% margen</th>
-                <th class="si-r" style="background:#d1fae5">Para 25% margen</th>
-                <th class="si-r" style="background:#dbeafe">Para 30% margen</th>
+                <th style="text-align:left">Producto</th>
+                <th style="text-align:center">Precio actual</th>
+                <th style="text-align:center">Costo all-in/u</th>
+                <th style="text-align:center;background:#fef9c3">Para 20% margen</th>
+                <th style="text-align:center;background:#d1fae5">Para 25% margen</th>
+                <th style="text-align:center;background:#dbeafe">Para 30% margen</th>
               </tr>
             </thead>
             <tbody id="fin-precios-tbody">
@@ -1825,20 +1833,31 @@ function renderFinPrecios(){
   const tbody=document.getElementById('fin-precios-tbody');
   const items=finData.filter(it=>it.tiene_costo&&it.unidades>0);
   if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)">Sin productos con costos cargados</td></tr>';return;}
+  // dEl: si diff>0 → precio actual bajo → advertencia ámbar; si diff<0 → ya supera el objetivo → verde
+  const dEl=(diff)=>{
+    if(Math.abs(diff)<0.5)return'';
+    const color=diff>0?'#d97706':'var(--green)';
+    const sign=diff>0?'+':'';
+    return`<span style="font-size:10px;color:${color};display:block;margin-top:2px">${sign}${fmtMXN(diff)}</span>`;
+  };
   tbody.innerHTML=items.map(it=>{
     const pa=it.venta_bruta/it.unidades;
     const cu=(it.comision_ml+it.costo_envio+it.costo_producto)/it.unidades;
     const p20=cu/0.80,p25=cu/0.75,p30=cu/0.70;
     const m=it.margen;
     let mCls='badge-red';if(m>=25)mCls='badge-green';else if(m>=10)mCls='badge-yellow';
-    const dEl=v=>`<span style="font-size:10px;color:${v>0?'var(--green)':'var(--muted)'};display:block">${v>0?'+':''}${fmtMXN(v)}</span>`;
+    const td=(price,color)=>`<td style="text-align:center;padding:10px 8px;vertical-align:middle">
+      <div style="font-weight:700;font-size:14px;color:${color}">${fmtMXN(price)}</div>
+      ${dEl(price-pa)}
+    </td>`;
     return`<tr class="si-row">
-      <td style="font-size:12px;max-width:240px;white-space:normal;line-height:1.3">${it.title||it.item_id}</td>
-      <td class="si-r"><div style="font-weight:700">${fmtMXN(pa)}</div><span class="badge ${mCls}" style="font-size:10px">${fmtPct(m)}</span></td>
-      <td class="si-r" style="color:var(--muted);font-size:12px">${fmtMXN(cu)}</td>
-      <td class="si-r" style="font-weight:700;color:#ca8a04">${fmtMXN(p20)}${dEl(p20-pa)}</td>
-      <td class="si-r" style="font-weight:700;color:#10b981">${fmtMXN(p25)}${dEl(p25-pa)}</td>
-      <td class="si-r" style="font-weight:700;color:#2563eb">${fmtMXN(p30)}${dEl(p30-pa)}</td>
+      <td style="font-size:12px;white-space:normal;line-height:1.4;padding:10px 12px;vertical-align:middle">${it.title||it.item_id}</td>
+      <td style="text-align:center;padding:10px 8px;vertical-align:middle">
+        <div style="font-weight:700;font-size:14px">${fmtMXN(pa)}</div>
+        <span class="badge ${mCls}" style="font-size:10px;margin-top:3px;display:inline-block">${fmtPct(m)}</span>
+      </td>
+      <td style="text-align:center;padding:10px 8px;vertical-align:middle;color:var(--muted);font-size:13px">${fmtMXN(cu)}</td>
+      ${td(p20,'#ca8a04')}${td(p25,'#10b981')}${td(p30,'#2563eb')}
     </tr>`;
   }).join('');
 }

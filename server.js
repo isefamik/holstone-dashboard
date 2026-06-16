@@ -21,6 +21,11 @@ const SELLER_ID = process.env.SELLER_ID;
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const TOKEN_ROW_ID = 'ml_token';
 
+const shipmentCache = new Map();              // id → objeto shipment completo; nunca expira (shipments son inmutables)
+let costosCache = null;                       // Array de costos_productos
+let costosCacheTime = 0;
+const COSTOS_TTL = 30 * 60 * 1000;           // 30 minutos
+
 async function loadTokenFromSupabase() {
   try {
     const { data, error } = await supabase.from('tokens').select('*').eq('id', TOKEN_ROW_ID).maybeSingle();
@@ -772,17 +777,19 @@ app.get('/api/envios', async (req, res) => {
       offset += 50;
     }
 
-    // Obtener detalle de cada envío en lotes (logistic_type + costo)
+    // Obtener detalle de cada envío en lotes (logistic_type + costo) con caché
     const shipmentIds = [...new Set(allOrders.filter(o => o.shipping?.id).map(o => o.shipping.id))];
-    const shipmentMap = {};
+    const missingEnvios = shipmentIds.filter(id => !shipmentCache.has(id));
     const BATCH = 15;
-    for (let i = 0; i < shipmentIds.length; i += BATCH) {
-      const batch = shipmentIds.slice(i, i + BATCH);
+    for (let i = 0; i < missingEnvios.length; i += BATCH) {
+      const batch = missingEnvios.slice(i, i + BATCH);
       const results = await Promise.all(batch.map(id =>
         mlGet(`https://api.mercadolibre.com/shipments/${id}`).catch(() => null)
       ));
-      batch.forEach((id, idx) => { if (results[idx]) shipmentMap[id] = results[idx]; });
+      batch.forEach((id, idx) => { if (results[idx]) shipmentCache.set(id, results[idx]); });
     }
+    const shipmentMap = {};
+    shipmentIds.forEach(id => { if (shipmentCache.has(id)) shipmentMap[id] = shipmentCache.get(id); });
 
     let totalEnvios = 0;
     let costoTotal = 0;
@@ -1314,6 +1321,7 @@ app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
 
     const { error } = await supabase.from('costos_productos').upsert(records, { onConflict: 'item_id' });
     if (error) throw new Error(error.message);
+    costosCache = null;  // invalidar caché tras upload
 
     res.json({ saved: records.length });
   } catch (e) {
@@ -1340,16 +1348,21 @@ async function getFinancialPeriod(from, to) {
     offset += 50;
   }
 
-  // 2. Costos de envío (deduplicado, concurrencia 5)
+  // 2. Costos de envío (caché de objetos completos + concurrencia 5)
   const shippingIds = [...new Set(orders.filter(o => o.shipping?.id).map(o => o.shipping.id))];
-  const shippingCosts = {};
-  for (let i = 0; i < shippingIds.length; i += 5) {
-    const batch = shippingIds.slice(i, i + 5);
+  const missingShipIds = shippingIds.filter(id => !shipmentCache.has(id));
+  for (let i = 0; i < missingShipIds.length; i += 5) {
+    const batch = missingShipIds.slice(i, i + 5);
     const results = await Promise.all(batch.map(id =>
       mlGet(`https://api.mercadolibre.com/shipments/${id}`).catch(() => null)
     ));
-    results.forEach((r, j) => { if (r) shippingCosts[batch[j]] = r.shipping_option?.list_cost ?? r.base_cost ?? 0; });
+    results.forEach((r, j) => { if (r) shipmentCache.set(batch[j], r); });
   }
+  const shippingCosts = {};
+  shippingIds.forEach(id => {
+    const s = shipmentCache.get(id);
+    shippingCosts[id] = s ? (s.shipping_option?.list_cost ?? s.base_cost ?? 0) : 0;
+  });
   const shipOrderCount = {};
   orders.forEach(o => { if (o.shipping?.id) shipOrderCount[o.shipping.id] = (shipOrderCount[o.shipping.id] || 0) + 1; });
 
@@ -1374,10 +1387,14 @@ async function getFinancialPeriod(from, to) {
     }
   } catch (e) { /* ads no disponibles */ }
 
-  // 4. Costos de Supabase
-  const { data: costosData } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
+  // 4. Costos de Supabase (caché 30 min)
+  if (!costosCache || Date.now() - costosCacheTime > COSTOS_TTL) {
+    const { data } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
+    costosCache = data || [];
+    costosCacheTime = Date.now();
+  }
   const costosMap = {};
-  (costosData || []).forEach(c => { costosMap[c.item_id] = c; });
+  costosCache.forEach(c => { costosMap[c.item_id] = c; });
 
   // 5. Agregar por item_id
   const byItem = {};
@@ -1525,23 +1542,32 @@ app.get('/api/tendencia-financiera', async (req, res) => {
       return orders;
     }));
 
-    // Todos los shipment IDs únicos de todos los meses en una sola pasada
+    // Shipment IDs únicos de todos los meses — sólo fetcha los que no están en caché
     const allShipIds = [...new Set(monthOrders.flat().filter(o => o.shipping?.id).map(o => o.shipping.id))];
-    const shippingCosts = {};
-    for (let i = 0; i < allShipIds.length; i += 10) {
-      const batch = allShipIds.slice(i, i + 10);
+    const missingAll = allShipIds.filter(id => !shipmentCache.has(id));
+    for (let i = 0; i < missingAll.length; i += 10) {
+      const batch = missingAll.slice(i, i + 10);
       const results = await Promise.all(batch.map(id =>
         mlGet(`https://api.mercadolibre.com/shipments/${id}`).catch(() => null)
       ));
-      results.forEach((r, j) => { if (r) shippingCosts[batch[j]] = r.shipping_option?.list_cost ?? r.base_cost ?? 0; });
+      results.forEach((r, j) => { if (r) shipmentCache.set(batch[j], r); });
     }
+    const shippingCosts = {};
+    allShipIds.forEach(id => {
+      const s = shipmentCache.get(id);
+      shippingCosts[id] = s ? (s.shipping_option?.list_cost ?? s.base_cost ?? 0) : 0;
+    });
     const shipOrderCount = {};
     monthOrders.flat().forEach(o => { if (o.shipping?.id) shipOrderCount[o.shipping.id] = (shipOrderCount[o.shipping.id] || 0) + 1; });
 
-    // Costos de producto una sola vez
-    const { data: costosData } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
+    // Costos de producto (caché 30 min)
+    if (!costosCache || Date.now() - costosCacheTime > COSTOS_TTL) {
+      const { data } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
+      costosCache = data || [];
+      costosCacheTime = Date.now();
+    }
     const costosMap = {};
-    (costosData || []).forEach(c => { costosMap[c.item_id] = c; });
+    costosCache.forEach(c => { costosMap[c.item_id] = c; });
 
     // Ads en paralelo por mes
     const adsPerMonth = await Promise.all(ranges.map(async r => {
