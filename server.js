@@ -552,7 +552,10 @@ app.get('/api/reputacion', async (req, res) => {
     const rep = data.seller_reputation || {};
     const metrics = rep.metrics || {};
     const transactions = rep.transactions || {};
+    const ratings = transactions.ratings || {};
+    const RELEVANT_TAGS = ['large_seller', 'eshop', 'brand'];
     res.json({
+      // existing fields (backward compat for overview cards)
       reputacion: rep.level_id,
       powerSeller: rep.power_seller_status,
       transacciones: transactions.completed || 0,
@@ -565,8 +568,22 @@ app.get('/api/reputacion', async (req, res) => {
       tiempoRespuesta: {
         periodo: metrics.sales?.period || '',
         envioDemoradoRate: (metrics.delayed_handling_time?.rate || 0) * 100,
-        envioDemoradoNum: metrics.delayed_handling_time?.value || 0
-      }
+        envioDemoradoNum: metrics.delayed_handling_time?.value || 0,
+      },
+      // new fields
+      ventasCompletadas60d: metrics.sales?.completed || 0,
+      periodoMetricas: metrics.sales?.period || '60 days',
+      transaccionesTotal: transactions.total || 0,
+      transaccionesCompletadas: transactions.completed || 0,
+      transaccionesCanceladas: transactions.canceled || 0,
+      ratings: {
+        positivo: Math.round((ratings.positive || 0) * 100),
+        negativo: Math.round((ratings.negative || 0) * 100),
+        neutral: Math.round((ratings.neutral || 0) * 100),
+      },
+      points: data.points || 0,
+      tags: (data.tags || []).filter(t => RELEVANT_TAGS.includes(t)),
+      registracion: data.registration_date || null,
     });
   } catch (e) {
     res.status(500).json({ error: e.response?.data || e.message });
