@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
 const XLSX = require('xlsx');
+const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -149,6 +150,27 @@ billingCache.clear();
 supabase.from('billing_cache').delete().neq('period_key', 'x')
   .then(() => console.log('billing_cache limpiado en Supabase'))
   .catch(e => console.warn('No se pudo limpiar billing_cache:', e.message));
+
+// ── JOB NOCTURNO: pre-calentar billing cache a las 2am hora México ────────
+cron.schedule('0 2 * * *', async () => {
+  const now = new Intl.DateTimeFormat('es-MX', {
+    timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short'
+  }).format(new Date());
+  console.log(`[cron-billing] ${now} — Iniciando pre-calentamiento de billing cache...`);
+  try {
+    const mxDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date());
+    const [yr, mo] = mxDate.split('-').map(Number);
+    let pm = mo - 1, py = yr;
+    if (pm === 0) { pm = 12; py--; }
+    await Promise.all([
+      getBillingResumen(mo, yr).then(() => console.log(`[cron-billing] Mes actual ${yr}-${mo} guardado en caché`)),
+      getBillingResumen(pm, py).then(() => console.log(`[cron-billing] Mes anterior ${py}-${pm} guardado en caché`)),
+    ]);
+    console.log('[cron-billing] Pre-calentamiento completado');
+  } catch (e) {
+    console.error('[cron-billing] Error:', e.message);
+  }
+}, { timezone: 'America/Mexico_City' });
 
 function today() {
   // en-CA produce el formato YYYY-MM-DD directamente
@@ -1984,6 +2006,15 @@ app.post('/api/preguntas/:id/responder', async (req, res) => {
     res.json(r.data);
   } catch (e) {
     res.status(e.response?.status || 500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── Catch-all: serve index.html para rutas de sección (/ventas, /stock, etc.) ──
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api/')) {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  } else {
+    next();
   }
 });
 
