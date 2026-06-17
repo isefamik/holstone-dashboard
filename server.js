@@ -2009,6 +2009,50 @@ app.post('/api/preguntas/:id/responder', async (req, res) => {
   }
 });
 
+// ── DIRECTOR COMERCIAL AI ────────────────────────────────────────────────────
+
+const NO_KEY_MSG = 'Para activar el Director Comercial AI necesitas agregar créditos en platform.anthropic.com y configurar tu API key en el archivo .env (ANTHROPIC_API_KEY=tu_key).';
+
+const AI_SYSTEM = `Eres el Director Comercial AI de Holstone, una marca de ropa deportiva/casual que vende en MercadoLibre México como vendedor Platinum nivel 5/5 con más de 27,000 transacciones completadas.
+Tu rol es analizar datos del negocio y dar recomendaciones estratégicas concretas y accionables.
+Tienes acceso conceptual a: ventas diarias/mensuales, stock inteligente (días de inventario, agotamiento), publicidad Product Ads (ROAS, ACOS, CPC), finanzas (rentabilidad por producto, costos, márgenes), reclamos/devoluciones y métricas de reputación.
+Métricas clave actuales: reclamos 0.05% (límite <1%), cancelaciones 0% (<0.5%), envíos demorados 0.2% (<8%), calificaciones positivas ~81%.
+Responde en español, de forma concisa y directa. Usa bullets cuando sea apropiado. Si necesitas datos en tiempo real que no tienes, indícalo y sugiere qué sección del dashboard revisar.`;
+
+app.post('/api/ai-director', async (req, res) => {
+  const { message, history = [] } = req.body;
+  if (!message?.trim()) return res.status(400).json({ error: 'message requerido' });
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.json({ response: NO_KEY_MSG });
+  }
+
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    const messages = [
+      ...history.filter(m => m.role && m.content).slice(-12),
+      { role: 'user', content: message.trim() },
+    ];
+
+    const completion = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: AI_SYSTEM,
+      messages,
+    });
+
+    res.json({ response: completion.content[0].text });
+  } catch (e) {
+    if (e.status === 401) return res.json({ response: 'API key inválida. Verifica tu ANTHROPIC_API_KEY en el archivo .env.' });
+    if (e.status === 529 || e.message?.includes('credit') || e.message?.includes('balance')) {
+      return res.json({ response: NO_KEY_MSG });
+    }
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
 // ── Catch-all: serve index.html para rutas de sección (/ventas, /stock, etc.) ──
 app.use((req, res, next) => {
   if (req.method === 'GET' && !req.path.startsWith('/api/')) {
