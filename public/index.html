@@ -75,6 +75,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
 .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:22px}
 
 /* ── METRIC CARDS ── */
@@ -339,8 +340,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .rep-stats-grid{grid-template-columns:repeat(2,1fr)}
 
   /* horizontally scrollable "table" rows built from CSS grid */
-  #devoluciones .card{overflow-x:auto}
-  .dev-header,.dev-row{min-width:440px}
+  #dev-stats-grid{grid-template-columns:repeat(2,1fr)}
 
   /* bigger touch targets */
   .btn-refresh,.mes-selector button,.si-filter-btn,.nav-item{min-height:44px}
@@ -383,8 +383,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="nav-item" onclick="showSection('preguntas',this);initPreguntasSection()">
       <span class="nav-icon">💬</span><span>Preguntas</span><span id="preguntas-badge" style="display:none;margin-left:auto;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px"></span>
     </div>
-    <div class="nav-item" onclick="showSection('devoluciones',this)">
-      <span class="nav-icon">🔄</span><span>Devoluciones</span>
+    <div class="nav-item" onclick="showSection('devoluciones',this);initDevolucionesSection()">
+      <span class="nav-icon">🔄</span><span>Devoluciones</span><span id="devoluciones-badge" style="display:none;margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px"></span>
     </div>
     <div class="nav-item" onclick="showSection('reputacion',this)">
       <span class="nav-icon">⭐</span><span>Reputación</span>
@@ -884,23 +884,44 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
     <!-- ── DEVOLUCIONES ── -->
     <div id="devoluciones" class="section">
-      <div class="mes-selector">
-        <select id="dev-mes">
-          <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
-          <option value="4">Abril</option><option value="5">Mayo</option><option value="6" selected>Junio</option>
-          <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
-          <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-        </select>
-        <select id="dev-year">
-          <option value="2024">2024</option><option value="2025">2025</option><option value="2026" selected>2026</option>
-        </select>
-        <button onclick="loadDevoluciones()">Ver mes</button>
+      <!-- Métricas -->
+      <div class="grid-4" id="dev-stats-grid">
+        <div class="metric">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">🔔</div>
+          <div class="metric-label">Reclamos abiertos</div>
+          <div class="metric-value" id="dev-s-open" style="font-size:28px;color:var(--red)">—</div>
+          <div class="metric-sub">activos ahora</div>
+        </div>
+        <div class="metric">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">📦</div>
+          <div class="metric-label">Devoluciones</div>
+          <div class="metric-value" id="dev-s-returns" style="font-size:28px">—</div>
+          <div class="metric-sub">de reclamos abiertos</div>
+        </div>
+        <div class="metric">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">⚖️</div>
+          <div class="metric-label">Mediaciones</div>
+          <div class="metric-value" id="dev-s-med" style="font-size:28px">—</div>
+          <div class="metric-sub">de reclamos abiertos</div>
+        </div>
+        <div class="metric">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">✅</div>
+          <div class="metric-label">% resueltos a tu favor</div>
+          <div class="metric-value" id="dev-s-pct" style="font-size:28px;color:var(--green)">—</div>
+          <div class="metric-sub" id="dev-s-pct-sub">últimos 100 cerrados</div>
+        </div>
       </div>
-      <div id="dev-metrics" class="grid-3"><div class="loading"><div class="spin"></div>Selecciona un mes</div></div>
-      <div class="card">
-        <div class="card-title" id="dev-titulo">Cancelaciones del mes</div>
-        <div class="dev-header"><span>Producto</span><span>Órdenes</span><span>Monto</span><span>Unidades</span></div>
-        <div id="dev-top"><div class="loading"><div class="spin"></div>Selecciona un mes</div></div>
+      <!-- Tabs -->
+      <div class="preg-tabs-nav" style="display:flex;border-bottom:2px solid var(--border);margin-bottom:0;gap:0">
+        <button type="button" class="preg-tab active" id="dev-tab-open-btn" onclick="showDevTab('abiertos',this)">Abiertos <span id="dev-open-count" style="background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px;display:none"></span></button>
+        <button type="button" class="preg-tab" id="dev-tab-hist-btn" onclick="showDevTab('historial',this)">Historial</button>
+      </div>
+      <div id="dev-pane-abiertos" class="preg-pane" style="padding-top:20px">
+        <div id="dev-open-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
+      </div>
+      <div id="dev-pane-historial" class="preg-pane" style="display:none;padding-top:20px">
+        <div id="dev-hist-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
+        <div id="dev-hist-pagination" style="display:flex;justify-content:center;align-items:center;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)"></div>
       </div>
     </div>
 
@@ -2551,46 +2572,131 @@ async function loadReputacion(){
   }
 }
 
-async function loadDevoluciones(){
+let _devState={histOffset:0,histTotal:0,histLoaded:false,activeTab:'abiertos'};
+
+function showDevTab(tab,btn){
+  document.querySelectorAll('.preg-tab[id^="dev-tab"]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('dev-pane-abiertos').style.display=tab==='abiertos'?'':'none';
+  document.getElementById('dev-pane-historial').style.display=tab==='historial'?'':'none';
+  _devState.activeTab=tab;
+  if(tab==='historial'&&!_devState.histLoaded)loadDevHistorial(0);
+}
+
+async function initDevolucionesSection(){
+  _devState.histLoaded=false;
+  _devState.activeTab='abiertos';
+  document.getElementById('dev-pane-abiertos').style.display='';
+  document.getElementById('dev-pane-historial').style.display='none';
+  document.querySelectorAll('.preg-tab[id^="dev-tab"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('dev-tab-open-btn').classList.add('active');
+  await Promise.all([loadDevStats(),loadDevAbiertos()]);
+}
+
+async function loadDevStats(){
   try{
-    const mes=document.getElementById('dev-mes').value;
-    const year=document.getElementById('dev-year').value;
-    const meses=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    document.getElementById('dev-metrics').innerHTML=spin();
-    document.getElementById('dev-top').innerHTML=spin();
-    document.getElementById('dev-titulo').textContent=`Cancelaciones — ${meses[mes]} ${year}`;
-    const r=await fetch(`/api/devoluciones?month=${mes}&year=${year}`);
+    const r=await fetch('/api/devoluciones/stats');
     const d=await r.json();
     if(d.error)throw new Error(d.error);
-    document.getElementById('dev-metrics').innerHTML=`
-      <div class="metric">
-        <div class="mi mi-r">🔄</div>
-        <div class="metric-label">Órdenes canceladas</div>
-        <div class="metric-value" style="color:var(--red)">${fmt(d.total)}</div>
-      </div>
-      <div class="metric">
-        <div class="mi mi-r">💸</div>
-        <div class="metric-label">Monto cancelado</div>
-        <div class="metric-value" style="color:var(--red)">${fmtMXN(d.totalMonto)}</div>
-      </div>
-      <div class="metric">
-        <div class="mi mi-r">📦</div>
-        <div class="metric-label">Unidades canceladas</div>
-        <div class="metric-value" style="color:var(--red)">${fmt(d.totalUnidades)}</div>
-      </div>`;
-    document.getElementById('dev-top').innerHTML=d.top.length>0
-      ?d.top.map(p=>`
-        <div class="dev-row">
-          <span style="color:var(--text)">${p.title}</span>
-          <span style="color:var(--red);font-weight:700">${fmt(p.ordenes)}</span>
-          <span style="color:var(--muted)">${fmtMXN(p.monto)}</span>
-          <span style="color:var(--muted)">${fmt(p.unidades)}</span>
-        </div>`).join('')
-      :'<div style="text-align:center;padding:28px;color:var(--green);font-size:14px;font-weight:600">Sin cancelaciones este mes 🎉</div>';
-  }catch(e){
-    document.getElementById('dev-metrics').innerHTML=`<div class="error">Error: ${e.message}</div>`;
-  }
+    document.getElementById('dev-s-open').textContent=fmt(d.totalOpen);
+    document.getElementById('dev-s-returns').textContent=fmt(d.openReturns);
+    document.getElementById('dev-s-med').textContent=fmt(d.openMediations);
+    document.getElementById('dev-s-pct').textContent=d.resolution.pctFavorVendedor+'%';
+    document.getElementById('dev-s-pct-sub').textContent=`${fmt(d.resolution.favorVendedor)} de ${fmt(d.resolution.total)} recientes`;
+    const badge=document.getElementById('devoluciones-badge');
+    if(badge){badge.textContent=d.totalOpen;badge.style.display=d.totalOpen>0?'':'none';}
+  }catch(e){console.error('dev stats:',e);}
 }
+
+async function loadDevAbiertos(){
+  const el=document.getElementById('dev-open-content');
+  const countBadge=document.getElementById('dev-open-count');
+  el.innerHTML=spin();
+  try{
+    const r=await fetch('/api/devoluciones?status=opened&limit=50');
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    if(d.total>0){countBadge.textContent=d.total;countBadge.style.display='';}
+    else countBadge.style.display='none';
+    if(!d.claims.length){
+      el.innerHTML=`<div style="display:flex;justify-content:center;padding:40px 16px">
+        <div style="background:#fff;border:1px solid var(--border);border-radius:16px;padding:48px 40px;text-align:center;max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.06)">
+          <div style="font-size:56px;margin-bottom:16px">🎉</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Sin reclamos activos</div>
+          <div style="font-size:14px;color:var(--muted);line-height:1.5">No tienes reclamos abiertos en este momento</div>
+        </div></div>`;
+      return;
+    }
+    el.innerHTML=d.claims.map(c=>renderClaimCard(c,false)).join('');
+  }catch(e){el.innerHTML=`<div class="error">Error: ${esc(e.message)}</div>`;}
+}
+
+async function loadDevHistorial(offset){
+  const el=document.getElementById('dev-hist-content');
+  const pagEl=document.getElementById('dev-hist-pagination');
+  el.innerHTML=spin();
+  const limit=20;
+  try{
+    const r=await fetch(`/api/devoluciones?status=closed&limit=${limit}&offset=${offset}`);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    _devState.histTotal=d.total;_devState.histOffset=offset;_devState.histLoaded=true;
+    el.innerHTML=d.claims.length?d.claims.map(c=>renderClaimCard(c,true)).join('')
+      :'<div style="text-align:center;padding:24px;color:var(--muted)">Sin historial</div>';
+    const pages=Math.ceil(d.total/limit);
+    const cur=Math.floor(offset/limit);
+    if(pages<=1){pagEl.innerHTML='';return;}
+    let ph='';
+    if(cur>0)ph+=`<button class="btn-refresh" onclick="loadDevHistorial(${(cur-1)*limit})">← Anterior</button>`;
+    ph+=`<span style="font-size:13px;color:var(--muted)">Página ${cur+1} de ${pages} · ${fmt(d.total)} total</span>`;
+    if(cur<pages-1)ph+=`<button class="btn-refresh" onclick="loadDevHistorial(${(cur+1)*limit})">Siguiente →</button>`;
+    pagEl.innerHTML=ph;
+  }catch(e){el.innerHTML=`<div class="error">Error: ${esc(e.message)}</div>`;}
+}
+
+const _CLAIM_REASON_LABELS={
+  'PNR6255':'No recibí el producto','PNR7836':'No recibí el producto',
+  'PDD9962':'No se entregó en fecha prometida','PDD6562':'Problema con la entrega',
+  'PDP4937':'Producto llegó dañado','PDP7345':'Producto llegó dañado',
+  'PDC5439':'Producto diferente al anunciado','PDC8273':'Producto es falso',
+};
+
+function _claimReasonLabel(id){return _CLAIM_REASON_LABELS[id]||id||'Sin motivo';}
+function _claimTypeLabel(t){return t==='returns'?'Devolución':t==='mediations'?'Mediación':t||'—';}
+function _claimStageLabel(s){return s==='dispute'?'Disputa':s==='claim'?'Reclamo':s||'—';}
+
+function renderClaimCard(c,isHistory){
+  const typeColor=c.type==='returns'?'var(--red)':'#f59e0b';
+  const typeBg=c.type==='returns'?'#fee2e2':'#fef3c7';
+  const items=c.order_items||[];
+  const productTitle=items.length>0?items[0].title:(c.resource_id?`Orden #${c.resource_id}`:'—');
+  let resHtml='';
+  if(c.resolution){
+    const ben=c.resolution.benefited||[];
+    const fv=ben.some(b=>['respondent','seller'].includes(b));
+    const fc=ben.some(b=>['complainant','buyer'].includes(b));
+    const rc=fv?'var(--green)':fc?'var(--red)':'var(--muted)';
+    const rl=fv?'✓ Resuelto a tu favor':fc?'✗ Resuelto a favor del comprador':`Cerrado: ${c.resolution.reason||'sin beneficiado'}`;
+    resHtml=`<div style="margin-top:8px;font-size:12px;font-weight:600;color:${rc}">${esc(rl)}</div>`;
+  }
+  return `<div class="preg-card" style="border-left:3px solid ${typeColor}">
+    <div class="preg-thumb-ph">${c.type==='returns'?'📦':'⚖️'}</div>
+    <div class="preg-body">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${typeBg};color:${typeColor}">${_claimTypeLabel(c.type)}</span>
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--muted);font-weight:600">${_claimStageLabel(c.stage)}</span>
+        <span style="font-size:11px;color:var(--muted);margin-left:auto">#${c.id}</span>
+      </div>
+      <div class="preg-item-title">${esc(productTitle)}${items.length>1?` +${items.length-1} más`:''}</div>
+      <div class="preg-question" style="font-size:13px;color:var(--text)">${esc(_claimReasonLabel(c.reason_id))}</div>
+      ${c.buyer?`<div style="font-size:12px;color:var(--muted);margin-top:2px">Comprador: ${esc(c.buyer)}</div>`:''}
+      ${resHtml}
+      <div class="preg-meta" style="margin-top:8px">${new Date(c.date_created).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+    </div>
+  </div>`;
+}
+
+async function loadDevoluciones(){initDevolucionesSection();}
 
 function errStr(e){return typeof e==='string'?e:e?.message||e?.error||JSON.stringify(e)}
 
@@ -3314,7 +3420,7 @@ const SECTION_RELOADERS = {
     if (activeTab) activeTab.click(); else if (typeof loadRentabilidad==='function') loadRentabilidad();
   },
   preguntas:    () => initPreguntasSection(),
-  devoluciones: () => loadDevoluciones(),
+  devoluciones: () => initDevolucionesSection(),
   reputacion:   () => loadReputacion()
 };
 

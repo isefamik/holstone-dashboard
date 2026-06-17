@@ -402,69 +402,79 @@ app.get('/api/stock', async (req, res) => {
   }
 });
 
+const CLAIM_REASON_MAP = {
+  'PNR6255': 'No recibí el producto', 'PNR7836': 'No recibí el producto',
+  'PDD9962': 'No se entregó en fecha prometida', 'PDD6562': 'Problema con la entrega',
+  'PDP4937': 'Producto llegó dañado', 'PDP7345': 'Producto llegó dañado',
+  'PDC5439': 'Producto diferente al anunciado', 'PDC8273': 'Producto es falso',
+  'PRS1234': 'Producto sin funcionamiento', 'PFE2341': 'Problema con el flete',
+};
+
+app.get('/api/devoluciones/stats', async (req, res) => {
+  try {
+    const [openedData, closedData] = await Promise.all([
+      mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'opened', limit: 50, offset: 0 }),
+      mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'closed', limit: 100, offset: 0 }),
+    ]);
+    const openClaims = openedData.data || [];
+    const closedClaims = closedData.data || [];
+    const totalOpen = openedData.paging?.total || 0;
+    const totalClosed = closedData.paging?.total || 0;
+    const openReturns = openClaims.filter(c => c.type === 'returns').length;
+    const openMediations = openClaims.filter(c => c.type === 'mediations').length;
+    const reasonCount = {};
+    openClaims.forEach(c => { if (c.reason_id) reasonCount[c.reason_id] = (reasonCount[c.reason_id] || 0) + 1; });
+    const topReasons = Object.entries(reasonCount)
+      .sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([reason_id, count]) => ({ reason_id, label: CLAIM_REASON_MAP[reason_id] || reason_id, count }));
+    let favorVendedor = 0, favorComprador = 0, sinResolver = 0;
+    closedClaims.forEach(c => {
+      const ben = c.resolution?.benefited || [];
+      if (ben.some(b => ['respondent', 'seller'].includes(b))) favorVendedor++;
+      else if (ben.some(b => ['complainant', 'buyer'].includes(b))) favorComprador++;
+      else sinResolver++;
+    });
+    res.json({
+      totalOpen, totalClosed, openReturns, openMediations, topReasons,
+      resolution: {
+        favorVendedor, favorComprador, sinResolver,
+        total: closedClaims.length,
+        pctFavorVendedor: closedClaims.length > 0 ? Math.round(favorVendedor / closedClaims.length * 100) : 0,
+      },
+    });
+  } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
+});
+
 app.get('/api/devoluciones', async (req, res) => {
   try {
-    const { year, month } = req.query;
-    const y = year || new Date().getFullYear();
-    const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
-    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
-    let all = [];
-    let offset = 0;
-    let total = 1;
-    while (offset < total) {
-      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-        seller: SELLER_ID, 'order.status': 'cancelled',
-        'order.date_created.from': from, 'order.date_created.to': to,
-        limit: 50, offset
-      });
-      total = d.paging.total;
-      all = all.concat(d.results);
-      offset += 50;
-    }
-    const totalMonto = all.reduce((s, o) => s + (o.total_amount || 0), 0);
-    const totalUnidades = all.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
-    const byProduct = {};
-    all.forEach(o => {
-      o.order_items.forEach(i => {
-        const t = i.item.title;
-        if (!byProduct[t]) byProduct[t] = { monto: 0, unidades: 0, ordenes: 0 };
-        byProduct[t].monto += o.total_amount || 0;
-        byProduct[t].unidades += i.quantity;
-        byProduct[t].ordenes += 1;
-      });
+    const status = req.query.status || 'opened';
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const offset = parseInt(req.query.offset) || 0;
+    const data = await mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', {
+      seller_id: SELLER_ID, status, limit, offset,
     });
-    const top = Object.entries(byProduct).sort((a, b) => b[1].ordenes - a[1].ordenes).slice(0, 10).map(([title, v]) => ({ title, ...v }));
-    res.json({ total, totalMonto, totalUnidades, top });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+    let claims = data.data || [];
+    const total = data.paging?.total || 0;
+    if (status === 'opened' && claims.length > 0) {
+      await Promise.all(claims.map(async (claim, idx) => {
+        if (!claim.resource_id) return;
+        try {
+          const order = await mlGet(`https://api.mercadolibre.com/orders/${claim.resource_id}`);
+          claims[idx] = {
+            ...claims[idx],
+            order_items: (order.order_items || []).map(i => ({ title: i.item?.title, quantity: i.quantity, unit_price: i.unit_price })),
+            total_amount: order.total_amount,
+            buyer: order.buyer?.nickname || null,
+          };
+        } catch { /* sin enriquecimiento */ }
+      }));
+    }
+    res.json({ total, offset, limit, claims });
+  } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor Holstone corriendo en http://localhost:${PORT}`));
-
-app.get('/api/reclamos', async (req, res) => {
-  try {
-    const { year, month } = req.query;
-    const y = year || new Date().getFullYear();
-    const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
-    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
-    const token = await getToken();
-    const r = await axios.get(`https://api.mercadolibre.com/post-purchase/v1/claims/search`, {
-      params: { seller_id: SELLER_ID, type: 'returns', limit: 50, date_created_from: from, date_created_to: to },
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const claims = r.data.data || [];
-    const total = r.data.meta?.total || claims.length;
-    res.json({ total, claims: claims.slice(0, 20) });
-  } catch (e) {
-    res.status(500).json({ error: e.response?.data || e.message });
-  }
-});
 
 app.get('/api/reputacion', async (req, res) => {
   try {
