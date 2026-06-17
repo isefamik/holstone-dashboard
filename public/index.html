@@ -2686,7 +2686,7 @@ function renderDevInsights(claims, stats){
 function renderTopProducts(claims){
   const el=document.getElementById('dev-top-products');
   const prodMap={};
-  claims.forEach(c=>{
+  claims.filter(c=>(c.days_open||0)<=60).forEach(c=>{
     const title=c.order_items?.[0]?.title||'Sin producto';
     if(!prodMap[title])prodMap[title]={count:0,types:{},maxDays:0};
     prodMap[title].count++;

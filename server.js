@@ -423,10 +423,15 @@ app.get('/api/devoluciones/stats', async (req, res) => {
       mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'opened', limit: 50, offset: 0 }),
       mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'closed', limit: 100, offset: 0 }),
     ]);
-    const openClaims = openedData.data || [];
+    const allOpenClaims = openedData.data || [];
     const closedClaims = closedData.data || [];
     const totalOpen = openedData.paging?.total || 0;
     const totalClosed = closedData.paging?.total || 0;
+
+    // Exclude outliers >60 días abiertos para stats y top productos
+    const cutoff60 = Date.now() - 60 * 24 * 60 * 60 * 1000;
+    const openClaims = allOpenClaims.filter(c => new Date(c.date_created).getTime() >= cutoff60);
+
     const openReturns = openClaims.filter(c => c.type === 'returns').length;
     const openMediations = openClaims.filter(c => c.type === 'mediations').length;
 
