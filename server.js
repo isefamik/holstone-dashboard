@@ -505,11 +505,30 @@ app.get('/api/devoluciones', async (req, res) => {
         })(),
       ]);
       const now = Date.now();
-      claims = claims.map(c => ({
-        ...c,
-        reason_label: reasonLabels[c.reason_id] || c.reason_id,
-        days_open: Math.floor((now - new Date(c.date_created)) / 86400000),
-      }));
+      claims = claims.map(c => {
+        const sellerPlayer = (c.players || []).find(p => p.role === 'respondent');
+        const sellerActions = sellerPlayer?.available_actions || [];
+        const mandatoryAction = sellerActions.find(a => a.mandatory);
+        let prioridad, due_date;
+        if (mandatoryAction) {
+          prioridad = 'urgente';
+          due_date = mandatoryAction.due_date || null;
+        } else if (sellerActions.length > 0) {
+          prioridad = 'opcional';
+          due_date = null;
+        } else {
+          prioridad = 'esperando';
+          due_date = null;
+        }
+        return {
+          ...c,
+          reason_label: reasonLabels[c.reason_id] || c.reason_id,
+          days_open: Math.floor((now - new Date(c.date_created)) / 86400000),
+          prioridad,
+          due_date,
+          seller_actions: sellerActions.map(a => a.action),
+        };
+      });
     }
 
     // Closed claims: just add reason_label from cache (no extra API calls if already cached)

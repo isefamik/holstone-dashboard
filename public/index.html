@@ -888,25 +888,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div id="dev-insights" style="display:none;margin-bottom:20px"></div>
       <!-- Métricas -->
       <div class="grid-4" id="dev-stats-grid">
-        <div class="metric">
-          <div class="mi" style="font-size:20px;margin-bottom:8px">🔔</div>
-          <div class="metric-label">Reclamos abiertos</div>
+        <div class="metric" style="border-top:3px solid var(--red)">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">🔴</div>
+          <div class="metric-label">Urgentes</div>
           <div class="metric-value" id="dev-s-open" style="font-size:28px;color:var(--red)">—</div>
-          <div class="metric-sub">activos ahora</div>
+          <div class="metric-sub">acción obligatoria</div>
         </div>
-        <div class="metric">
-          <div class="mi" style="font-size:20px;margin-bottom:8px">📦</div>
-          <div class="metric-label">Devoluciones</div>
-          <div class="metric-value" id="dev-s-returns" style="font-size:28px">—</div>
-          <div class="metric-sub">de reclamos abiertos</div>
+        <div class="metric" style="border-top:3px solid #f59e0b">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">🟡</div>
+          <div class="metric-label">Pendientes tu acción</div>
+          <div class="metric-value" id="dev-s-returns" style="font-size:28px;color:#b45309">—</div>
+          <div class="metric-sub">acción disponible</div>
         </div>
-        <div class="metric">
-          <div class="mi" style="font-size:20px;margin-bottom:8px">⚖️</div>
-          <div class="metric-label">Mediaciones</div>
-          <div class="metric-value" id="dev-s-med" style="font-size:28px">—</div>
-          <div class="metric-sub">de reclamos abiertos</div>
+        <div class="metric" style="border-top:3px solid var(--border)">
+          <div class="mi" style="font-size:20px;margin-bottom:8px">⚪</div>
+          <div class="metric-label">Esperando ML / Comprador</div>
+          <div class="metric-value" id="dev-s-med" style="font-size:28px;color:var(--muted)">—</div>
+          <div class="metric-sub">sin acción disponible</div>
         </div>
-        <div class="metric">
+        <div class="metric" style="border-top:3px solid var(--green)">
           <div class="mi" style="font-size:20px;margin-bottom:8px">✅</div>
           <div class="metric-label">Cerrados sin devolución</div>
           <div class="metric-value" id="dev-s-pct" style="font-size:28px;color:var(--green)">—</div>
@@ -2601,16 +2601,11 @@ async function loadDevStats(){
     const r=await fetch('/api/devoluciones/stats');
     const d=await r.json();
     if(d.error)throw new Error(d.error);
-    document.getElementById('dev-s-open').textContent=fmt(d.totalOpen);
-    document.getElementById('dev-s-returns').textContent=fmt(d.openReturns);
-    document.getElementById('dev-s-med').textContent=fmt(d.openMediations);
+    // Solo actualiza la 4ª card — las 3 primeras las rellena loadDevAbiertos con datos reales
     document.getElementById('dev-s-pct').textContent=d.resolution.pctFavorVendedor+'%';
     document.getElementById('dev-s-pct-sub').textContent=`${fmt(d.resolution.favorVendedor)} sin devol. / ${fmt(d.resolution.favorComprador)} con devol.`;
-    // Insights desde stats
     _devState.stats=d;
     renderDevInsights(null, d);
-    const badge=document.getElementById('devoluciones-badge');
-    if(badge){badge.textContent=d.totalOpen;badge.style.display=d.totalOpen>0?'':'none';}
   }catch(e){console.error('dev stats:',e);}
 }
 
@@ -2626,18 +2621,41 @@ async function loadDevAbiertos(){
     else countBadge.style.display='none';
     if(!d.claims.length){
       document.getElementById('dev-top-products').style.display='none';
-      el.innerHTML=`<div style="display:flex;justify-content:center;padding:40px 16px">
-        <div style="background:#fff;border:1px solid var(--border);border-radius:16px;padding:48px 40px;text-align:center;max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.06)">
-          <div style="font-size:56px;margin-bottom:16px">🎉</div>
-          <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Sin reclamos activos</div>
-          <div style="font-size:14px;color:var(--muted);line-height:1.5">No tienes reclamos abiertos en este momento</div>
-        </div></div>`;
+      document.getElementById('dev-s-open').textContent='0';
+      document.getElementById('dev-s-returns').textContent='0';
+      document.getElementById('dev-s-med').textContent='0';
+      el.innerHTML='<div style="display:flex;justify-content:center;padding:40px 16px"><div style="background:#fff;border:1px solid var(--border);border-radius:16px;padding:48px 40px;text-align:center;max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.06)"><div style="font-size:56px;margin-bottom:16px">🎉</div><div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Sin reclamos activos</div><div style="font-size:14px;color:var(--muted);line-height:1.5">No tienes reclamos abiertos en este momento</div></div></div>';
+      const badge=document.getElementById('devoluciones-badge');
+      if(badge)badge.style.display='none';
       return;
     }
+    // Actualiza las 3 primeras cards con conteos reales por prioridad
+    const urgentes=d.claims.filter(c=>c.prioridad==='urgente');
+    const opcionales=d.claims.filter(c=>c.prioridad==='opcional');
+    const esperando=d.claims.filter(c=>c.prioridad==='esperando');
+    document.getElementById('dev-s-open').textContent=fmt(urgentes.length);
+    document.getElementById('dev-s-returns').textContent=fmt(opcionales.length);
+    document.getElementById('dev-s-med').textContent=fmt(esperando.length);
+    const badge=document.getElementById('devoluciones-badge');
+    if(badge){badge.textContent=urgentes.length||d.total;badge.style.display=d.total>0?'':'none';}
     renderDevInsights(d.claims, _devState.stats);
     renderTopProducts(d.claims);
-    el.innerHTML=d.claims.map(c=>renderClaimCard(c,false)).join('');
-  }catch(e){el.innerHTML=`<div class="error">Error: ${esc(e.message)}</div>`;}
+    // Render 3 secciones separadas
+    let html='';
+    if(urgentes.length){
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fee2e2;border-radius:10px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--red)">🔴 Urgente — Acción obligatoria <span style="margin-left:auto;background:var(--red);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px">'+urgentes.length+'</span></div>';
+      html+=urgentes.map(c=>renderClaimCard(c,false)).join('');
+    }
+    if(opcionales.length){
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fef3c7;border-radius:10px;margin:'+(urgentes.length?'20px':'0')+'px 0 12px;font-size:13px;font-weight:700;color:#92400e">🟡 Pendientes — Tu acción <span style="margin-left:auto;background:#f59e0b;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px">'+opcionales.length+'</span></div>';
+      html+=opcionales.map(c=>renderClaimCard(c,false)).join('');
+    }
+    if(esperando.length){
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:10px;margin:'+(urgentes.length||opcionales.length?'20px':'0')+'px 0 12px;font-size:13px;font-weight:700;color:var(--muted)">⚪ Esperando ML / Comprador <span style="margin-left:auto;background:var(--muted);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px">'+esperando.length+'</span></div>';
+      html+=esperando.map(c=>renderClaimCard(c,false)).join('');
+    }
+    el.innerHTML=html;
+  }catch(e){el.innerHTML='<div class="error">Error: '+esc(e.message)+'</div>';}
 }
 
 function renderDevInsights(claims, stats){
@@ -2741,39 +2759,77 @@ async function loadDevHistorial(offset){
 function _claimTypeLabel(t){return t==='returns'?'Devolución':t==='mediations'?'Mediación':t==='cancel_purchase'?'Cancelación':t||'—';}
 function _claimStageLabel(s){return s==='dispute'?'Disputa':s==='claim'?'Reclamo':s==='none'?'—':s||'—';}
 
+const _DEV_ACTION_LABELS={
+  'send_message_to_complainant':'Responder al comprador',
+  'refund':'Reembolsar',
+  'open_dispute':'Escalar a ML',
+  'send_message_to_mediator':'Escribir al mediador',
+};
+
 function renderClaimCard(c,isHistory){
   const typeColor=c.type==='returns'?'var(--red)':c.type==='cancel_purchase'?'#6366f1':'#f59e0b';
   const typeBg=c.type==='returns'?'#fee2e2':c.type==='cancel_purchase'?'#ede9fe':'#fef3c7';
   const items=c.order_items||[];
-  const productTitle=items.length>0?items[0].title:(c.resource_id?`Orden #${c.resource_id}`:'—');
+  const productTitle=items.length>0?items[0].title:(c.resource_id?'Orden #'+c.resource_id:'—');
   const reasonLabel=c.reason_label||c.reason_id||'Sin motivo';
   const daysOpen=c.days_open??null;
-  const urgent=daysOpen!==null&&daysOpen>=7;
+  const prioridad=c.prioridad||null;
+
+  // Card background by priority
+  let cardBg='#fff';
+  if(prioridad==='urgente')cardBg='#fff5f5';
+  else if(prioridad==='opcional')cardBg='#fffef0';
+
+  // Resolution (closed claims)
   let resHtml='';
   if(c.resolution){
     const ben=c.resolution.benefited||[];
     const fc=ben.includes('complainant');
-    const resColor=fc?'var(--red)':'var(--green)';
-    const resLabel=fc?'✗ Devolución procesada':'✓ Cerrado sin devolución';
-    resHtml=`<div style="margin-top:8px;font-size:12px;font-weight:600;color:${resColor}">${esc(resLabel)}</div>`;
+    resHtml='<div style="margin-top:8px;font-size:12px;font-weight:600;color:'+(fc?'var(--red)':'var(--green)')+'">'+esc(fc?'✗ Devolución procesada':'✓ Cerrado sin devolución')+'</div>';
   }
-  const daysHtml=daysOpen!==null?`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${urgent?'#fee2e2':'var(--bg)'};color:${urgent?'var(--red)':'var(--muted)'}${urgent?';animation:pulse 1.4s infinite':''}">${daysOpen}d${urgent?' ⚠️':''}</span>`:'';
-  return `<div class="preg-card" style="border-left:3px solid ${typeColor}${urgent?';background:#fffbfb':''}">
-    <div class="preg-thumb-ph">${c.type==='returns'?'📦':c.type==='cancel_purchase'?'❌':'⚖️'}</div>
-    <div class="preg-body">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:${typeBg};color:${typeColor}">${_claimTypeLabel(c.type)}</span>
-        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--muted);font-weight:600">${_claimStageLabel(c.stage)}</span>
-        ${daysHtml}
-        <span style="font-size:11px;color:var(--muted);margin-left:auto">#${c.id}</span>
-      </div>
-      <div class="preg-item-title">${esc(productTitle)}${items.length>1?` +${items.length-1} más`:''}</div>
-      <div class="preg-question" style="font-size:13px;color:var(--text)">${esc(reasonLabel)}</div>
-      ${c.buyer?`<div style="font-size:12px;color:var(--muted);margin-top:2px">Comprador: ${esc(c.buyer)}</div>`:''}
-      ${resHtml}
-      <div class="preg-meta" style="margin-top:8px">${new Date(c.date_created).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
-    </div>
-  </div>`;
+
+  // Days open badge
+  const urgent=daysOpen!==null&&daysOpen>=7;
+  const daysHtml=daysOpen!==null?'<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+(urgent?'#fee2e2':'var(--bg)')+';color:'+(urgent?'var(--red)':'var(--muted)')+'">'+daysOpen+'d'+(urgent?' ⚠️':'')+'</span>':'';
+
+  // Due date badge (urgente)
+  let dueBadge='';
+  if(c.due_date){
+    const due=new Date(c.due_date);
+    const dueStr=due.toLocaleDateString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    dueBadge='<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;background:var(--red);color:#fff">⏰ Vence: '+esc(dueStr)+'</span>';
+  }
+
+  // Action buttons / CTA
+  const mlUrl='https://www.mercadolibre.com.mx/my-account/problems/'+c.id;
+  let actionsHtml='';
+  if(prioridad==='urgente'){
+    actionsHtml='<div style="margin-top:12px"><a href="'+mlUrl+'" target="_blank" rel="noopener" style="display:inline-block;background:var(--red);color:#fff;font-size:12px;font-weight:700;padding:8px 18px;border-radius:8px;text-decoration:none;letter-spacing:.2px">Atender en ML →</a></div>';
+  }else if(prioridad==='opcional'&&c.seller_actions&&c.seller_actions.length){
+    const btns=c.seller_actions.map(a=>'<a href="'+mlUrl+'" target="_blank" rel="noopener" class="qr-btn" style="text-decoration:none">'+esc(_DEV_ACTION_LABELS[a]||a)+'</a>').join('');
+    actionsHtml='<div class="preg-actions" style="margin-top:10px">'+btns+'</div>';
+  }else if(prioridad==='esperando'){
+    actionsHtml='<div style="margin-top:8px;font-size:12px;color:var(--muted);font-style:italic">Esperando respuesta de ML o el comprador</div>';
+  }
+
+  return '<div class="preg-card" style="border-left:3px solid '+typeColor+';background:'+cardBg+'">'+
+    '<div class="preg-thumb-ph">'+(c.type==='returns'?'📦':c.type==='cancel_purchase'?'❌':'⚖️')+'</div>'+
+    '<div class="preg-body">'+
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'+
+    '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+typeBg+';color:'+typeColor+'">'+_claimTypeLabel(c.type)+'</span>'+
+    '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--muted);font-weight:600">'+_claimStageLabel(c.stage)+'</span>'+
+    daysHtml+
+    (dueBadge?dueBadge:'')+
+    '<span style="font-size:11px;color:var(--muted);margin-left:auto">#'+c.id+'</span>'+
+    '</div>'+
+    '<div class="preg-item-title">'+esc(productTitle)+(items.length>1?' +'+(items.length-1)+' más':'')+'</div>'+
+    '<div class="preg-question" style="font-size:13px;color:var(--text)">'+esc(reasonLabel)+'</div>'+
+    (c.buyer?'<div style="font-size:12px;color:var(--muted);margin-top:2px">Comprador: '+esc(c.buyer)+'</div>':'')+
+    resHtml+
+    actionsHtml+
+    '<div class="preg-meta" style="margin-top:8px">'+new Date(c.date_created).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})+'</div>'+
+    '</div>'+
+    '</div>';
 }
 
 async function loadDevoluciones(){initDevolucionesSection();}
