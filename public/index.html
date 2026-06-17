@@ -896,9 +896,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <div class="metric" style="border-top:3px solid #f59e0b">
           <div class="mi" style="font-size:20px;margin-bottom:8px">🟡</div>
-          <div class="metric-label">Pendientes tu acción</div>
+          <div class="metric-label">En proceso</div>
           <div class="metric-value" id="dev-s-returns" style="font-size:28px;color:#b45309">—</div>
-          <div class="metric-sub">acción disponible</div>
+          <div class="metric-sub">puedes reembolsar, responder o escalar</div>
         </div>
         <div class="metric" style="border-top:3px solid var(--border)">
           <div class="mi" style="font-size:20px;margin-bottom:8px">⚪</div>
@@ -2647,11 +2647,11 @@ async function loadDevAbiertos(){
       html+=urgentes.map(c=>renderClaimCard(c,false)).join('');
     }
     if(opcionales.length){
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fef3c7;border-radius:10px;margin:'+(urgentes.length?'20px':'0')+'px 0 12px;font-size:13px;font-weight:700;color:#92400e">🟡 Pendientes — Tu acción <span style="margin-left:auto;background:#f59e0b;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px">'+opcionales.length+'</span></div>';
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fef3c7;border-radius:10px;margin:'+(urgentes.length?'20px':'0')+'px 0 12px;font-size:13px;font-weight:700;color:#92400e">🟡 En proceso — Puedes actuar <span style="margin-left:auto;background:#f59e0b;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px">'+opcionales.length+'</span></div>';
       html+=opcionales.map(c=>renderClaimCard(c,false)).join('');
     }
     if(esperando.length){
-      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:10px;margin:'+(urgentes.length||opcionales.length?'20px':'0')+'px 0 12px;font-size:13px;font-weight:700;color:var(--muted)">⚪ Esperando ML / Comprador <span style="margin-left:auto;background:var(--muted);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px">'+esperando.length+'</span></div>';
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:10px;margin:'+(urgentes.length||opcionales.length?'20px':'0')+'px 0 12px;font-size:13px;font-weight:700;color:var(--muted)">⚪ En manos de ML o el comprador <span style="margin-left:auto;background:var(--muted);color:#fff;font-size:10px;padding:2px 8px;border-radius:8px">'+esperando.length+'</span></div>';
       html+=esperando.map(c=>renderClaimCard(c,false)).join('');
     }
     el.innerHTML=html;
