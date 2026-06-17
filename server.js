@@ -26,6 +26,7 @@ let costosCache = null;                       // Array de costos_productos
 let costosCacheTime = 0;
 const COSTOS_TTL = 30 * 60 * 1000;           // 30 minutos
 const billingCache = new Map();               // "YYYY-M" → { data, ts }; meses pasados: indefinido, mes actual: 1h
+const reasonLabelCache = new Map();           // reason_id → detail label del endpoint ML
 
 async function loadTokenFromSupabase() {
   try {
@@ -161,6 +162,20 @@ async function mlGet(url, params = {}) {
     headers: { Authorization: `Bearer ${token}` }
   });
   return r.data;
+}
+
+async function getReasonLabel(reasonId) {
+  if (!reasonId) return reasonId;
+  if (reasonLabelCache.has(reasonId)) return reasonLabelCache.get(reasonId);
+  try {
+    const data = await mlGet(`https://api.mercadolibre.com/post-purchase/v1/claims/reasons/${reasonId}`);
+    const label = data.detail || data.name || reasonId;
+    reasonLabelCache.set(reasonId, label);
+    return label;
+  } catch {
+    reasonLabelCache.set(reasonId, reasonId);
+    return reasonId;
+  }
 }
 
 async function mlGetAds(url, params = {}) {
@@ -402,14 +417,6 @@ app.get('/api/stock', async (req, res) => {
   }
 });
 
-const CLAIM_REASON_MAP = {
-  'PNR6255': 'No recibí el producto', 'PNR7836': 'No recibí el producto',
-  'PDD9962': 'No se entregó en fecha prometida', 'PDD6562': 'Problema con la entrega',
-  'PDP4937': 'Producto llegó dañado', 'PDP7345': 'Producto llegó dañado',
-  'PDC5439': 'Producto diferente al anunciado', 'PDC8273': 'Producto es falso',
-  'PRS1234': 'Producto sin funcionamiento', 'PFE2341': 'Problema con el flete',
-};
-
 app.get('/api/devoluciones/stats', async (req, res) => {
   try {
     const [openedData, closedData] = await Promise.all([
@@ -422,24 +429,38 @@ app.get('/api/devoluciones/stats', async (req, res) => {
     const totalClosed = closedData.paging?.total || 0;
     const openReturns = openClaims.filter(c => c.type === 'returns').length;
     const openMediations = openClaims.filter(c => c.type === 'mediations').length;
+
+    // Top reasons with labels from ML API
     const reasonCount = {};
     openClaims.forEach(c => { if (c.reason_id) reasonCount[c.reason_id] = (reasonCount[c.reason_id] || 0) + 1; });
+    const reasonIds = Object.keys(reasonCount);
+    const reasonLabels = {};
+    await Promise.all(reasonIds.map(async id => { reasonLabels[id] = await getReasonLabel(id); }));
     const topReasons = Object.entries(reasonCount)
       .sort((a, b) => b[1] - a[1]).slice(0, 5)
-      .map(([reason_id, count]) => ({ reason_id, label: CLAIM_REASON_MAP[reason_id] || reason_id, count }));
-    let favorVendedor = 0, favorComprador = 0, sinResolver = 0;
+      .map(([reason_id, count]) => ({ reason_id, label: reasonLabels[reason_id] || reason_id, count }));
+
+    // benefited=[] → sin devolución (vendedor retiene) | benefited=["complainant"] → comprador ganó
+    let favorVendedor = 0, favorComprador = 0, sinResolucion = 0;
+    let sumResHours = 0, resCount = 0;
     closedClaims.forEach(c => {
-      const ben = c.resolution?.benefited || [];
-      if (ben.some(b => ['respondent', 'seller'].includes(b))) favorVendedor++;
-      else if (ben.some(b => ['complainant', 'buyer'].includes(b))) favorComprador++;
-      else sinResolver++;
+      if (!c.resolution) { sinResolucion++; return; }
+      const ben = c.resolution.benefited || [];
+      if (ben.includes('complainant')) favorComprador++;
+      else favorVendedor++; // benefited=[] → reclamo cerrado sin devolución
+      if (c.resolution.date_created) {
+        const hrs = (new Date(c.resolution.date_created) - new Date(c.date_created)) / 3600000;
+        if (hrs > 0 && hrs < 8760) { sumResHours += hrs; resCount++; }
+      }
     });
+    const withResolution = favorVendedor + favorComprador;
     res.json({
       totalOpen, totalClosed, openReturns, openMediations, topReasons,
       resolution: {
-        favorVendedor, favorComprador, sinResolver,
-        total: closedClaims.length,
-        pctFavorVendedor: closedClaims.length > 0 ? Math.round(favorVendedor / closedClaims.length * 100) : 0,
+        favorVendedor, favorComprador, sinResolucion,
+        total: withResolution,
+        pctFavorVendedor: withResolution > 0 ? Math.round(favorVendedor / withResolution * 100) : 0,
+        avgResolutionHours: resCount > 0 ? Math.round(sumResHours / resCount) : null,
       },
     });
   } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
@@ -455,20 +476,45 @@ app.get('/api/devoluciones', async (req, res) => {
     });
     let claims = data.data || [];
     const total = data.paging?.total || 0;
+
+    // Enrich open claims: order details + reason label + days_open
     if (status === 'opened' && claims.length > 0) {
-      await Promise.all(claims.map(async (claim, idx) => {
-        if (!claim.resource_id) return;
-        try {
-          const order = await mlGet(`https://api.mercadolibre.com/orders/${claim.resource_id}`);
-          claims[idx] = {
-            ...claims[idx],
-            order_items: (order.order_items || []).map(i => ({ title: i.item?.title, quantity: i.quantity, unit_price: i.unit_price })),
-            total_amount: order.total_amount,
-            buyer: order.buyer?.nickname || null,
-          };
-        } catch { /* sin enriquecimiento */ }
+      const uniqueReasons = [...new Set(claims.map(c => c.reason_id).filter(Boolean))];
+      const [, reasonLabels] = await Promise.all([
+        Promise.all(claims.map(async (claim, idx) => {
+          if (!claim.resource_id) return;
+          try {
+            const order = await mlGet(`https://api.mercadolibre.com/orders/${claim.resource_id}`);
+            claims[idx] = {
+              ...claims[idx],
+              order_items: (order.order_items || []).map(i => ({ title: i.item?.title, quantity: i.quantity, unit_price: i.unit_price })),
+              total_amount: order.total_amount,
+              buyer: order.buyer?.nickname || null,
+            };
+          } catch { /* sin enriquecimiento */ }
+        })),
+        (async () => {
+          const map = {};
+          await Promise.all(uniqueReasons.map(async id => { map[id] = await getReasonLabel(id); }));
+          return map;
+        })(),
+      ]);
+      const now = Date.now();
+      claims = claims.map(c => ({
+        ...c,
+        reason_label: reasonLabels[c.reason_id] || c.reason_id,
+        days_open: Math.floor((now - new Date(c.date_created)) / 86400000),
       }));
     }
+
+    // Closed claims: just add reason_label from cache (no extra API calls if already cached)
+    if (status === 'closed' && claims.length > 0) {
+      claims = claims.map(c => ({
+        ...c,
+        reason_label: reasonLabelCache.get(c.reason_id) || c.reason_id,
+      }));
+    }
+
     res.json({ total, offset, limit, claims });
   } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
 });
