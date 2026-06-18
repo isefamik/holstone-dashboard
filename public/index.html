@@ -49,7 +49,7 @@ html.dark .rep-check-fail{background:#2d1b1b;color:#f87171}
 html.dark .rep-pill-bad{background:#2d1b1b;color:#f87171}
 
 /* Smooth transitions on mode switch */
-body,body *:not(#ventas-live,#ventas-live *,canvas){transition:background-color .3s,color .3s,border-color .3s}
+body,body *:not(canvas){transition:background-color .3s,color .3s,border-color .3s}
 
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px}
@@ -441,71 +441,102 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .live-nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;letter-spacing:.4px;flex-shrink:0;animation:live-pulse 1.6s ease-in-out infinite}
 @keyframes live-pulse{0%,100%{opacity:1}50%{opacity:.45}}
 
-#ventas-live{background:#0f172a;color:#f1f5f9;min-height:100%}
+/* Light mode defaults */
+#ventas-live{background:var(--bg);color:var(--text);min-height:100%}
 .lv-wrap{padding:20px 24px 32px;max-width:1200px}
 .lv-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
 .lv-header-left{display:flex;align-items:center;gap:14px}
 .lv-live-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;animation:live-pulse 1.6s ease-in-out infinite;flex-shrink:0}
-.lv-title{font-size:22px;font-weight:800;color:#f1f5f9;letter-spacing:-.3px}
-.lv-subtitle{font-size:12px;color:#64748b;margin-top:2px}
-.lv-clock{font-size:28px;font-weight:700;color:#22d3ee;font-variant-numeric:tabular-nums;font-family:'SF Mono',monospace}
-.lv-date{font-size:11px;color:#475569;text-align:right;margin-top:2px}
+.lv-title{font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.3px}
+.lv-subtitle{font-size:12px;color:var(--muted);margin-top:2px}
+.lv-clock{font-size:28px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;font-family:'SF Mono',monospace}
+.lv-date{font-size:11px;color:var(--dim);text-align:right;margin-top:2px}
 
-.lv-hero{background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #1e3a5f;border-radius:20px;padding:28px 32px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}
+.lv-hero{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 32px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}
 .lv-hero-main{}
-.lv-hero-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px}
-.lv-hero-amount{font-size:52px;font-weight:900;color:#10b981;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums}
+.lv-hero-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px}
+.lv-hero-amount{font-size:52px;font-weight:900;color:var(--green);letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums}
 .lv-hero-delta{display:flex;align-items:center;gap:8px;margin-top:8px}
 .lv-delta-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
-.lv-delta-up{background:rgba(16,185,129,.15);color:#34d399}
-.lv-delta-down{background:rgba(239,68,68,.15);color:#f87171}
+.lv-delta-up{background:rgba(16,185,129,.12);color:#059669}
+.lv-delta-down{background:rgba(239,68,68,.12);color:#dc2626}
 .lv-hero-right{text-align:right}
-.lv-countdown-wrap{font-size:11px;color:#475569;margin-top:8px}
-.lv-countdown{font-size:13px;color:#94a3b8;font-weight:600}
+.lv-countdown-wrap{font-size:11px;color:var(--muted);margin-top:8px}
+.lv-countdown{font-size:13px;color:var(--muted);font-weight:600}
 
 .lv-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
 @media(max-width:1100px){.lv-metrics{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:700px){.lv-metrics{grid-template-columns:repeat(2,1fr)}}
-.lv-metric{background:#1e293b;border:1px solid #1e3a5f;border-radius:14px;padding:16px 18px;text-align:center}
-.lv-metric-label{font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:8px}
-.lv-metric-val{font-size:22px;font-weight:800;color:#f1f5f9;font-variant-numeric:tabular-nums}
-.lv-metric-sub{font-size:10px;color:#475569;margin-top:4px}
+.lv-metric{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;text-align:center}
+.lv-metric-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:8px}
+.lv-metric-val{font-size:22px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.lv-metric-sub{font-size:10px;color:var(--dim);margin-top:4px}
 
 .lv-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:16px}
 @media(max-width:900px){.lv-grid{grid-template-columns:1fr}}
 
-.lv-card{background:#1e293b;border:1px solid #1e3a5f;border-radius:16px;padding:18px 20px}
-.lv-card-title{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.lv-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
+.lv-card-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
 .lv-chart-wrap{position:relative;height:180px}
 
 .lv-feed{display:flex;flex-direction:column;gap:0;max-height:360px;overflow-y:auto}
 .lv-feed::-webkit-scrollbar{width:4px}
 .lv-feed::-webkit-scrollbar-track{background:transparent}
-.lv-feed::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
-.lv-feed-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1a2940;animation:lv-slide-in .35s ease}
+.lv-feed::-webkit-scrollbar-thumb{background:var(--dim);border-radius:4px}
+.lv-feed-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);animation:lv-slide-in .35s ease}
 .lv-feed-item:last-child{border-bottom:none}
 @keyframes lv-slide-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-.lv-thumb{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#0f172a;flex-shrink:0}
-.lv-thumb-ph{width:40px;height:40px;border-radius:8px;background:#334155;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.lv-thumb{width:40px;height:40px;border-radius:8px;object-fit:cover;background:var(--bg);flex-shrink:0}
+.lv-thumb-ph{width:40px;height:40px;border-radius:8px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .lv-feed-info{flex:1;min-width:0}
-.lv-feed-title{font-size:12px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
-.lv-feed-time{font-size:10px;color:#475569;margin-top:2px}
-.lv-feed-monto{font-size:14px;font-weight:800;color:#10b981;white-space:nowrap}
+.lv-feed-title{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.lv-feed-time{font-size:10px;color:var(--dim);margin-top:2px}
+.lv-feed-monto{font-size:14px;font-weight:800;color:var(--green);white-space:nowrap}
 
 .lv-top{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
 @media(max-width:700px){.lv-top{grid-template-columns:1fr}}
-.lv-top-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;border-radius:10px}
-.lv-pos{width:22px;height:22px;border-radius:50%;background:#1e3a5f;color:#94a3b8;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.lv-pos-1{background:#f59e0b;color:#0f172a}
-.lv-pos-2{background:#6b7280;color:#f1f5f9}
-.lv-pos-3{background:#b45309;color:#f1f5f9}
+.lv-top-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:10px;border:1px solid var(--border)}
+.lv-pos{width:22px;height:22px;border-radius:50%;background:#e2e8f0;color:var(--muted);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lv-pos-1{background:#f59e0b;color:#fff}
+.lv-pos-2{background:#6b7280;color:#fff}
+.lv-pos-3{background:#b45309;color:#fff}
 .lv-top-info{flex:1;min-width:0}
-.lv-top-title{font-size:11px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
-.lv-top-monto{font-size:13px;font-weight:800;color:#10b981;margin-top:2px}
+.lv-top-title{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.lv-top-monto{font-size:13px;font-weight:800;color:var(--green);margin-top:2px}
 .lv-stock-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0}
-.lv-stock-ok{background:rgba(16,185,129,.15);color:#34d399}
-.lv-stock-low{background:rgba(245,158,11,.15);color:#fbbf24}
-.lv-stock-out{background:rgba(239,68,68,.15);color:#f87171}
+.lv-stock-ok{background:rgba(16,185,129,.12);color:#059669}
+.lv-stock-low{background:rgba(245,158,11,.12);color:#d97706}
+.lv-stock-out{background:rgba(239,68,68,.12);color:#dc2626}
+
+/* Dark mode overrides — restore original dark palette */
+html.dark #ventas-live{background:#0f172a;color:#f1f5f9}
+html.dark .lv-title{color:#f1f5f9}
+html.dark .lv-subtitle{color:#64748b}
+html.dark .lv-clock{color:#22d3ee}
+html.dark .lv-date{color:#475569}
+html.dark .lv-hero{background:linear-gradient(135deg,#1e293b,#0f172a);border-color:#1e3a5f}
+html.dark .lv-hero-label{color:#64748b}
+html.dark .lv-countdown{color:#94a3b8}
+html.dark .lv-delta-up{background:rgba(16,185,129,.15);color:#34d399}
+html.dark .lv-delta-down{background:rgba(239,68,68,.15);color:#f87171}
+html.dark .lv-metric{background:#1e293b;border-color:#1e3a5f}
+html.dark .lv-metric-label{color:#475569}
+html.dark .lv-metric-val{color:#f1f5f9}
+html.dark .lv-metric-sub{color:#475569}
+html.dark .lv-card{background:#1e293b;border-color:#1e3a5f}
+html.dark .lv-card-title{color:#64748b}
+html.dark .lv-feed::-webkit-scrollbar-thumb{background:#334155}
+html.dark .lv-feed-item{border-bottom-color:#1a2940}
+html.dark .lv-thumb{background:#0f172a}
+html.dark .lv-thumb-ph{background:#334155}
+html.dark .lv-feed-title{color:#cbd5e1}
+html.dark .lv-feed-time{color:#475569}
+html.dark .lv-top-item{background:#0f172a;border-color:#1e3a5f}
+html.dark .lv-pos{background:#1e3a5f;color:#94a3b8}
+html.dark .lv-top-title{color:#cbd5e1}
+html.dark .lv-stock-ok{background:rgba(16,185,129,.15);color:#34d399}
+html.dark .lv-stock-low{background:rgba(245,158,11,.15);color:#fbbf24}
+html.dark .lv-stock-out{background:rgba(239,68,68,.15);color:#f87171}
 
 /* Toast */
 .lv-toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:14px;font-size:13px;font-weight:700;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;animation:lv-toast-in .3s ease;pointer-events:none}
@@ -1312,13 +1343,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div class="lv-hero-amount" id="lv-total">$—</div>
             <div class="lv-hero-delta">
               <span id="lv-delta-pill" class="lv-delta-pill lv-delta-up" style="display:none"></span>
-              <span id="lv-vs-ayer" style="font-size:11px;color:#475569"></span>
+              <span id="lv-vs-ayer" style="font-size:11px;color:var(--dim)"></span>
             </div>
           </div>
           <div class="lv-hero-right">
             <div style="font-size:11px;color:#475569;margin-bottom:4px">Próxima actualización</div>
             <div class="lv-countdown" id="lv-countdown">30s</div>
-            <div style="font-size:10px;color:#334155;margin-top:6px" id="lv-last-update">—</div>
+            <div style="font-size:10px;color:var(--dim);margin-top:6px" id="lv-last-update">—</div>
           </div>
         </div>
 
@@ -4148,6 +4179,7 @@ function lvRenderTop(products) {
 function lvRenderChart(hoy, ayer) {
   const canvas = document.getElementById('lv-chart');
   if (!canvas) return;
+  const dark   = document.documentElement.classList.contains('dark');
   const labels = Array.from({length:24}, (_, i) => i + 'h');
   if (_lvChart) { _lvChart.destroy(); _lvChart = null; }
   _lvChart = new Chart(canvas, {
@@ -4155,18 +4187,19 @@ function lvRenderChart(hoy, ayer) {
     data: {
       labels,
       datasets: [
-        { label: 'Hoy', data: hoy, backgroundColor: 'rgba(34,211,238,.75)', borderRadius: 4, borderSkipped: false },
-        { label: 'Ayer', data: ayer, backgroundColor: 'rgba(71,85,105,.4)', borderRadius: 4, borderSkipped: false },
+        { label: 'Hoy',  data: hoy,  backgroundColor: dark ? 'rgba(34,211,238,.75)' : 'rgba(37,99,235,.65)', borderRadius: 4, borderSkipped: false },
+        { label: 'Ayer', data: ayer, backgroundColor: dark ? 'rgba(71,85,105,.4)'   : 'rgba(0,0,0,.08)',     borderRadius: 4, borderSkipped: false },
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } }, position: 'bottom' }, tooltip: {
-        callbacks: { label: ctx => ` ${ctx.dataset.label}: ${lvFmt(ctx.raw)}` }
-      }},
+      plugins: {
+        legend: { labels: { color: dark ? '#94a3b8' : '#6b7280', font: { size: 11 } }, position: 'bottom' },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${lvFmt(ctx.raw)}` } }
+      },
       scales: {
-        x: { grid: { color: '#1e3a5f' }, ticks: { color: '#475569', font: { size: 10 } } },
-        y: { grid: { color: '#1e3a5f' }, ticks: { color: '#475569', font: { size: 10 }, callback: v => lvFmt(v) } }
+        x: { grid: { color: dark ? '#1e3a5f' : 'rgba(0,0,0,.06)' }, ticks: { color: dark ? '#475569' : '#9ca3af', font: { size: 10 } } },
+        y: { grid: { color: dark ? '#1e3a5f' : 'rgba(0,0,0,.06)' }, ticks: { color: dark ? '#475569' : '#9ca3af', font: { size: 10 }, callback: v => lvFmt(v) } }
       }
     }
   });
@@ -4403,6 +4436,12 @@ function toggleDarkMode() {
   const isDark = document.documentElement.classList.toggle('dark');
   document.getElementById('dark-toggle').textContent = isDark ? '☀️' : '🌙';
   localStorage.setItem('hk-dark', isDark ? '1' : '0');
+  // Re-render chart so its colors adapt immediately
+  if (_lvChart) {
+    const hoy  = _lvChart.data.datasets[0].data;
+    const ayer = _lvChart.data.datasets[1].data;
+    lvRenderChart(hoy, ayer);
+  }
 }
 
 // Sync button icon with current mode (the class was already applied by the early <head> script)
