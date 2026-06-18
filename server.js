@@ -2013,19 +2013,279 @@ app.post('/api/preguntas/:id/responder', async (req, res) => {
 
 const NO_KEY_MSG = 'Para activar el Director Comercial AI necesitas agregar créditos en platform.anthropic.com y configurar tu API key en el archivo .env (ANTHROPIC_API_KEY=tu_key).';
 
-const AI_SYSTEM = `Eres el Director Comercial AI de Holstone, una marca de ropa deportiva/casual que vende en MercadoLibre México como vendedor Platinum nivel 5/5 con más de 27,000 transacciones completadas.
-Tu rol es analizar datos del negocio y dar recomendaciones estratégicas concretas y accionables.
-Tienes acceso conceptual a: ventas diarias/mensuales, stock inteligente (días de inventario, agotamiento), publicidad Product Ads (ROAS, ACOS, CPC), finanzas (rentabilidad por producto, costos, márgenes), reclamos/devoluciones y métricas de reputación.
-Métricas clave actuales: reclamos 0.05% (límite <1%), cancelaciones 0% (<0.5%), envíos demorados 0.2% (<8%), calificaciones positivas ~81%.
-Responde en español, de forma concisa y directa. Usa bullets cuando sea apropiado. Si necesitas datos en tiempo real que no tienes, indícalo y sugiere qué sección del dashboard revisar.`;
-
 app.post('/api/ai-director', async (req, res) => {
   const { message, history = [] } = req.body;
   if (!message?.trim()) return res.status(400).json({ error: 'message requerido' });
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    return res.json({ response: NO_KEY_MSG });
+    return res.json({ response: NO_KEY_MSG, data_used: [] });
   }
+
+  // Build current-month date range (Mexico City offset -06:00)
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const mm    = String(month).padStart(2, '0');
+  const dd    = String(now.getDate()).padStart(2, '0');
+  const fromMes  = `${year}-${mm}-01`;
+  const toMes    = `${year}-${mm}-${dd}`;
+  const todayStr = toMes;
+
+  // Fetch ALL business data in parallel
+  const [ventasMesR, ventasHoyR, stockR, adsR, rentabilidadR, devolucionesR, reputacionR, billingR] =
+    await Promise.allSettled([
+
+      // 1. Ventas del mes (paginated)
+      (async () => {
+        const from = `${fromMes}T00:00:00.000-06:00`;
+        const to   = `${toMes}T23:59:59.000-06:00`;
+        let allOrders = [], offset = 0, total = 1;
+        while (offset < total) {
+          const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+            seller: SELLER_ID, 'order.status': 'paid',
+            'order.date_created.from': from, 'order.date_created.to': to,
+            limit: 50, offset
+          });
+          total = d.paging.total;
+          allOrders = allOrders.concat(d.results);
+          offset += 50;
+        }
+        const ventaBruta = allOrders.reduce((s, o) => s + o.total_amount, 0);
+        const unidades   = allOrders.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
+        const byProduct = {};
+        allOrders.forEach(o => o.order_items.forEach(i => {
+          const t = i.item.title;
+          if (!byProduct[t]) byProduct[t] = { revenue: 0, units: 0 };
+          byProduct[t].revenue += o.total_amount;
+          byProduct[t].units   += i.quantity;
+        }));
+        const top10 = Object.entries(byProduct)
+          .sort((a, b) => b[1].revenue - a[1].revenue)
+          .slice(0, 10).map(([title, v]) => ({ title, ...v }));
+        return { ordenes: total, ventaBruta, unidades, top10 };
+      })(),
+
+      // 2. Ventas de hoy
+      (async () => {
+        const from = `${todayStr}T00:00:00.000-06:00`;
+        const to   = `${todayStr}T23:59:59.000-06:00`;
+        const orders = await fetchPaidOrders(from, to);
+        const ventaBruta = orders.reduce((s, o) => s + o.total_amount, 0);
+        const unidades   = orders.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
+        return { ordenes: orders.length, ventaBruta, unidades };
+      })(),
+
+      // 3. Stock inteligente (3-month analysis)
+      computeStockInteligente(),
+
+      // 4. Publicidad del mes
+      (async () => {
+        const ADS_M = 'clicks,prints,cost,acos,roas,total_amount,units_quantity';
+        const campResp = await mlGetAds(
+          `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`,
+          { date_from: fromMes, date_to: toMes, metrics: ADS_M }
+        );
+        let ads = [], ao = 0, at = 1;
+        while (ao < at) {
+          const d = await mlGetAds(
+            `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/ads/search`,
+            { date_from: fromMes, date_to: toMes, metrics: 'clicks,cost,acos,roas,total_amount', limit: 50, offset: ao }
+          );
+          at = d.paging.total;
+          ads = ads.concat(d.results);
+          ao += 50;
+        }
+        const campaigns = campResp.results || [];
+        const inversion  = campaigns.reduce((s, c) => s + (c.metrics?.cost || 0), 0);
+        const ventasAds  = campaigns.reduce((s, c) => s + (c.metrics?.total_amount || 0), 0);
+        const roasTotal  = inversion > 0 ? ventasAds / inversion : 0;
+        const acosTotal  = ventasAds > 0 ? inversion / ventasAds * 100 : 0;
+        const acosAlto   = ads
+          .filter(a => (a.metrics?.acos || 0) > 30 && (a.metrics?.cost || 0) > 50)
+          .sort((a, b) => (b.metrics?.cost || 0) - (a.metrics?.cost || 0))
+          .slice(0, 5)
+          .map(a => ({ title: a.ad_title || a.item_id, acos: a.metrics?.acos, cost: a.metrics?.cost }));
+        return { campaignsCount: campaigns.length, inversion, ventasAds, roasTotal, acosTotal, acosAlto };
+      })(),
+
+      // 5. Rentabilidad del mes
+      getFinancialPeriod(fromMes, toMes),
+
+      // 6. Devoluciones y reclamos abiertos
+      (async () => {
+        const [opened, closed] = await Promise.all([
+          mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'opened', limit: 50 }),
+          mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'closed', limit: 50 }),
+        ]);
+        const openClaims = opened.data || [];
+        const urgente = openClaims.filter(c => {
+          const seller = (c.players || []).find(p => p.role === 'respondent');
+          return (seller?.available_actions || []).some(a => a.mandatory);
+        }).length;
+        return { abiertos: opened.paging?.total || 0, cerrados: closed.paging?.total || 0, urgente };
+      })(),
+
+      // 7. Reputación
+      (async () => {
+        const data = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}`);
+        const rep = data.seller_reputation;
+        return {
+          nivel:           rep.level_id,
+          reclamos:        rep.metrics?.claims?.rate || 0,
+          cancelaciones:   rep.metrics?.cancellations?.rate || 0,
+          enviosDemorados: rep.metrics?.delayed_handling_time?.rate || 0,
+          completadas60d:  rep.transactions?.completed || 0,
+        };
+      })(),
+
+      // 8. Billing del mes
+      getBillingResumen(month, year),
+    ]);
+
+  const data_used = [];
+  const safe = (r, name) => {
+    if (r.status === 'fulfilled') { data_used.push(name); return r.value; }
+    return null;
+  };
+  const ventasMes    = safe(ventasMesR,    'ventas_mes');
+  const ventasHoy    = safe(ventasHoyR,    'ventas_hoy');
+  const stock        = safe(stockR,        'stock');
+  const ads          = safe(adsR,          'publicidad');
+  const rentabilidad = safe(rentabilidadR, 'rentabilidad');
+  const devoluciones = safe(devolucionesR, 'devoluciones');
+  const reputacion   = safe(reputacionR,   'reputacion');
+  const billing      = safe(billingR,      'billing');
+
+  // Build detailed system prompt with real data
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const lines = [
+    'Eres el Director Comercial AI de Holstone, una marca de ropa deportiva/casual que vende en MercadoLibre México como vendedor Platinum.',
+    'Tu rol: analizar los datos en tiempo real del negocio y dar recomendaciones estratégicas concretas y accionables.',
+    'Responde SIEMPRE en español. Sé conciso y directo. Usa bullets cuando sea apropiado. Cuando respondas, usa los números específicos del contexto.',
+    `FECHA ACTUAL: ${todayStr} | MES: ${MESES[month-1]} ${year}`,
+    '',
+    '=== DATOS EN TIEMPO REAL DE HOLSTONE ===',
+    '',
+  ];
+
+  if (ventasMes) {
+    const ticket = ventasMes.ordenes > 0 ? ventasMes.ventaBruta / ventasMes.ordenes : 0;
+    lines.push(`## VENTAS DEL MES (${MESES[month-1]} ${year})`);
+    lines.push(`- Órdenes: ${ventasMes.ordenes}`);
+    lines.push(`- Venta bruta: $${ventasMes.ventaBruta.toFixed(2)} MXN`);
+    lines.push(`- Unidades vendidas: ${ventasMes.unidades}`);
+    lines.push(`- Ticket promedio: $${ticket.toFixed(0)} MXN`);
+    if (ventasMes.top10?.length) {
+      lines.push(`- TOP 10 PRODUCTOS (por ingresos del mes):`);
+      ventasMes.top10.forEach((p, i) =>
+        lines.push(`  ${i+1}. "${p.title}" → $${p.revenue.toFixed(0)} MXN | ${p.units} uds`)
+      );
+    }
+    lines.push('');
+  }
+
+  if (ventasHoy) {
+    lines.push(`## VENTAS DE HOY (${todayStr})`);
+    lines.push(`- Órdenes: ${ventasHoy.ordenes}`);
+    lines.push(`- Venta bruta: $${ventasHoy.ventaBruta.toFixed(2)} MXN`);
+    lines.push(`- Unidades: ${ventasHoy.unidades}`);
+    lines.push('');
+  }
+
+  if (stock) {
+    const { summary } = stock;
+    lines.push(`## INVENTARIO (STOCK INTELIGENTE)`);
+    lines.push(`- Publicaciones activas: ${summary.total}`);
+    lines.push(`- Sin stock (agotados): ${summary.agotados}`);
+    lines.push(`- Stock crítico (≤7 días restantes): ${summary.criticos}`);
+    lines.push(`- Stock bajo (≤14 días): ${summary.bajos}`);
+    lines.push(`- Sin historial de ventas: ${summary.sinVentas}`);
+    lines.push(`- Valor total de inventario: $${summary.valorInventario.toLocaleString('es-MX')} MXN`);
+    const agotados = stock.items.filter(i => i.totalStock === 0).slice(0, 8);
+    if (agotados.length) {
+      lines.push(`- AGOTADOS (muestra): ${agotados.map(i => `"${i.title.substring(0,50)}"`).join('; ')}`);
+    }
+    const criticos = stock.items.filter(i => i.alertLevel === 'critical').slice(0, 5);
+    if (criticos.length) {
+      lines.push(`- CRÍTICOS: ${criticos.map(i => `"${i.title.substring(0,40)}" (${i.daysRemaining}d restantes)`).join('; ')}`);
+    }
+    lines.push('');
+  }
+
+  if (ads) {
+    lines.push(`## PUBLICIDAD DEL MES`);
+    lines.push(`- Campañas activas: ${ads.campaignsCount}`);
+    lines.push(`- Inversión total: $${ads.inversion.toFixed(2)} MXN`);
+    lines.push(`- Ventas atribuidas: $${ads.ventasAds.toFixed(2)} MXN`);
+    lines.push(`- ROAS: ${ads.roasTotal.toFixed(2)}x`);
+    lines.push(`- ACOS: ${ads.acosTotal.toFixed(1)}%`);
+    if (ads.acosAlto?.length) {
+      lines.push(`- ADS CON ACOS ALTO (>30%, inversión >$50 MXN):`);
+      ads.acosAlto.forEach(a =>
+        lines.push(`  * "${a.title}" → ACOS ${a.acos?.toFixed(1)}% | Inversión $${a.cost?.toFixed(0)} MXN`)
+      );
+    }
+    lines.push('');
+  }
+
+  if (rentabilidad) {
+    const t = rentabilidad.totals;
+    const pctComision = t.venta_bruta > 0 ? t.comision_ml / t.venta_bruta * 100 : 0;
+    lines.push(`## RENTABILIDAD DEL MES`);
+    lines.push(`- Venta bruta: $${t.venta_bruta.toFixed(2)} MXN`);
+    lines.push(`- Comisiones ML: $${t.comision_ml.toFixed(2)} MXN (${pctComision.toFixed(1)}% de ventas)`);
+    lines.push(`- Costo envíos: $${t.costo_envio.toFixed(2)} MXN`);
+    lines.push(`- Costo productos: $${t.costo_producto.toFixed(2)} MXN`);
+    lines.push(`- Inversión publicidad: $${t.inversion_publicidad.toFixed(2)} MXN`);
+    lines.push(`- Utilidad neta: $${t.utilidad.toFixed(2)} MXN`);
+    lines.push(`- Margen neto: ${t.margen_promedio.toFixed(1)}%`);
+    const topRent = rentabilidad.items.filter(i => i.tiene_costo).slice(0, 5);
+    if (topRent.length) {
+      lines.push(`- TOP 5 MÁS RENTABLES:`);
+      topRent.forEach((p, i) =>
+        lines.push(`  ${i+1}. "${p.title.substring(0,50)}" → Utilidad $${p.utilidad.toFixed(0)} | Margen ${p.margen.toFixed(1)}%`)
+      );
+    }
+    const perdida = rentabilidad.items.filter(i => i.tiene_costo && i.utilidad < 0).slice(0, 3);
+    if (perdida.length) {
+      lines.push(`- PRODUCTOS CON PÉRDIDA:`);
+      perdida.forEach(p =>
+        lines.push(`  * "${p.title.substring(0,50)}" → Pérdida $${Math.abs(p.utilidad).toFixed(0)} | Margen ${p.margen.toFixed(1)}%`)
+      );
+    }
+    lines.push('');
+  }
+
+  if (devoluciones) {
+    lines.push(`## DEVOLUCIONES Y RECLAMOS`);
+    lines.push(`- Reclamos abiertos: ${devoluciones.abiertos}`);
+    lines.push(`- Reclamos cerrados: ${devoluciones.cerrados}`);
+    if (devoluciones.urgente > 0)
+      lines.push(`- URGENTES (acción obligatoria del vendedor): ${devoluciones.urgente}`);
+    lines.push('');
+  }
+
+  if (reputacion) {
+    lines.push(`## REPUTACIÓN (últimos 60 días)`);
+    lines.push(`- Nivel: ${reputacion.nivel} (Platinum)`);
+    lines.push(`- Reclamos: ${(reputacion.reclamos * 100).toFixed(2)}% (límite <1%)`);
+    lines.push(`- Cancelaciones: ${(reputacion.cancelaciones * 100).toFixed(2)}% (límite <0.5%)`);
+    lines.push(`- Envíos demorados: ${(reputacion.enviosDemorados * 100).toFixed(2)}% (límite <8%)`);
+    lines.push(`- Ventas completadas: ${reputacion.completadas60d}`);
+    lines.push('');
+  }
+
+  if (billing) {
+    lines.push(`## BILLING DEL MES (Cargos ML)`);
+    lines.push(`- Comisiones por venta (CV): $${billing.comisiones_venta.toFixed(2)} MXN`);
+    lines.push(`- Costo de envíos (CFF+CXD): $${billing.costo_envios.toFixed(2)} MXN`);
+    lines.push(`- Publicidad (PADS): $${billing.publicidad.toFixed(2)} MXN`);
+    lines.push(`- Almacenamiento Full: $${billing.almacenamiento_full.toFixed(2)} MXN`);
+    lines.push(`- Total cargos ML: $${billing.total_cargos.toFixed(2)} MXN`);
+    lines.push('');
+  }
+
+  const systemPrompt = lines.join('\n');
 
   try {
     const Anthropic = require('@anthropic-ai/sdk');
@@ -2037,17 +2297,17 @@ app.post('/api/ai-director', async (req, res) => {
     ];
 
     const completion = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system: AI_SYSTEM,
+      system: systemPrompt,
       messages,
     });
 
-    res.json({ response: completion.content[0].text });
+    res.json({ response: completion.content[0].text, data_used });
   } catch (e) {
-    if (e.status === 401) return res.json({ response: 'API key inválida. Verifica tu ANTHROPIC_API_KEY en el archivo .env.' });
+    if (e.status === 401) return res.json({ response: 'API key inválida. Verifica tu ANTHROPIC_API_KEY en el archivo .env.', data_used });
     if (e.status === 529 || e.message?.includes('credit') || e.message?.includes('balance')) {
-      return res.json({ response: NO_KEY_MSG });
+      return res.json({ response: NO_KEY_MSG, data_used });
     }
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }

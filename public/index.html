@@ -445,8 +445,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <span class="nav-icon">⭐</span><span>Reputación</span>
     </div>
     <div class="nav-group">Inteligencia</div>
-    <div class="nav-item" onclick="showSection('director-ai',this)">
+    <div class="nav-item" onclick="showSection('director-ai',this);initDirectorAI()">
       <span class="nav-icon">🤖</span><span>Director AI</span>
+      <span style="margin-left:auto;background:#7c3aed;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.5px;flex-shrink:0">BETA</span>
     </div>
   </nav>
   <div class="sl-foot">
@@ -3800,7 +3801,7 @@ const SECTION_RELOADERS = {
   preguntas:    () => initPreguntasSection(),
   devoluciones: () => initDevolucionesSection(),
   reputacion:   () => loadReputacion(),
-  'director-ai':() => {}
+  'director-ai':() => initDirectorAI()
 };
 
 function refreshActiveSection() {
@@ -3897,6 +3898,50 @@ function aiChipClick(btn){
   if(input){ input.value = btn.textContent; aiSend(); }
 }
 
+async function initDirectorAI() {
+  _aiHistory = [];
+  const wrap = document.getElementById('ai-messages');
+  if (!wrap) return;
+
+  // Clear and show loading
+  wrap.innerHTML = '';
+  const loadDiv = aiAppendMsg('ai', '<div class="ai-typing"><span></span><span></span><span></span></div>');
+
+  try {
+    const [mesR, hoyR, devR] = await Promise.allSettled([
+      fetch('/api/ventas-mes').then(r => r.json()),
+      fetch('/api/ventas-hoy').then(r => r.json()),
+      fetch('/api/devoluciones/stats').then(r => r.json()),
+    ]);
+
+    const mes = mesR.status === 'fulfilled' && !mesR.value.error ? mesR.value : null;
+    const hoy = hoyR.status === 'fulfilled' && !hoyR.value.error ? hoyR.value : null;
+    const dev = devR.status === 'fulfilled' && !devR.value.error ? devR.value : null;
+
+    const now = new Date();
+    const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const mesNombre = MESES[now.getMonth()];
+    const fmtMXN = n => '$' + Math.round(n).toLocaleString('es-MX') + ' MXN';
+    const fmtN   = n => Math.round(n).toLocaleString('es-MX');
+
+    const lines = [];
+    if (mes) lines.push(`📊 <strong>Ventas ${mesNombre}</strong>: ${fmtN(mes.ordenes)} órdenes · ${fmtMXN(mes.ventaBruta)} · ${fmtN(mes.unidades)} uds`);
+    if (hoy) lines.push(`📅 <strong>Hoy</strong>: ${hoy.ordenes} órdenes · ${fmtMXN(hoy.ventaBruta)}`);
+    if (dev) {
+      if (dev.totalOpen > 0)
+        lines.push(`🔔 <strong>Reclamos abiertos</strong>: ${dev.totalOpen} (${dev.openReturns} devoluciones, ${dev.openMediations} mediaciones)`);
+      else
+        lines.push(`✅ <strong>Reclamos</strong>: Todo en orden, sin reclamos abiertos`);
+    }
+
+    const dataBlock = lines.length ? `<br><br>${lines.join('<br>')}` : '';
+    const welcome = `¡Hola! Soy tu Director Comercial AI. Aquí tienes el resumen de hoy:${dataBlock}<br><br>Pregúntame sobre ventas, rentabilidad, stock, publicidad o estrategia.`;
+    if (loadDiv) loadDiv.querySelector('.ai-bubble').innerHTML = welcome;
+  } catch (e) {
+    if (loadDiv) loadDiv.querySelector('.ai-bubble').textContent = 'Hola, soy tu Director Comercial AI. Tengo acceso a todos tus datos de Holstone en tiempo real. ¿En qué puedo ayudarte?';
+  }
+}
+
 // ── History API: routing por URL ──────────────────────────────────────────
 const SECTION_INITS = {
   ventas:       () => initVentasSection(),
@@ -3906,7 +3951,7 @@ const SECTION_INITS = {
   preguntas:    () => initPreguntasSection(),
   devoluciones: () => initDevolucionesSection(),
   reputacion:   () => {},
-  'director-ai':() => {},
+  'director-ai':() => initDirectorAI(),
   inicio:       () => {},
 };
 
