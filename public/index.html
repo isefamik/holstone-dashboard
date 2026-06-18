@@ -22,6 +22,35 @@
   --blue:#2563eb;
   --sw:244px;
 }
+/* ── DARK MODE ── */
+html.dark{
+  --bg:#0f172a;
+  --sidebar:#1e293b;
+  --card:#1e293b;
+  --border:#334155;
+  --text:#f1f5f9;
+  --muted:#94a3b8;
+  --dim:#64748b;
+  --accent-dim:rgba(37,99,235,.15);
+}
+html.dark .nav-item:hover{background:#334155}
+html.dark .stock-row:hover td,html.dark .si-prod-row:hover td,html.dark .si-row:hover td{background:#334155}
+html.dark .variantes{background:#0f172a}
+html.dark .rep-stat-card{background:#0f172a}
+html.dark .envios-metric{background:#0f172a}
+html.dark .days-bar-outer{background:#334155}
+html.dark .hm-lvl-0{background:#334155}
+html.dark .badge-gray{background:#334155;color:var(--muted)}
+html.dark .error{background:#2d1b1b;border-color:#7f1d1d}
+html.dark .alerts-section.alerts-urgent{background:#2d1b1b;border-color:#7f1d1d}
+html.dark .alerts-section.alerts-opportunity{background:#052e16;border-color:#14532d}
+html.dark .rep-limit-track{background:#334155}
+html.dark .rep-check-fail{background:#2d1b1b;color:#f87171}
+html.dark .rep-pill-bad{background:#2d1b1b;color:#f87171}
+
+/* Smooth transitions on mode switch */
+body,body *:not(#ventas-live,#ventas-live *,canvas){transition:background-color .3s,color .3s,border-color .3s}
+
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px}
 
@@ -33,7 +62,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sl-nav{padding:10px 0;flex:1;overflow-y:auto}
 .nav-group{font-size:9.5px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1.4px;padding:14px 20px 4px}
 .nav-item{display:flex;align-items:center;gap:11px;padding:10px 14px 10px 20px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);transition:all .14s;border-left:3px solid transparent;user-select:none}
-.nav-item:hover{color:var(--text);background:#f9fafb}
+.nav-item:hover{color:var(--text);background:var(--bg)}
 .nav-item.active{color:var(--accent);background:var(--accent-dim);border-left-color:var(--accent);font-weight:600}
 .nav-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
 .sl-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px}
@@ -49,6 +78,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-refresh{background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.3px;transition:opacity .14s}
 .btn-refresh:hover{opacity:.85}
 .btn-refresh:disabled{opacity:.5;cursor:not-allowed}
+.btn-darkmode{background:none;border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 10px;cursor:pointer;font-size:15px;line-height:1;transition:background .2s,border-color .2s}
+.btn-darkmode:hover{background:var(--accent-dim)}
 @keyframes spin-icon{from{transform:rotate(0deg)}to{transform:rotate(-360deg)}}
 .refresh-icon{display:inline-block;transition:none}
 .refresh-icon.spinning{animation:spin-icon .7s linear infinite}
@@ -61,7 +92,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ── PREGUNTAS ── */
 .preg-tab{background:none;border:none;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s}
 .preg-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-.preg-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;display:flex;gap:14px;align-items:flex-start}
+.preg-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;display:flex;gap:14px;align-items:flex-start}
 .preg-thumb{width:60px;height:60px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--bg)}
 .preg-thumb-ph{width:60px;height:60px;border-radius:8px;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
 .preg-body{flex:1;min-width:0}
@@ -191,7 +222,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .alert-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(0,0,0,.06)}
 .alert-row:first-of-type{border-top:none}
 .alert-row-text{flex:1;font-size:13px;color:var(--text);line-height:1.4}
-.alert-row-action{background:#fff;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);white-space:nowrap}
+.alert-row-action{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);white-space:nowrap}
 .alerts-empty{padding:4px 0;color:var(--muted);font-size:13px}
 
 /* ── METRIC CHECKS ── */
@@ -482,6 +513,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .lv-toast.lv-toast-out{animation:lv-toast-out .3s ease forwards}
 @keyframes lv-toast-out{to{opacity:0;transform:translateY(10px)}}
 </style>
+<script>if(localStorage.getItem('hk-dark')==='1')document.documentElement.classList.add('dark')</script>
 </head>
 <body>
 
@@ -545,6 +577,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="tb-title" id="page-title">Inicio</div>
     <div class="tb-right">
       <span class="tb-time" id="last-update"></span>
+      <button class="btn-darkmode" id="dark-toggle" onclick="toggleDarkMode()" aria-label="Cambiar modo">🌙</button>
       <button class="btn-refresh" id="refresh-btn" onclick="refreshActiveSection()"><span id="refresh-icon" class="refresh-icon">↻</span> Actualizar</button>
     </div>
   </div>
@@ -1382,7 +1415,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
         </div>
         <!-- Input -->
-        <div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--border);background:#fafafa;align-items:center">
+        <div style="display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--border);background:var(--bg);align-items:center">
           <input type="text" id="ai-input" class="ai-input"
             placeholder="Pregúntame algo sobre tu negocio…"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend()}">
@@ -4363,6 +4396,19 @@ window.addEventListener('popstate', e => {
   } else {
     history.replaceState({section:'inicio'}, '', '/inicio');
   }
+})();
+
+// ── DARK MODE ────────────────────────────────────────────────────────────────
+function toggleDarkMode() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  document.getElementById('dark-toggle').textContent = isDark ? '☀️' : '🌙';
+  localStorage.setItem('hk-dark', isDark ? '1' : '0');
+}
+
+// Sync button icon with current mode (the class was already applied by the early <head> script)
+(function() {
+  const btn = document.getElementById('dark-toggle');
+  if (btn && document.documentElement.classList.contains('dark')) btn.textContent = '☀️';
 })();
 
 loadAll();
