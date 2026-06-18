@@ -405,6 +405,82 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .si-search-wrap,.si-search{width:100%}
   .nav-item{padding-top:13px;padding-bottom:13px;font-size:14px}
 }
+
+/* ── VENTAS EN VIVO ── */
+.live-nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:8px;letter-spacing:.4px;flex-shrink:0;animation:live-pulse 1.6s ease-in-out infinite}
+@keyframes live-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+#ventas-live{background:#0f172a;color:#f1f5f9;min-height:100%}
+.lv-wrap{padding:20px 24px 32px;max-width:1200px}
+.lv-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.lv-header-left{display:flex;align-items:center;gap:14px}
+.lv-live-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;animation:live-pulse 1.6s ease-in-out infinite;flex-shrink:0}
+.lv-title{font-size:22px;font-weight:800;color:#f1f5f9;letter-spacing:-.3px}
+.lv-subtitle{font-size:12px;color:#64748b;margin-top:2px}
+.lv-clock{font-size:28px;font-weight:700;color:#22d3ee;font-variant-numeric:tabular-nums;font-family:'SF Mono',monospace}
+.lv-date{font-size:11px;color:#475569;text-align:right;margin-top:2px}
+
+.lv-hero{background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid #1e3a5f;border-radius:20px;padding:28px 32px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}
+.lv-hero-main{}
+.lv-hero-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:6px}
+.lv-hero-amount{font-size:52px;font-weight:900;color:#10b981;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums}
+.lv-hero-delta{display:flex;align-items:center;gap:8px;margin-top:8px}
+.lv-delta-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
+.lv-delta-up{background:rgba(16,185,129,.15);color:#34d399}
+.lv-delta-down{background:rgba(239,68,68,.15);color:#f87171}
+.lv-hero-right{text-align:right}
+.lv-countdown-wrap{font-size:11px;color:#475569;margin-top:8px}
+.lv-countdown{font-size:13px;color:#94a3b8;font-weight:600}
+
+.lv-metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:1100px){.lv-metrics{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.lv-metrics{grid-template-columns:repeat(2,1fr)}}
+.lv-metric{background:#1e293b;border:1px solid #1e3a5f;border-radius:14px;padding:16px 18px;text-align:center}
+.lv-metric-label{font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:8px}
+.lv-metric-val{font-size:22px;font-weight:800;color:#f1f5f9;font-variant-numeric:tabular-nums}
+.lv-metric-sub{font-size:10px;color:#475569;margin-top:4px}
+
+.lv-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.lv-grid{grid-template-columns:1fr}}
+
+.lv-card{background:#1e293b;border:1px solid #1e3a5f;border-radius:16px;padding:18px 20px}
+.lv-card-title{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.lv-chart-wrap{position:relative;height:180px}
+
+.lv-feed{display:flex;flex-direction:column;gap:0;max-height:360px;overflow-y:auto}
+.lv-feed::-webkit-scrollbar{width:4px}
+.lv-feed::-webkit-scrollbar-track{background:transparent}
+.lv-feed::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+.lv-feed-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1a2940;animation:lv-slide-in .35s ease}
+.lv-feed-item:last-child{border-bottom:none}
+@keyframes lv-slide-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.lv-thumb{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#0f172a;flex-shrink:0}
+.lv-thumb-ph{width:40px;height:40px;border-radius:8px;background:#334155;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.lv-feed-info{flex:1;min-width:0}
+.lv-feed-title{font-size:12px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.lv-feed-time{font-size:10px;color:#475569;margin-top:2px}
+.lv-feed-monto{font-size:14px;font-weight:800;color:#10b981;white-space:nowrap}
+
+.lv-top{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:700px){.lv-top{grid-template-columns:1fr}}
+.lv-top-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;border-radius:10px}
+.lv-pos{width:22px;height:22px;border-radius:50%;background:#1e3a5f;color:#94a3b8;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lv-pos-1{background:#f59e0b;color:#0f172a}
+.lv-pos-2{background:#6b7280;color:#f1f5f9}
+.lv-pos-3{background:#b45309;color:#f1f5f9}
+.lv-top-info{flex:1;min-width:0}
+.lv-top-title{font-size:11px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.lv-top-monto{font-size:13px;font-weight:800;color:#10b981;margin-top:2px}
+.lv-stock-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;flex-shrink:0}
+.lv-stock-ok{background:rgba(16,185,129,.15);color:#34d399}
+.lv-stock-low{background:rgba(245,158,11,.15);color:#fbbf24}
+.lv-stock-out{background:rgba(239,68,68,.15);color:#f87171}
+
+/* Toast */
+.lv-toast{position:fixed;bottom:24px;right:24px;background:#10b981;color:#fff;padding:12px 20px;border-radius:14px;font-size:13px;font-weight:700;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:9999;animation:lv-toast-in .3s ease;pointer-events:none}
+@keyframes lv-toast-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.lv-toast.lv-toast-out{animation:lv-toast-out .3s ease forwards}
+@keyframes lv-toast-out{to{opacity:0;transform:translateY(10px)}}
 </style>
 </head>
 <body>
@@ -419,6 +495,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="nav-group">Principal</div>
     <div class="nav-item active" onclick="showSection('inicio',this)">
       <span class="nav-icon">⊞</span><span>Inicio</span>
+    </div>
+    <div class="nav-item" onclick="showSection('ventas-live',this);initLiveSection()">
+      <span class="nav-icon">📡</span><span>En Vivo</span>
+      <span class="live-nav-badge">EN VIVO</span>
     </div>
     <div class="nav-group">Ventas</div>
     <div class="nav-item" onclick="showSection('ventas',this);initVentasSection()">
@@ -1174,6 +1254,101 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div id="rep-content"><div class="loading"><div class="spin"></div>Cargando reputación...</div></div>
     </div>
 
+    <!-- ══ VENTAS EN VIVO ══ -->
+    <div id="ventas-live" class="section">
+      <div class="lv-wrap">
+        <!-- Header -->
+        <div class="lv-header">
+          <div class="lv-header-left">
+            <div class="lv-live-dot"></div>
+            <div>
+              <div class="lv-title">Ventas en Vivo</div>
+              <div class="lv-subtitle">Actualización automática cada 30 segundos</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="lv-clock" id="lv-clock">00:00:00</div>
+            <div class="lv-date" id="lv-date">—</div>
+          </div>
+        </div>
+
+        <!-- Hero total -->
+        <div class="lv-hero">
+          <div class="lv-hero-main">
+            <div class="lv-hero-label">Total vendido hoy</div>
+            <div class="lv-hero-amount" id="lv-total">$—</div>
+            <div class="lv-hero-delta">
+              <span id="lv-delta-pill" class="lv-delta-pill lv-delta-up" style="display:none"></span>
+              <span id="lv-vs-ayer" style="font-size:11px;color:#475569"></span>
+            </div>
+          </div>
+          <div class="lv-hero-right">
+            <div style="font-size:11px;color:#475569;margin-bottom:4px">Próxima actualización</div>
+            <div class="lv-countdown" id="lv-countdown">30s</div>
+            <div style="font-size:10px;color:#334155;margin-top:6px" id="lv-last-update">—</div>
+          </div>
+        </div>
+
+        <!-- 6 métricas -->
+        <div class="lv-metrics">
+          <div class="lv-metric">
+            <div class="lv-metric-label">Órdenes</div>
+            <div class="lv-metric-val" id="lv-ordenes">—</div>
+            <div class="lv-metric-sub">pedidos hoy</div>
+          </div>
+          <div class="lv-metric">
+            <div class="lv-metric-label">Unidades</div>
+            <div class="lv-metric-val" id="lv-unidades">—</div>
+            <div class="lv-metric-sub">piezas vendidas</div>
+          </div>
+          <div class="lv-metric">
+            <div class="lv-metric-label">Ticket promedio</div>
+            <div class="lv-metric-val" id="lv-ticket">—</div>
+            <div class="lv-metric-sub">por orden</div>
+          </div>
+          <div class="lv-metric">
+            <div class="lv-metric-label">Visitas</div>
+            <div class="lv-metric-val" id="lv-visitas">—</div>
+            <div class="lv-metric-sub">sesiones</div>
+          </div>
+          <div class="lv-metric">
+            <div class="lv-metric-label">Compradores</div>
+            <div class="lv-metric-val" id="lv-compradores">—</div>
+            <div class="lv-metric-sub">únicos hoy</div>
+          </div>
+          <div class="lv-metric">
+            <div class="lv-metric-label">Conversión</div>
+            <div class="lv-metric-val" id="lv-conversion">—</div>
+            <div class="lv-metric-sub">compradores/visitas</div>
+          </div>
+        </div>
+
+        <!-- Gráfica + Feed -->
+        <div class="lv-grid">
+          <!-- Gráfica por hora -->
+          <div class="lv-card">
+            <div class="lv-card-title">📈 Ventas por hora</div>
+            <div class="lv-chart-wrap"><canvas id="lv-chart"></canvas></div>
+          </div>
+          <!-- Feed últimas ventas -->
+          <div class="lv-card">
+            <div class="lv-card-title">⚡ Últimas ventas</div>
+            <div class="lv-feed" id="lv-feed">
+              <div style="color:#475569;font-size:12px;text-align:center;padding:20px">Cargando...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top 5 productos -->
+        <div class="lv-card">
+          <div class="lv-card-title">🏆 Top productos de hoy</div>
+          <div class="lv-top" id="lv-top">
+            <div style="color:#475569;font-size:12px;padding:8px">Cargando...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ DIRECTOR AI ══ -->
     <div id="director-ai" class="section">
       <!-- Header -->
@@ -1290,7 +1465,7 @@ function renderDelta(elId,current,previous,label='vs ayer'){
 }
 
 const PAGE_TITLES={
-  inicio:'Inicio',ventas:'Ventas',
+  inicio:'Inicio','ventas-live':'En Vivo',ventas:'Ventas',
   stock:'Stock',publicidad:'Publicidad',finanzas:'Finanzas',
   devoluciones:'Devoluciones',reputacion:'Reputación',preguntas:'Preguntas',
   'director-ai':'Director Comercial AI'
@@ -3791,6 +3966,7 @@ function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/\n/g,' '
 
 const SECTION_RELOADERS = {
   inicio:       () => { loadVentas(); loadStock(); loadReputacion(); loadPublicaciones(); loadPerformance(); loadEnvios('today'); loadTendencia('7days'); },
+  'ventas-live':() => loadLiveData(),
   ventas:       () => loadVentasResumen(),
   stock:        () => siReload(),
   publicidad:   () => { loadAds(); loadAdsTendencia(); },
@@ -3826,6 +4002,211 @@ function loadAll(){
   loadEnvios('today');
   loadTendencia('7days');
   loadPreguntasBadge();
+}
+
+// ── VENTAS EN VIVO ───────────────────────────────────────────────────────────
+let _lvChart       = null;
+let _lvCountdown   = 30;
+let _lvTimer       = null;
+let _lvLastIds     = new Set();
+let _lvPrevTotal   = 0;
+let _lvInitialized = false;
+
+function lvFmt(n)    { return '$' + Math.round(n).toLocaleString('es-MX'); }
+function lvFmtN(n)   { return Math.round(n).toLocaleString('es-MX'); }
+
+function lvTick() {
+  // Clock
+  const now = new Date();
+  const t = now.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
+  const d = now.toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const clk = document.getElementById('lv-clock');
+  const dt  = document.getElementById('lv-date');
+  if (clk) clk.textContent = t;
+  if (dt)  dt.textContent  = d.charAt(0).toUpperCase() + d.slice(1);
+
+  // Countdown
+  _lvCountdown--;
+  if (_lvCountdown <= 0) {
+    _lvCountdown = 30;
+    loadLiveData();
+  }
+  const cd = document.getElementById('lv-countdown');
+  if (cd) cd.textContent = _lvCountdown + 's';
+}
+
+function lvShowToast(msg) {
+  const existing = document.querySelector('.lv-toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'lv-toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => {
+    t.classList.add('lv-toast-out');
+    setTimeout(() => t.remove(), 350);
+  }, 3500);
+}
+
+function lvRenderFeed(orders) {
+  const feed = document.getElementById('lv-feed');
+  if (!feed) return;
+
+  // Detect new orders
+  const newIds = orders.filter(o => !_lvLastIds.has(o.id));
+  newIds.forEach(o => {
+    if (_lvLastIds.size > 0) { // not first load
+      lvShowToast(`🎉 Nueva venta: ${lvFmt(o.monto)}`);
+    }
+    _lvLastIds.add(o.id);
+  });
+  orders.forEach(o => _lvLastIds.add(o.id));
+
+  feed.innerHTML = '';
+  if (!orders.length) {
+    feed.innerHTML = '<div style="color:#475569;font-size:12px;text-align:center;padding:20px">Sin ventas hoy todavía</div>';
+    return;
+  }
+  orders.forEach(o => {
+    const ago = o.minutos_atras < 1 ? 'Hace menos de 1 min'
+              : o.minutos_atras < 60 ? `Hace ${o.minutos_atras} min`
+              : `Hace ${Math.floor(o.minutos_atras/60)}h ${o.minutos_atras%60}m`;
+    const thumb = o.thumbnail
+      ? `<img class="lv-thumb" src="${esc(o.thumbnail)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex'">`
+      : '';
+    const ph = `<div class="lv-thumb-ph" style="${o.thumbnail?'display:none':''}">🛍️</div>`;
+    const row = document.createElement('div');
+    row.className = 'lv-feed-item';
+    row.innerHTML = `${thumb}${ph}
+      <div class="lv-feed-info">
+        <div class="lv-feed-title">${esc(o.titulo || '—')}</div>
+        <div class="lv-feed-time">${ago}</div>
+      </div>
+      <div class="lv-feed-monto">${lvFmt(o.monto)}</div>`;
+    feed.appendChild(row);
+  });
+}
+
+function lvRenderTop(products) {
+  const wrap = document.getElementById('lv-top');
+  if (!wrap) return;
+  if (!products.length) { wrap.innerHTML = '<div style="color:#475569;font-size:12px;padding:8px">Sin datos</div>'; return; }
+  wrap.innerHTML = '';
+  products.forEach((p, i) => {
+    const posClass = i === 0 ? 'lv-pos lv-pos-1' : i === 1 ? 'lv-pos lv-pos-2' : i === 2 ? 'lv-pos lv-pos-3' : 'lv-pos';
+    let stockBadge = '';
+    if (p.stock !== null && p.stock !== undefined) {
+      const cls = p.stock === 0 ? 'lv-stock-out' : p.stock <= 5 ? 'lv-stock-low' : 'lv-stock-ok';
+      const lbl = p.stock === 0 ? 'AGOTADO' : p.stock <= 5 ? `${p.stock} uds` : `${p.stock} uds`;
+      stockBadge = `<span class="lv-stock-badge ${cls}">${lbl}</span>`;
+    }
+    const el = document.createElement('div');
+    el.className = 'lv-top-item';
+    el.innerHTML = `<div class="${posClass}">${i+1}</div>
+      <div class="lv-top-info">
+        <div class="lv-top-title">${esc(p.titulo || '—')}</div>
+        <div class="lv-top-monto">${lvFmt(p.monto)} · ${p.ordenes} órdenes</div>
+      </div>
+      ${stockBadge}`;
+    wrap.appendChild(el);
+  });
+}
+
+function lvRenderChart(hoy, ayer) {
+  const canvas = document.getElementById('lv-chart');
+  if (!canvas) return;
+  const labels = Array.from({length:24}, (_, i) => i + 'h');
+  if (_lvChart) { _lvChart.destroy(); _lvChart = null; }
+  _lvChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Hoy', data: hoy, backgroundColor: 'rgba(34,211,238,.75)', borderRadius: 4, borderSkipped: false },
+        { label: 'Ayer', data: ayer, backgroundColor: 'rgba(71,85,105,.4)', borderRadius: 4, borderSkipped: false },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } }, position: 'bottom' }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.dataset.label}: ${lvFmt(ctx.raw)}` }
+      }},
+      scales: {
+        x: { grid: { color: '#1e3a5f' }, ticks: { color: '#475569', font: { size: 10 } } },
+        y: { grid: { color: '#1e3a5f' }, ticks: { color: '#475569', font: { size: 10 }, callback: v => lvFmt(v) } }
+      }
+    }
+  });
+}
+
+async function loadLiveData() {
+  try {
+    const d = await fetch('/api/ventas-live').then(r => r.json());
+    if (d.error) return;
+
+    // Hero
+    const totalEl = document.getElementById('lv-total');
+    if (totalEl) totalEl.textContent = lvFmt(d.total_hoy);
+
+    // Delta vs ayer
+    const pill = document.getElementById('lv-delta-pill');
+    const vsEl = document.getElementById('lv-vs-ayer');
+    if (pill && vsEl && d.comparativa_ayer > 0) {
+      const diff  = d.total_hoy - d.comparativa_ayer;
+      const pct   = Math.abs(diff / d.comparativa_ayer * 100).toFixed(1);
+      const up    = diff >= 0;
+      pill.style.display = '';
+      pill.className = `lv-delta-pill ${up ? 'lv-delta-up' : 'lv-delta-down'}`;
+      pill.textContent = `${up?'▲':'▼'} ${pct}%`;
+      vsEl.textContent = `vs ayer a esta hora (${lvFmt(d.comparativa_ayer)})`;
+    }
+
+    // Last update
+    const lu = document.getElementById('lv-last-update');
+    if (lu) lu.textContent = 'Actualizado: ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+    // Métricas
+    const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    set('lv-ordenes',    lvFmtN(d.ordenes_hoy));
+    set('lv-unidades',   lvFmtN(d.unidades_hoy));
+    set('lv-ticket',     lvFmt(d.ticket_promedio));
+    set('lv-visitas',    d.visitas_hoy != null ? lvFmtN(d.visitas_hoy) : '—');
+    set('lv-compradores',lvFmtN(d.compradores_hoy));
+    set('lv-conversion', d.conversion != null ? d.conversion.toFixed(1)+'%' : '—');
+
+    // Feed
+    lvRenderFeed(d.ultimas_5_ordenes || []);
+
+    // Top
+    lvRenderTop(d.top_productos_hoy || []);
+
+    // Chart
+    lvRenderChart(d.ventas_por_hora || Array(24).fill(0), d.ayer_por_hora || Array(24).fill(0));
+
+    // Toast si hay nueva orden y no es la primera carga
+    if (_lvPrevTotal > 0 && d.total_hoy > _lvPrevTotal) {
+      const diff = d.total_hoy - _lvPrevTotal;
+      lvShowToast(`💰 +${lvFmt(diff)} desde el último refresh`);
+    }
+    _lvPrevTotal = d.total_hoy;
+  } catch (e) {
+    console.error('[live]', e);
+  }
+}
+
+function initLiveSection() {
+  // Reset countdown
+  _lvCountdown = 30;
+  _lvLastIds   = new Set();
+  _lvPrevTotal = 0;
+
+  // Start clock tick if not already running
+  if (!_lvInitialized) {
+    setInterval(lvTick, 1000);
+    _lvInitialized = true;
+  }
+  // Initial data load
+  loadLiveData();
 }
 
 // ── DIRECTOR AI ─────────────────────────────────────────────────────────────
@@ -3944,6 +4325,7 @@ async function initDirectorAI() {
 
 // ── History API: routing por URL ──────────────────────────────────────────
 const SECTION_INITS = {
+  'ventas-live':() => initLiveSection(),
   ventas:       () => initVentasSection(),
   stock:        () => loadStockInteligente(),
   publicidad:   () => initPublicidadSection(),

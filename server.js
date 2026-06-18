@@ -341,6 +341,111 @@ app.get('/api/ventas-hoy', async (req, res) => {
   }
 });
 
+// ── VENTAS EN VIVO ──────────────────────────────────────────────────────────
+app.get('/api/ventas-live', async (req, res) => {
+  try {
+    const fecha     = today();
+    const fechaAyer = dateNDaysAgo(1);
+    const fromHoy   = `${fecha}T00:00:00.000-06:00`;
+    const toHoy     = `${fecha}T23:59:59.000-06:00`;
+    const fromAyer  = `${fechaAyer}T00:00:00.000-06:00`;
+    const toAyer    = `${fechaAyer}T23:59:59.000-06:00`;
+
+    // Fetch hoy y ayer en paralelo
+    const [ordersHoy, ordersAyer] = await Promise.all([
+      fetchPaidOrders(fromHoy, toHoy),
+      fetchPaidOrders(fromAyer, toAyer),
+    ]);
+
+    // Totales de hoy
+    const total_hoy     = ordersHoy.reduce((s, o) => s + o.total_amount, 0);
+    const ordenes_hoy   = ordersHoy.length;
+    const unidades_hoy  = ordersHoy.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
+    const ticket_promedio = ordenes_hoy > 0 ? total_hoy / ordenes_hoy : 0;
+
+    // Helper: hora en CDMX de un date string
+    const hourMX = dateStr => parseInt(
+      new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Mexico_City' }).format(new Date(dateStr))
+    );
+
+    // Ventas por hora: 24 buckets
+    const ventas_por_hora = Array(24).fill(0);
+    ordersHoy.forEach(o => { ventas_por_hora[hourMX(o.date_created)] += o.total_amount; });
+
+    const ayer_por_hora = Array(24).fill(0);
+    ordersAyer.forEach(o => { ayer_por_hora[hourMX(o.date_created)] += o.total_amount; });
+
+    // Ayer hasta la hora actual (para comparativa)
+    const horaActual = hourMX(new Date().toISOString());
+    const comparativa_ayer = ayer_por_hora.slice(0, horaActual + 1).reduce((s, v) => s + v, 0);
+
+    // Últimas 5 órdenes (más recientes primero)
+    const sorted = [...ordersHoy].sort((a, b) => new Date(b.date_created) - new Date(a.date_created));
+    const ultimas_5_ordenes = sorted.slice(0, 5).map(o => {
+      const oi = o.order_items[0];
+      return {
+        id:           o.id,
+        titulo:       oi?.item?.title || '',
+        item_id:      oi?.item?.id   || null,
+        monto:        o.total_amount,
+        fecha:        o.date_created,
+        minutos_atras: Math.max(0, Math.round((Date.now() - new Date(o.date_created)) / 60000)),
+      };
+    });
+    const ultima_orden = ultimas_5_ordenes[0] || null;
+
+    // Top 5 productos por monto
+    const byItem = {};
+    ordersHoy.forEach(o => o.order_items.forEach(i => {
+      const id = i.item.id;
+      if (!byItem[id]) byItem[id] = { item_id: id, titulo: i.item.title, ordenes: 0, monto: 0, unidades: 0 };
+      byItem[id].ordenes  += 1;
+      byItem[id].monto    += (i.unit_price || 0) * (i.quantity || 1);
+      byItem[id].unidades += i.quantity || 1;
+    }));
+    const top_productos_hoy = Object.values(byItem)
+      .sort((a, b) => b.monto - a.monto)
+      .slice(0, 5);
+
+    // Stock + thumbnail para los top 5
+    if (top_productos_hoy.length) {
+      try {
+        const ids = top_productos_hoy.map(p => p.item_id).join(',');
+        const det = await mlGet(`https://api.mercadolibre.com/items?ids=${ids}&attributes=id,available_quantity,thumbnail`);
+        const sm = {};
+        det.filter(d => d.code === 200).forEach(d => { sm[d.body.id] = d.body; });
+        top_productos_hoy.forEach(p => {
+          p.stock     = sm[p.item_id]?.available_quantity ?? null;
+          p.thumbnail = sm[p.item_id]?.thumbnail ?? null;
+        });
+      } catch {}
+    }
+
+    // Compradores únicos
+    const compradores_hoy = new Set(ordersHoy.map(o => o.buyer?.id).filter(Boolean)).size;
+
+    // Visitas de HOY (best-effort) — last=1 devuelve ayer+hoy; extraemos el entry de hoy
+    let visitas_hoy = null;
+    try {
+      const vr = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items_visits/time_window`, { last: 1, unit: 'day' });
+      const hoyEntry = (vr.results || []).find(r => r.date && r.date.startsWith(fecha));
+      visitas_hoy = hoyEntry?.total ?? vr.total_visits ?? null;
+    } catch {}
+
+    const conversion = (visitas_hoy && compradores_hoy) ? (compradores_hoy / visitas_hoy * 100) : null;
+
+    res.json({
+      fecha, total_hoy, ordenes_hoy, unidades_hoy, ticket_promedio,
+      ultima_orden, ultimas_5_ordenes, top_productos_hoy,
+      ventas_por_hora, ayer_por_hora, comparativa_ayer,
+      compradores_hoy, visitas_hoy, conversion,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
 app.get('/api/ventas-mes', async (req, res) => {
   try {
     const { year, month } = req.query;
