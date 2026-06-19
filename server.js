@@ -7,25 +7,55 @@ const XLSX = require('xlsx');
 const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 const session = require('express-session');
-const PgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcryptjs');
 const { AsyncLocalStorage } = require('async_hooks');
 require('dotenv').config();
 
 const requestCtx = new AsyncLocalStorage();
 
+// ── Store de sesiones sobre Supabase JS (sin conexión pg directa) ────────────
+class SupabaseSessionStore extends session.Store {
+  async get(sid, cb) {
+    try {
+      const { data } = await supabase.from('sessions').select('sess')
+        .eq('sid', sid).gt('expire', new Date().toISOString()).maybeSingle();
+      cb(null, data?.sess ?? null);
+    } catch (e) { cb(e); }
+  }
+  async set(sid, sess, cb) {
+    try {
+      const exp = sess.cookie?.expires
+        ? new Date(sess.cookie.expires)
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await supabase.from('sessions').upsert({ sid, sess, expire: exp.toISOString() });
+      cb(null);
+    } catch (e) { cb(e); }
+  }
+  async destroy(sid, cb) {
+    try {
+      await supabase.from('sessions').delete().eq('sid', sid);
+      cb(null);
+    } catch (e) { cb(e); }
+  }
+  async touch(sid, sess, cb) {
+    try {
+      const exp = sess.cookie?.expires
+        ? new Date(sess.cookie.expires)
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      await supabase.from('sessions').update({ expire: exp.toISOString() }).eq('sid', sid);
+      cb(null);
+    } catch (e) { cb(e); }
+  }
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Sesiones (requiere DATABASE_URL=postgresql://... en .env) ────────────────
+// ── Sesiones ─────────────────────────────────────────────────────────────────
 app.use(session({
-  store: new PgSession({
-    conString: process.env.DATABASE_URL,
-    tableName: 'sessions',
-    createTableIfMissing: true,
-  }),
+  store: new SupabaseSessionStore(),
   secret: process.env.SESSION_SECRET || 'holstone-dev-secret',
   resave: false,
   saveUninitialized: false,
