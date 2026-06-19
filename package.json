@@ -15,9 +15,12 @@
     "@anthropic-ai/sdk": "^0.104.2",
     "@supabase/supabase-js": "^2.108.1",
     "axios": "^1.16.1",
+    "bcryptjs": "^3.0.3",
+    "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
     "multer": "^2.2.0",
     "node-cron": "^4.3.0",
     "xlsx": "^0.18.5"

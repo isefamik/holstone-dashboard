@@ -6,16 +6,96 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
+const session = require('express-session');
+const PgSession = require('connect-pg-simple')(session);
+const bcrypt = require('bcryptjs');
+const { AsyncLocalStorage } = require('async_hooks');
 require('dotenv').config();
+
+const requestCtx = new AsyncLocalStorage();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ── Sesiones (requiere DATABASE_URL=postgresql://... en .env) ────────────────
+app.use(session({
+  store: new PgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: 'sessions',
+    createTableIfMissing: true,
+  }),
+  secret: process.env.SESSION_SECRET || 'holstone-dev-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  },
+}));
+
 const CLIENT_ID = process.env.ML_CLIENT_ID;
 const CLIENT_SECRET = process.env.ML_CLIENT_SECRET;
 const SELLER_ID = process.env.SELLER_ID;
+
+// ── Multi-tenant helpers ─────────────────────────────────────────────────────
+
+const tenantTokenCache = new Map(); // tenantId → { access_token, refresh_token, expires_at }
+
+function getSellerId() {
+  return requestCtx.getStore()?.tenant?.seller_id || SELLER_ID;
+}
+
+function getAdvertiserId() {
+  return requestCtx.getStore()?.tenant?.advertiser_id || ADVERTISER_ID;
+}
+
+async function getTenantConfig(tenantId) {
+  const { data, error } = await supabase.from('tenants').select('*').eq('id', tenantId).maybeSingle();
+  if (error || !data) return null;
+  return data;
+}
+
+async function refreshTenantToken(tenant) {
+  const cached = tenantTokenCache.get(tenant.id) || {};
+  const params = new URLSearchParams();
+  params.append('grant_type', 'refresh_token');
+  params.append('client_id', tenant.ml_client_id);
+  params.append('client_secret', tenant.ml_client_secret);
+  params.append('refresh_token', cached.refresh_token || tenant.ml_refresh_token);
+  const response = await axios.post('https://api.mercadolibre.com/oauth/token', params, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  const newToken = {
+    access_token: response.data.access_token,
+    refresh_token: response.data.refresh_token || cached.refresh_token,
+    expires_at: Date.now() + ((response.data.expires_in - 300) * 1000),
+  };
+  tenantTokenCache.set(tenant.id, newToken);
+  await supabase.from('tenant_tokens').upsert({
+    tenant_id: tenant.id,
+    access_token: newToken.access_token,
+    refresh_token: newToken.refresh_token,
+    expires_at: newToken.expires_at,
+    updated_at: new Date().toISOString(),
+  });
+  return newToken.access_token;
+}
+
+async function getTenantToken(tenant) {
+  let cached = tenantTokenCache.get(tenant.id);
+  if (!cached) {
+    const { data } = await supabase.from('tenant_tokens').select('*').eq('tenant_id', tenant.id).maybeSingle();
+    if (data) {
+      cached = { access_token: data.access_token, refresh_token: data.refresh_token, expires_at: Number(data.expires_at) };
+      tenantTokenCache.set(tenant.id, cached);
+    }
+  }
+  if (!cached || Date.now() >= cached.expires_at) return refreshTenantToken(tenant);
+  return cached.access_token;
+}
 
 // ── Token persistence (Supabase) ────────────────────────────────────────────
 
@@ -178,7 +258,8 @@ function today() {
 }
 
 async function mlGet(url, params = {}) {
-  const token = await getToken();
+  const ctx = requestCtx.getStore();
+  const token = ctx?.tenant ? await getTenantToken(ctx.tenant) : await getToken();
   const r = await axios.get(url, {
     params,
     headers: { Authorization: `Bearer ${token}` }
@@ -201,7 +282,8 @@ async function getReasonLabel(reasonId) {
 }
 
 async function mlGetAds(url, params = {}) {
-  const token = await getToken();
+  const ctx = requestCtx.getStore();
+  const token = ctx?.tenant ? await getTenantToken(ctx.tenant) : await getToken();
   const r = await axios.get(url, {
     params,
     headers: { Authorization: `Bearer ${token}`, 'api-version': '2' }
@@ -284,7 +366,7 @@ async function fetchPaidOrders(from, to) {
   let total = 1;
   while (offset < total) {
     const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-      seller: SELLER_ID, 'order.status': 'paid',
+      seller: getSellerId(), 'order.status': 'paid',
       'order.date_created.from': from, 'order.date_created.to': to,
       limit: 50, offset
     });
@@ -294,6 +376,86 @@ async function fetchPaidOrders(from, to) {
   }
   return allOrders;
 }
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+async function requireAuth(req, res, next) {
+  if (!req.session?.userId) return res.status(401).json({ error: 'No autenticado' });
+  try {
+    const tenant = await getTenantConfig(req.session.tenantId);
+    if (!tenant || !tenant.active) return res.status(401).json({ error: 'Sesión inválida' });
+    req.tenant = tenant;
+    requestCtx.run({ tenant }, next);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+// Protege todas las rutas /api/* excepto login y logout
+app.use('/api', (req, res, next) => {
+  if (req.path === '/login' || req.path === '/logout') return next();
+  requireAuth(req, res, next);
+});
+
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'email y password requeridos' });
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, email, password_hash, tenant_id, role, active')
+      .eq('email', email.toLowerCase().trim())
+      .maybeSingle();
+    if (!user || !user.active) return res.status(401).json({ error: 'Credenciales inválidas' });
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
+    req.session.userId = user.id;
+    req.session.tenantId = user.tenant_id;
+    req.session.role = user.role;
+    res.json({ ok: true, user: { id: user.id, email: user.email, role: user.role } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) return res.status(500).json({ error: 'Error al cerrar sesión' });
+    res.clearCookie('connect.sid');
+    res.json({ ok: true });
+  });
+});
+
+app.get('/api/me', (req, res) => {
+  res.json({
+    userId: req.session.userId,
+    tenantId: req.session.tenantId,
+    role: req.session.role,
+    tenant: { id: req.tenant.id, name: req.tenant.name },
+  });
+});
+
+app.post('/api/admin/crear-usuario', async (req, res) => {
+  try {
+    if (req.session.role !== 'admin') return res.status(403).json({ error: 'Solo admins' });
+    const { email, password, role = 'viewer' } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'email y password requeridos' });
+    const password_hash = await bcrypt.hash(password, 12);
+    const { data, error } = await supabase.from('users').insert({
+      email: email.toLowerCase().trim(),
+      password_hash,
+      tenant_id: req.session.tenantId,
+      role,
+      active: true,
+    }).select('id, email, role').single();
+    if (error) throw new Error(error.message);
+    res.json({ ok: true, user: data });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Ventas ───────────────────────────────────────────────────────────────────
 
 app.get('/api/ventas-hoy', async (req, res) => {
   try {
@@ -427,7 +589,7 @@ app.get('/api/ventas-live', async (req, res) => {
     // Visitas de HOY (best-effort) — last=1 devuelve ayer+hoy; extraemos el entry de hoy
     let visitas_hoy = null;
     try {
-      const vr = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items_visits/time_window`, { last: 1, unit: 'day' });
+      const vr = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items_visits/time_window`, { last: 1, unit: 'day' });
       const hoyEntry = (vr.results || []).find(r => r.date && r.date.startsWith(fecha));
       visitas_hoy = hoyEntry?.total ?? vr.total_visits ?? null;
     } catch {}
@@ -459,7 +621,7 @@ app.get('/api/ventas-mes', async (req, res) => {
     let total = 1;
     while (offset < total) {
       const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-        seller: SELLER_ID, 'order.status': 'paid',
+        seller: getSellerId(), 'order.status': 'paid',
         'order.date_created.from': from, 'order.date_created.to': to,
         limit: 50, offset
       });
@@ -493,7 +655,7 @@ app.get('/api/stock', async (req, res) => {
     let offset = 0;
     let total = 1;
     while (offset < total) {
-      const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status: 'active', limit: 50, offset });
+      const r = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items/search`, { status: 'active', limit: 50, offset });
       total = r.paging.total;
       allIds = allIds.concat(r.results);
       offset += 50;
@@ -547,8 +709,8 @@ app.get('/api/stock', async (req, res) => {
 app.get('/api/devoluciones/stats', async (req, res) => {
   try {
     const [openedData, closedData] = await Promise.all([
-      mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'opened', limit: 50, offset: 0 }),
-      mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'closed', limit: 100, offset: 0 }),
+      mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: getSellerId(), status: 'opened', limit: 50, offset: 0 }),
+      mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: getSellerId(), status: 'closed', limit: 100, offset: 0 }),
     ]);
     const allOpenClaims = openedData.data || [];
     const closedClaims = closedData.data || [];
@@ -604,7 +766,7 @@ app.get('/api/devoluciones', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const offset = parseInt(req.query.offset) || 0;
     const data = await mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', {
-      seller_id: SELLER_ID, status, limit, offset,
+      seller_id: getSellerId(), status, limit, offset,
     });
     let claims = data.data || [];
     const total = data.paging?.total || 0;
@@ -675,7 +837,7 @@ app.listen(PORT, () => console.log(`Servidor Holstone corriendo en http://localh
 
 app.get('/api/reputacion', async (req, res) => {
   try {
-    const data = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}`);
+    const data = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}`);
     const rep = data.seller_reputation || {};
     const metrics = rep.metrics || {};
     const transactions = rep.transactions || {};
@@ -721,7 +883,7 @@ app.get('/api/reputacion', async (req, res) => {
 async function getAllItemIds(status) {
   let ids = [], offset = 0, total = 1;
   while (offset < total) {
-    const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status, limit: 50, offset });
+    const r = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items/search`, { status, limit: 50, offset });
     total = r.paging.total;
     ids = ids.concat(r.results);
     offset += 50;
@@ -773,7 +935,7 @@ app.get('/api/performance', async (req, res) => {
     const toDate = now.toISOString().split('T')[0];
     const fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const itemsData = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, {
+    const itemsData = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items/search`, {
       status: 'active', limit: 50, offset: 0
     });
     const itemIds = itemsData.results;
@@ -795,7 +957,7 @@ app.get('/api/performance', async (req, res) => {
     const from = `${fromDate}T00:00:00.000-06:00`;
     const to = `${toDate}T23:59:59.000-06:00`;
     const ordersData = await mlGet('https://api.mercadolibre.com/orders/search', {
-      seller: SELLER_ID, 'order.status': 'paid',
+      seller: getSellerId(), 'order.status': 'paid',
       'order.date_created.from': from, 'order.date_created.to': to, limit: 1
     });
     const totalOrdenes = ordersData.paging.total;
@@ -815,7 +977,7 @@ async function computeStockInteligente() {
     let offset = 0;
     let total = 1;
     while (offset < total) {
-      const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, {
+      const r = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items/search`, {
         status: 'active', limit: 50, offset
       });
       total = r.paging.total;
@@ -857,7 +1019,7 @@ async function computeStockInteligente() {
       let orders = []; let off = 0; let tot = 1;
       while (off < tot) {
         const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-          seller: SELLER_ID, 'order.status': 'paid',
+          seller: getSellerId(), 'order.status': 'paid',
           'order.date_created.from': from, 'order.date_created.to': to,
           limit: 50, offset: off
         });
@@ -999,7 +1161,7 @@ app.get('/api/envios', async (req, res) => {
     let total = 1;
     while (offset < total) {
       const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-        seller: SELLER_ID, 'order.status': 'paid',
+        seller: getSellerId(), 'order.status': 'paid',
         'order.date_created.from': from, 'order.date_created.to': to,
         limit: 50, offset
       });
@@ -1090,7 +1252,7 @@ app.get('/api/tendencia', async (req, res) => {
         let total = 1;
         while (offset < total) {
           const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-            seller: SELLER_ID, 'order.status': 'paid',
+            seller: getSellerId(), 'order.status': 'paid',
             'order.date_created.from': from, 'order.date_created.to': to,
             limit: 50, offset
           });
@@ -1114,7 +1276,7 @@ app.get('/api/tendencia', async (req, res) => {
 
     // Visitas diarias (suma de todos los items del vendedor)
     try {
-      const visitas = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items_visits/time_window`, {
+      const visitas = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items_visits/time_window`, {
         last: days, unit: 'day'
       });
       const visitasMap = {};
@@ -1173,7 +1335,7 @@ app.get('/api/ventas-resumen', async (req, res) => {
     // Visitas (solo disponibles para los últimos ~60 días)
     let visitasMap = {};
     try {
-      const v = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items_visits/time_window`, { last: 60, unit: 'day' });
+      const v = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items_visits/time_window`, { last: 60, unit: 'day' });
       (v.results || []).forEach(r => { visitasMap[r.date.split('T')[0]] = r.total; });
     } catch (e) {
       console.error('Error obteniendo visitas:', e.response?.data || e.message);
@@ -1388,7 +1550,7 @@ app.get('/api/sin-ventas', async (req, res) => {
     let offset = 0;
     let total = 1;
     while (offset < total) {
-      const r = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}/items/search`, { status: 'active', limit: 50, offset });
+      const r = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items/search`, { status: 'active', limit: 50, offset });
       total = r.paging.total;
       allIds = allIds.concat(r.results);
       offset += 50;
@@ -1452,14 +1614,14 @@ app.get('/api/ads', async (req, res) => {
     const to = req.query.to || today();
     const campaignId = req.query.campaign_id ? parseInt(req.query.campaign_id) : null;
 
-    const campaignsResp = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`, {
+    const campaignsResp = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
       date_from: from, date_to: to, metrics: ADS_METRICS
     });
 
     let ads = [];
     let offset = 0, total = 1;
     while (offset < total) {
-      const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/ads/search`, {
+      const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/ads/search`, {
         date_from: from, date_to: to, metrics: ADS_METRICS, limit: 50, offset
       });
       total = d.paging.total;
@@ -1506,7 +1668,7 @@ app.get('/api/ads-tendencia', async (req, res) => {
     for (let i = 0; i < dateList.length; i += CONCURRENCY) {
       const batch = dateList.slice(i, i + CONCURRENCY);
       const results = await Promise.all(batch.map(async fecha => {
-        const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`, {
+        const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
           date_from: fecha, date_to: fecha, metrics: 'cost,total_amount,clicks'
         });
         let results2 = d.results || [];
@@ -1570,7 +1732,7 @@ async function getFinancialPeriod(from, to) {
   let orders = [], offset = 0, total = 1;
   while (offset < total && orders.length < 2000) {
     const r = await mlGet('https://api.mercadolibre.com/orders/search', {
-      seller: SELLER_ID, 'order.status': 'paid',
+      seller: getSellerId(), 'order.status': 'paid',
       'order.date_created.from': fromISO, 'order.date_created.to': toISO,
       limit: 50, offset
     });
@@ -1602,14 +1764,14 @@ async function getFinancialPeriod(from, to) {
   const adsItemMap = {};
   try {
     const campResp = await mlGetAds(
-      `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`,
+      `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`,
       { date_from: from, date_to: to, metrics: 'cost' }
     );
     inversion_publicidad = (campResp.results || []).reduce((s, c) => s + (c.metrics?.cost || 0), 0);
     let ao = 0, at = 1;
     while (ao < at) {
       const d = await mlGetAds(
-        `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/ads/search`,
+        `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/ads/search`,
         { date_from: from, date_to: to, metrics: 'cost', limit: 50, offset: ao }
       );
       at = d.paging.total;
@@ -1774,7 +1936,7 @@ async function getBillingResumen(month, year) {
   let offset = 0, fetched = 0, total = Infinity;
 
   while (fetched < total) {
-    const url = `${base}?user_id=${SELLER_ID}&document_type=BILL&limit=${LIMIT}&offset=${offset}`;
+    const url = `${base}?user_id=${getSellerId()}&document_type=BILL&limit=${LIMIT}&offset=${offset}`;
     let r;
     try {
       r = await mlGet(url, {});
@@ -1940,7 +2102,7 @@ app.get('/api/tendencia-financiera', async (req, res) => {
       let orders = [], offset = 0, total = 1;
       while (offset < total && orders.length < 2000) {
         const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-          seller: SELLER_ID, 'order.status': 'paid',
+          seller: getSellerId(), 'order.status': 'paid',
           'order.date_created.from': fromISOs[ri], 'order.date_created.to': toISOs[ri],
           limit: 50, offset
         });
@@ -1982,7 +2144,7 @@ app.get('/api/tendencia-financiera', async (req, res) => {
     const adsPerMonth = await Promise.all(ranges.map(async r => {
       try {
         const d = await mlGetAds(
-          `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`,
+          `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`,
           { date_from: r.from, date_to: r.to, metrics: 'cost' }
         );
         return (d.results || []).reduce((s, c) => s + (c.metrics?.cost || 0), 0);
@@ -2024,7 +2186,7 @@ app.get('/api/tendencia-financiera', async (req, res) => {
 app.get('/api/preguntas/metricas', async (req, res) => {
   try {
     const data = await mlGet('https://api.mercadolibre.com/questions/search', {
-      seller_id: SELLER_ID, status: 'ANSWERED', limit: 100, offset: 0
+      seller_id: getSellerId(), status: 'ANSWERED', limit: 100, offset: 0
     });
     const questions = (data.questions || []).filter(q => q.answer?.date_created);
 
@@ -2062,7 +2224,7 @@ app.get('/api/preguntas', async (req, res) => {
     const limit  = Math.min(parseInt(req.query.limit) || 50, 50);
     const offset = parseInt(req.query.offset) || 0;
 
-    const mlParams = { seller_id: SELLER_ID, status, limit, offset };
+    const mlParams = { seller_id: getSellerId(), status, limit, offset };
     // ML acepta sort=date_created_desc / date_created_asc
     if (status === 'ANSWERED') mlParams.sort = 'date_created_desc';
 
@@ -2147,7 +2309,7 @@ app.post('/api/ai-director', async (req, res) => {
         let allOrders = [], offset = 0, total = 1;
         while (offset < total) {
           const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-            seller: SELLER_ID, 'order.status': 'paid',
+            seller: getSellerId(), 'order.status': 'paid',
             'order.date_created.from': from, 'order.date_created.to': to,
             limit: 50, offset
           });
@@ -2187,13 +2349,13 @@ app.post('/api/ai-director', async (req, res) => {
       (async () => {
         const ADS_M = 'clicks,prints,cost,acos,roas,total_amount,units_quantity';
         const campResp = await mlGetAds(
-          `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/campaigns/search`,
+          `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`,
           { date_from: fromMes, date_to: toMes, metrics: ADS_M }
         );
         let ads = [], ao = 0, at = 1;
         while (ao < at) {
           const d = await mlGetAds(
-            `https://api.mercadolibre.com/advertising/MLM/advertisers/${ADVERTISER_ID}/product_ads/ads/search`,
+            `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/ads/search`,
             { date_from: fromMes, date_to: toMes, metrics: 'clicks,cost,acos,roas,total_amount', limit: 50, offset: ao }
           );
           at = d.paging.total;
@@ -2219,8 +2381,8 @@ app.post('/api/ai-director', async (req, res) => {
       // 6. Devoluciones y reclamos abiertos
       (async () => {
         const [opened, closed] = await Promise.all([
-          mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'opened', limit: 50 }),
-          mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: SELLER_ID, status: 'closed', limit: 50 }),
+          mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: getSellerId(), status: 'opened', limit: 50 }),
+          mlGet('https://api.mercadolibre.com/post-purchase/v1/claims/search', { seller_id: getSellerId(), status: 'closed', limit: 50 }),
         ]);
         const openClaims = opened.data || [];
         const urgente = openClaims.filter(c => {
@@ -2232,7 +2394,7 @@ app.post('/api/ai-director', async (req, res) => {
 
       // 7. Reputación
       (async () => {
-        const data = await mlGet(`https://api.mercadolibre.com/users/${SELLER_ID}`);
+        const data = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}`);
         const rep = data.seller_reputation;
         return {
           nivel:           rep.level_id,
