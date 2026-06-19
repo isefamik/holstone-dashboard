@@ -543,10 +543,59 @@ html.dark .lv-stock-out{background:rgba(239,68,68,.15);color:#f87171}
 @keyframes lv-toast-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .lv-toast.lv-toast-out{animation:lv-toast-out .3s ease forwards}
 @keyframes lv-toast-out{to{opacity:0;transform:translateY(10px)}}
+
+/* ── LOGIN ── */
+#login-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#0f172a 100%)}
+.login-card{background:#fff;border-radius:16px;padding:44px 40px;width:100%;max-width:400px;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+html.dark .login-card{background:#1e293b}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo-icon{font-size:42px;margin-bottom:10px}
+.login-logo h1{font-size:20px;font-weight:800;color:#1a1a2a;letter-spacing:-.3px}
+html.dark .login-logo h1{color:#f1f5f9}
+.login-logo p{font-size:12px;color:#6b7280;margin-top:5px}
+.login-field{margin-bottom:16px}
+.login-field label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;letter-spacing:.2px}
+html.dark .login-field label{color:#94a3b8}
+.login-field input{width:100%;padding:11px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;outline:none;transition:border-color .15s,background .15s;background:#f9fafb;color:#1a1a2a}
+html.dark .login-field input{background:#0f172a;border-color:#334155;color:#f1f5f9}
+.login-field input:focus{border-color:#2563eb;background:#fff}
+html.dark .login-field input:focus{background:#1e293b}
+.login-btn{width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;transition:opacity .15s;letter-spacing:.2px}
+.login-btn:hover{opacity:.88}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+.login-error{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:7px;padding:10px 14px;font-size:13px;margin-top:14px;display:none}
+html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
+.login-error.visible{display:block}
+/* logout en sidebar */
+.btn-logout{width:100%;margin-top:9px;padding:7px 12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11.5px;cursor:pointer;transition:all .15s;text-align:left}
+.btn-logout:hover{background:var(--red);border-color:var(--red);color:#fff}
 </style>
 <script>if(localStorage.getItem('hk-dark')==='1')document.documentElement.classList.add('dark')</script>
 </head>
 <body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">📊</div>
+      <h1>MercadoLibre Analytics</h1>
+      <p>Inicia sesión para continuar</p>
+    </div>
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <div class="login-field">
+        <label for="login-email">Correo electrónico</label>
+        <input id="login-email" type="email" placeholder="tu@correo.com" autocomplete="email" required>
+      </div>
+      <div class="login-field">
+        <label for="login-password">Contraseña</label>
+        <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <button class="login-btn" type="submit" id="login-btn">Iniciar sesión</button>
+      <div class="login-error" id="login-error"></div>
+    </form>
+  </div>
+</div>
 
 <!-- ═══════════════ SIDEBAR ═══════════════ -->
 <aside class="sidebar">
@@ -593,9 +642,12 @@ html.dark .lv-stock-out{background:rgba(239,68,68,.15);color:#f87171}
       <span style="margin-left:auto;background:#7c3aed;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.5px;flex-shrink:0">BETA</span>
     </div>
   </nav>
-  <div class="sl-foot">
-    <div class="dot"></div>
-    <span>Conectado a MercadoLibre</span>
+  <div class="sl-foot" style="flex-direction:column;align-items:flex-start;gap:4px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="dot"></div>
+      <span id="sl-tenant-name">Conectado a MercadoLibre</span>
+    </div>
+    <button class="btn-logout" onclick="handleLogout()">↩ Cerrar sesión</button>
   </div>
 </aside>
 
@@ -4450,7 +4502,82 @@ function toggleDarkMode() {
   if (btn && document.documentElement.classList.contains('dark')) btn.textContent = '☀️';
 })();
 
-loadAll();
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+function showDashboard(tenantName) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.querySelector('.sidebar').style.display = '';
+  document.querySelector('.sidebar-overlay').style.display = '';
+  document.querySelector('.main').style.display = '';
+  if (tenantName) document.getElementById('sl-tenant-name').textContent = tenantName;
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = '';
+  document.querySelector('.sidebar').style.display = 'none';
+  document.querySelector('.sidebar-overlay').style.display = 'none';
+  document.querySelector('.main').style.display = 'none';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').classList.remove('visible');
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  btn.disabled = true;
+  btn.textContent = 'Verificando…';
+  errEl.classList.remove('visible');
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('login-email').value.trim(),
+        password: document.getElementById('login-password').value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión');
+    // Fetch tenant name from /api/me
+    const me = await fetch('/api/me').then(r => r.json());
+    showDashboard(me.tenant?.name);
+    loadAll();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('visible');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Iniciar sesión';
+  }
+}
+
+async function handleLogout() {
+  await fetch('/api/logout', { method: 'POST' });
+  showLogin();
+}
+
+// Verificar sesión al cargar
+(async function initAuth() {
+  // Ocultar dashboard mientras verificamos
+  document.querySelector('.sidebar').style.display = 'none';
+  document.querySelector('.sidebar-overlay').style.display = 'none';
+  document.querySelector('.main').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/me');
+    if (res.ok) {
+      const me = await res.json();
+      showDashboard(me.tenant?.name);
+      loadAll();
+    } else {
+      showLogin();
+    }
+  } catch {
+    showLogin();
+  }
+})();
 </script>
 </body>
 </html>
