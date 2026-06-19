@@ -54,6 +54,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Sesiones ─────────────────────────────────────────────────────────────────
+app.set('trust proxy', 1); // Render/Heroku terminan SSL en el proxy — necesario para cookies secure
 app.use(session({
   store: new SupabaseSessionStore(),
   secret: process.env.SESSION_SECRET || 'holstone-dev-secret',
