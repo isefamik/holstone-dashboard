@@ -709,8 +709,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 
       <div class="psc-billing-toggle" id="psc-billing-toggle">
         <button class="psc-bill-btn active" id="psc-btn-mensual" onclick="setPlanBilling('mensual')">Mensual</button>
-        <button class="psc-bill-btn" id="psc-btn-anual" onclick="setPlanBilling('anual')">Anual <span class="psc-discount-tag">-20%</span></button>
+        <button class="psc-bill-btn" id="psc-btn-anual" onclick="setPlanBilling('anual')">Anual <span class="psc-discount-tag" id="psc-discount-tag">-20%</span></button>
       </div>
+      <p id="psc-billing-hint" style="font-size:12px;color:var(--muted);margin:-6px 0 12px"></p>
 
       <div class="psc-price-wrap" id="psc-price-wrap">
         <span class="psc-price-amount" id="psc-price"></span>
@@ -783,6 +784,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
     </div>
     <div class="nav-item" onclick="showSection('reputacion',this)">
       <span class="nav-icon">⭐</span><span>Reputación</span>
+    </div>
+    <div class="nav-item" onclick="showSection('suscripcion',this);initSuscripcion()">
+      <span class="nav-icon">💳</span><span>Mi Suscripción</span>
     </div>
     <div class="nav-group">Inteligencia</div>
     <div class="nav-item" onclick="showSection('director-ai',this);initDirectorAI()">
@@ -1614,6 +1618,50 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
     </div>
 
     <!-- ══ DIRECTOR AI ══ -->
+    <div id="suscripcion" class="section">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
+        <div style="width:46px;height:46px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">💳</div>
+        <div>
+          <h1 style="font-size:20px;font-weight:800;color:var(--text);line-height:1.2">Mi Suscripción</h1>
+          <p style="font-size:12px;color:var(--muted);margin-top:2px">Estado actual de tu plan Rocky</p>
+        </div>
+      </div>
+      <div id="sus-loading" style="color:var(--muted);font-size:14px;padding:24px 0">Cargando…</div>
+      <div id="sus-content" style="display:none">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px">
+          <!-- Card Tier -->
+          <div class="kpi-card" style="text-align:center">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Plan actual</div>
+            <div id="sus-tier-badge" style="display:inline-block;color:#fff;font-size:15px;font-weight:800;letter-spacing:2px;padding:8px 24px;border-radius:20px;margin-bottom:4px">STARTER</div>
+          </div>
+          <!-- Card Status -->
+          <div class="kpi-card" style="text-align:center">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Estado</div>
+            <div id="sus-status-badge" style="font-size:18px;font-weight:700"></div>
+            <div id="sus-trial-days" style="font-size:13px;color:var(--muted);margin-top:4px"></div>
+          </div>
+          <!-- Card Precio -->
+          <div class="kpi-card" style="text-align:center">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Precio</div>
+            <div style="font-size:26px;font-weight:800;color:var(--text)" id="sus-precio"></div>
+            <div style="font-size:12px;color:var(--muted)" id="sus-precio-hint"></div>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px">
+          <button id="sus-pagar-btn" class="btn-refresh" style="display:none" onclick="susIrAPago()">Activar suscripción →</button>
+          <button class="btn-refresh" style="background:none;border:1px solid var(--border);color:var(--muted)" onclick="alert('Próximamente: gestión de método de pago')">Cambiar método de pago</button>
+        </div>
+
+        <!-- Features del plan -->
+        <div class="kpi-card">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px">Incluido en tu plan</div>
+          <ul id="sus-features" style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 24px"></ul>
+        </div>
+      </div>
+    </div>
+
     <div id="director-ai" class="section">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
@@ -1733,7 +1781,7 @@ const PAGE_TITLES={
   inicio:'Inicio','ventas-live':'En Vivo',ventas:'Ventas',
   stock:'Stock',publicidad:'Publicidad',finanzas:'Finanzas',
   devoluciones:'Devoluciones',reputacion:'Reputación',preguntas:'Preguntas',
-  'director-ai':'Director Comercial AI'
+  'director-ai':'Director Comercial AI',suscripcion:'Mi Suscripción'
 };
 
 let _activeSection = 'inicio';
@@ -4601,6 +4649,7 @@ const SECTION_INITS = {
   devoluciones: () => initDevolucionesSection(),
   reputacion:   () => {},
   'director-ai':() => initDirectorAI(),
+  suscripcion:  () => initSuscripcion(),
   inicio:       () => {},
 };
 
@@ -4857,10 +4906,15 @@ function _renderPlanPrice() {
   document.getElementById('psc-enterprise-msg').style.display = isEnt ? 'block' : 'none';
   document.getElementById('psc-cta-btn').style.display        = isEnt ? 'none'  : '';
   if (!isEnt) {
-    const precio = _pscBilling === 'anual' ? _pscData.precio_anual : _pscData.precio_mensual;
+    const isAnual = _pscBilling === 'anual';
+    const precio  = isAnual ? _pscData.precio_anual * 12 : _pscData.precio_mensual;
     document.getElementById('psc-price').textContent = '$' + precio.toLocaleString('es-MX');
-    document.getElementById('psc-btn-mensual').classList.toggle('active', _pscBilling === 'mensual');
-    document.getElementById('psc-btn-anual').classList.toggle('active',   _pscBilling === 'anual');
+    document.getElementById('psc-price-period').textContent = isAnual ? ' / año' : ' / mes';
+    document.getElementById('psc-btn-mensual').classList.toggle('active', !isAnual);
+    document.getElementById('psc-btn-anual').classList.toggle('active',   isAnual);
+    document.getElementById('psc-billing-hint').textContent = isAnual
+      ? `($${_pscData.precio_anual.toLocaleString('es-MX')}/mes · facturado anualmente)`
+      : '';
   }
 }
 
@@ -4880,7 +4934,6 @@ function showToast(msg, type) {
 }
 
 async function irAPago() {
-  alert('Click registrado. Tier: ' + (_pscData?.tier || 'SIN DATOS') + ' | Billing: ' + _pscBilling);
 
   if (!_pscData) return;
   if (_pscData.tier === 'enterprise') { window.location.href = '/#pricing'; return; }
@@ -4919,6 +4972,79 @@ function togglePlanWhy() {
   const open = body.style.display === 'none';
   body.style.display = open ? '' : 'none';
   btn.textContent    = (open ? '▾' : '▸') + ' ¿Por qué este plan?';
+}
+
+// ── Mi Suscripción ───────────────────────────────────────────────────────────
+let _susData = null;
+let _susBilling = 'mensual';
+
+async function initSuscripcion() {
+  document.getElementById('sus-loading').style.display = '';
+  document.getElementById('sus-content').style.display = 'none';
+  try {
+    const res = await fetch('/api/mi-suscripcion');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    _susData = await res.json();
+    renderSuscripcion(_susData);
+  } catch (e) {
+    document.getElementById('sus-loading').textContent = 'Error al cargar: ' + e.message;
+  }
+}
+
+function renderSuscripcion(d) {
+  const tierBadge = document.getElementById('sus-tier-badge');
+  tierBadge.textContent      = _PSC_LABELS[d.tier] || d.tier.toUpperCase();
+  tierBadge.style.background = _PSC_COLORS[d.tier] || '#6366f1';
+
+  const statusBadge = document.getElementById('sus-status-badge');
+  if (d.trial_vencido) {
+    statusBadge.innerHTML = '<span style="color:var(--red);font-weight:700">⏰ Trial vencido</span>';
+    document.getElementById('sus-trial-days').textContent = 'Tu período de prueba ha terminado';
+    document.getElementById('sus-pagar-btn').style.display = '';
+  } else if (d.trial_started_at) {
+    statusBadge.innerHTML = '<span style="color:#16a34a;font-weight:700">✓ En prueba gratuita</span>';
+    document.getElementById('sus-trial-days').textContent = `Días restantes: ${d.dias_restantes_trial}`;
+    document.getElementById('sus-pagar-btn').style.display = '';
+  } else {
+    statusBadge.innerHTML = '<span style="color:var(--muted)">Sin datos de trial</span>';
+    document.getElementById('sus-trial-days').textContent = '';
+    document.getElementById('sus-pagar-btn').style.display = 'none';
+  }
+
+  if (d.tier !== 'enterprise') {
+    document.getElementById('sus-precio').textContent = '$' + d.precio_mensual.toLocaleString('es-MX');
+    document.getElementById('sus-precio-hint').textContent = '/mes · o $' + (d.precio_anual * 12).toLocaleString('es-MX') + '/año';
+  } else {
+    document.getElementById('sus-precio').textContent = 'Personalizado';
+    document.getElementById('sus-precio-hint').textContent = 'Contacta a ventas';
+  }
+
+  document.getElementById('sus-features').innerHTML =
+    (_PSC_FEATURES[d.tier] || []).map(f =>
+      `<li style="padding:5px 0;font-size:13px;color:var(--text)">✓ ${f}</li>`
+    ).join('');
+
+  document.getElementById('sus-loading').style.display = 'none';
+  document.getElementById('sus-content').style.display = '';
+}
+
+async function susIrAPago() {
+  if (!_susData || _susData.tier === 'enterprise') return;
+  const btn = document.getElementById('sus-pagar-btn');
+  btn.disabled = true; btn.textContent = 'Redirigiendo…';
+  try {
+    const res = await fetch('/api/crear-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier: _susData.tier, billing_cycle: 'mensual' }),
+    });
+    const data = await res.json();
+    if (res.ok && data.checkout_url) { window.location.href = data.checkout_url; }
+    else throw new Error(data.error || 'Error');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Activar suscripción →';
+    alert('Error: ' + e.message);
+  }
 }
 
 // Verificar sesión al cargar
