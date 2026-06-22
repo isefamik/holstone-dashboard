@@ -10,8 +10,8 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { AsyncLocalStorage } = require('async_hooks');
 const { Resend } = require('resend');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 require('dotenv').config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const STRIPE_PRICES = {
   starter: { mensual: 'price_1TlFsB3taXSPAwZ2EGZGH1Di', anual: 'price_1TlFsC3taXSPAwZ29eX4Ks6L' },
