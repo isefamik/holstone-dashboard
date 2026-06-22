@@ -281,6 +281,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .rep-hero::after{content:'';position:absolute;bottom:-40px;left:20%;width:180px;height:180px;background:radial-gradient(circle,rgba(245,158,11,.1) 0%,transparent 70%);pointer-events:none}
 .rep-plat-badge{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:7px 18px;border-radius:30px;font-size:13px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px;box-shadow:0 3px 12px rgba(217,119,6,.45)}
 .rep-metric-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;transition:box-shadow .2s;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+/* ── MI SUSCRIPCIÓN ── */
+.sus-hero{border-radius:18px;padding:28px 32px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.sus-hero::before{content:'';position:absolute;top:-60px;right:-60px;width:240px;height:240px;background:radial-gradient(circle,rgba(255,255,255,.12) 0%,transparent 70%);pointer-events:none}
+.sus-hero::after{content:'';position:absolute;bottom:-40px;left:15%;width:200px;height:200px;background:radial-gradient(circle,rgba(0,0,0,.1) 0%,transparent 70%);pointer-events:none}
+.sus-tier-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);color:#fff;padding:6px 18px;border-radius:30px;font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:10px}
+.sus-status-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:700}
+.sus-status-trial{background:rgba(255,255,255,.18);color:#fff}
+.sus-status-vencido{background:rgba(239,68,68,.3);color:#fca5a5}
+.sus-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
+.sus-info-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px}
+.sus-info-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px}
+.sus-info-value{font-size:21px;font-weight:800;color:var(--text);line-height:1.2}
+.sus-info-hint{font-size:11px;color:var(--muted);margin-top:3px}
+.sus-feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
+.sus-feature-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text)}
+.sus-feature-icon{font-size:17px;flex-shrink:0;width:26px;text-align:center}
+.sus-upgrade-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:16px}
+.sus-hist-empty{text-align:center;padding:36px 0;color:var(--muted);font-size:13px;line-height:1.8}
 .rep-metric-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.09)}
 .rep-metric-icon{font-size:26px;margin-bottom:10px;display:block}
 .rep-metric-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px}
@@ -1620,7 +1638,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
       </div>
     </div>
 
-    <!-- ══ DIRECTOR AI ══ -->
+    <!-- ══ MI SUSCRIPCIÓN ══ -->
     <div id="suscripcion" class="section">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
         <div style="width:46px;height:46px;background:linear-gradient(135deg,#2563eb,#7c3aed);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">💳</div>
@@ -1631,37 +1649,77 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
       </div>
       <div id="sus-loading" style="color:var(--muted);font-size:14px;padding:24px 0">Cargando…</div>
       <div id="sus-content" style="display:none">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px">
-          <!-- Card Tier -->
-          <div class="kpi-card" style="text-align:center">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Plan actual</div>
-            <div id="sus-tier-badge" style="display:inline-block;color:#fff;font-size:15px;font-weight:800;letter-spacing:2px;padding:8px 24px;border-radius:20px;margin-bottom:4px">STARTER</div>
-          </div>
-          <!-- Card Status -->
-          <div class="kpi-card" style="text-align:center">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Estado</div>
-            <div id="sus-status-badge" style="font-size:18px;font-weight:700"></div>
-            <div id="sus-trial-days" style="font-size:13px;color:var(--muted);margin-top:4px"></div>
-          </div>
-          <!-- Card Precio -->
-          <div class="kpi-card" style="text-align:center">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px">Precio</div>
-            <div style="font-size:26px;font-weight:800;color:var(--text)" id="sus-precio"></div>
-            <div style="font-size:12px;color:var(--muted)" id="sus-precio-hint"></div>
+
+        <!-- A) BANNER PREMIUM -->
+        <div id="sus-hero" class="sus-hero">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px">
+            <div>
+              <div class="sus-tier-pill">
+                <span id="sus-tier-emoji">🚀</span>
+                <span id="sus-tier-name">STARTER</span>
+              </div>
+              <div style="font-size:26px;font-weight:900;margin:6px 0 4px;letter-spacing:-.5px">Tu plan Rocky</div>
+              <div style="font-size:13px;opacity:.8">Cuenta activa desde <span id="sus-start-date">—</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+              <div id="sus-status-pill" class="sus-status-pill sus-status-trial">✓ En prueba gratuita</div>
+              <button id="sus-pagar-btn" onclick="susIrAPago()" style="display:none;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer">Activar suscripción →</button>
+            </div>
           </div>
         </div>
 
-        <!-- Acciones -->
-        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px">
-          <button id="sus-pagar-btn" class="btn-refresh" style="display:none" onclick="susIrAPago()">Activar suscripción →</button>
-          <button class="btn-refresh" style="background:none;border:1px solid var(--border);color:var(--muted)" onclick="alert('Próximamente: gestión de método de pago')">Cambiar método de pago</button>
+        <!-- B) 4 CARDS DE INFORMACIÓN -->
+        <div class="sus-info-grid">
+          <div class="sus-info-card">
+            <div class="sus-info-label">Plan + precio</div>
+            <div class="sus-info-value" id="sus-precio-val">—</div>
+            <div class="sus-info-hint" id="sus-precio-hint2"></div>
+          </div>
+          <div class="sus-info-card">
+            <div class="sus-info-label">Facturación</div>
+            <div class="sus-info-value" id="sus-billing-val" style="font-size:14px;font-weight:600;color:var(--muted)">—</div>
+            <div class="sus-info-hint" id="sus-billing-hint">Disponible tras activar suscripción</div>
+          </div>
+          <div class="sus-info-card">
+            <div class="sus-info-label">Ventas del mes</div>
+            <div class="sus-info-value" id="sus-ventas-val">—</div>
+            <div class="sus-info-hint" id="sus-ventas-mes"></div>
+          </div>
+          <div class="sus-info-card">
+            <div class="sus-info-label">Método de pago</div>
+            <div class="sus-info-value" style="font-size:14px;font-weight:600;color:var(--muted)">—</div>
+            <div class="sus-info-hint">Disponible tras activar suscripción</div>
+          </div>
         </div>
 
-        <!-- Features del plan -->
-        <div class="kpi-card">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px">Incluido en tu plan</div>
-          <ul id="sus-features" style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 24px"></ul>
+        <!-- C) FEATURES DEL PLAN -->
+        <div class="kpi-card" style="margin-bottom:0">
+          <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:14px">Incluido en tu plan</div>
+          <div id="sus-features-grid" class="sus-feature-grid"></div>
         </div>
+
+        <!-- Upgrade nudge -->
+        <div id="sus-upgrade-card" class="sus-upgrade-card" style="display:none">
+          <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px">
+            ⬆️ Lo que desbloqueas con <span id="sus-next-tier-name">GROWTH</span>
+          </div>
+          <div id="sus-upgrade-features" class="sus-feature-grid" style="opacity:.8"></div>
+          <div style="margin-top:14px">
+            <button onclick="susIrAPago()" style="background:var(--text);color:var(--bg);border:none;padding:9px 22px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer">Actualizar plan →</button>
+          </div>
+        </div>
+
+        <!-- D) HISTORIAL DE FACTURACIÓN -->
+        <div class="kpi-card" style="margin-top:16px">
+          <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:14px">Historial de facturación</div>
+          <div id="sus-billing-hist">
+            <div class="sus-hist-empty">
+              📋 No hay cobros registrados todavía.<br>
+              <span style="font-size:12px">Los pagos aparecerán aquí tras activar tu suscripción.</span>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -4977,6 +5035,37 @@ function togglePlanWhy() {
 
 // ── Mi Suscripción ───────────────────────────────────────────────────────────
 let _susData = null;
+const _SUS_GRADIENTS = {
+  starter:    'linear-gradient(135deg,#4f46e5 0%,#6366f1 50%,#818cf8 100%)',
+  growth:     'linear-gradient(135deg,#059669 0%,#10b981 50%,#34d399 100%)',
+  scale:      'linear-gradient(135deg,#d97706 0%,#f59e0b 50%,#fbbf24 100%)',
+  enterprise: 'linear-gradient(135deg,#6d28d9 0%,#7c3aed 50%,#a855f7 100%)',
+};
+const _SUS_EMOJIS = { starter:'🚀', growth:'📈', scale:'⚡', enterprise:'🏆' };
+const _SUS_FEATURE_ICONS = {
+  '1 cuenta de MercadoLibre':'👤',
+  'Hasta 3 cuentas de MercadoLibre':'👥',
+  'Hasta 10 cuentas de MercadoLibre':'🏢',
+  'Cuentas de MercadoLibre ilimitadas':'♾️',
+  'Dashboard de ventas en tiempo real':'📊',
+  'Análisis de publicaciones':'📈',
+  'Análisis de publicaciones avanzado':'📈',
+  'Gestión de stock inteligente':'📦',
+  'Reportes de rentabilidad':'💰',
+  'Reportes de devoluciones':'🔄',
+  'Director Comercial AI':'🤖',
+  'Todo lo incluido en Scale':'⭐',
+  'Integración con ERP / sistema propio':'🔌',
+  'SLA garantizado':'📋',
+  'Soporte dedicado 24/7':'🎯',
+};
+const _SUS_UPGRADE_FEATURES = {
+  starter:    ['Hasta 3 cuentas de MercadoLibre','Gestión de stock inteligente','Reportes de rentabilidad'],
+  growth:     ['Hasta 10 cuentas de MercadoLibre','Director Comercial AI','Reportes de devoluciones'],
+  scale:      ['Cuentas de MercadoLibre ilimitadas','Integración con ERP / sistema propio','Soporte dedicado 24/7'],
+  enterprise: [],
+};
+const _SUS_NEXT_TIER = { starter:'GROWTH', growth:'SCALE', scale:'ENTERPRISE', enterprise:null };
 let _susBilling = 'mensual';
 
 async function initSuscripcion() {
@@ -4993,37 +5082,60 @@ async function initSuscripcion() {
 }
 
 function renderSuscripcion(d) {
-  const tierBadge = document.getElementById('sus-tier-badge');
-  tierBadge.textContent      = _PSC_LABELS[d.tier] || d.tier.toUpperCase();
-  tierBadge.style.background = _PSC_COLORS[d.tier] || '#6366f1';
+  // A) Hero banner
+  document.getElementById('sus-hero').style.background = _SUS_GRADIENTS[d.tier] || _SUS_GRADIENTS.starter;
+  document.getElementById('sus-tier-emoji').textContent = _SUS_EMOJIS[d.tier] || '🚀';
+  document.getElementById('sus-tier-name').textContent  = _PSC_LABELS[d.tier] || d.tier.toUpperCase();
 
-  const statusBadge = document.getElementById('sus-status-badge');
+  const startDate = d.trial_started_at
+    ? new Date(d.trial_started_at).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' })
+    : '—';
+  document.getElementById('sus-start-date').textContent = startDate;
+
+  const pill    = document.getElementById('sus-status-pill');
+  const pagarBtn = document.getElementById('sus-pagar-btn');
   if (d.trial_vencido) {
-    statusBadge.innerHTML = '<span style="color:var(--red);font-weight:700">⏰ Trial vencido</span>';
-    document.getElementById('sus-trial-days').textContent = 'Tu período de prueba ha terminado';
-    document.getElementById('sus-pagar-btn').style.display = '';
-  } else if (d.trial_started_at) {
-    statusBadge.innerHTML = '<span style="color:#16a34a;font-weight:700">✓ En prueba gratuita</span>';
-    document.getElementById('sus-trial-days').textContent = `Días restantes: ${d.dias_restantes_trial}`;
-    document.getElementById('sus-pagar-btn').style.display = '';
+    pill.className   = 'sus-status-pill sus-status-vencido';
+    pill.textContent = '⏰ Prueba vencida';
+    pagarBtn.style.display = '';
   } else {
-    statusBadge.innerHTML = '<span style="color:var(--muted)">Sin datos de trial</span>';
-    document.getElementById('sus-trial-days').textContent = '';
-    document.getElementById('sus-pagar-btn').style.display = 'none';
+    pill.className = 'sus-status-pill sus-status-trial';
+    const diasStr = d.dias_restantes_trial != null ? ` · ${d.dias_restantes_trial} días restantes` : '';
+    pill.textContent = '✓ En prueba gratuita' + diasStr;
+    pagarBtn.style.display = '';
   }
 
+  // B) Info cards
   if (d.tier !== 'enterprise') {
-    document.getElementById('sus-precio').textContent = '$' + d.precio_mensual.toLocaleString('es-MX');
-    document.getElementById('sus-precio-hint').textContent = '/mes · o $' + (d.precio_anual * 12).toLocaleString('es-MX') + '/año';
+    document.getElementById('sus-precio-val').textContent   = `$${d.precio_mensual.toLocaleString('es-MX')}/mes`;
+    document.getElementById('sus-precio-hint2').textContent = `o $${(d.precio_anual * 12).toLocaleString('es-MX')}/año`;
   } else {
-    document.getElementById('sus-precio').textContent = 'Personalizado';
-    document.getElementById('sus-precio-hint').textContent = 'Contacta a ventas';
+    document.getElementById('sus-precio-val').textContent   = 'Personalizado';
+    document.getElementById('sus-precio-hint2').textContent = 'Contacta a ventas';
   }
+  document.getElementById('sus-ventas-val').textContent = `$${(d.ventas_base || 0).toLocaleString('es-MX')}`;
+  document.getElementById('sus-ventas-mes').textContent = d.mes_calculado || '';
 
-  document.getElementById('sus-features').innerHTML =
-    (_PSC_FEATURES[d.tier] || []).map(f =>
-      `<li style="padding:5px 0;font-size:13px;color:var(--text)">✓ ${f}</li>`
-    ).join('');
+  // C) Features
+  const features = _PSC_FEATURES[d.tier] || [];
+  document.getElementById('sus-features-grid').innerHTML = features.map(f => {
+    const icon = _SUS_FEATURE_ICONS[f] || '✓';
+    return `<div class="sus-feature-item"><span class="sus-feature-icon">${icon}</span><span>${f}</span></div>`;
+  }).join('');
+
+  // Upgrade nudge
+  const upgradeFeats = _SUS_UPGRADE_FEATURES[d.tier] || [];
+  const upgradeCard  = document.getElementById('sus-upgrade-card');
+  if (upgradeFeats.length) {
+    document.getElementById('sus-next-tier-name').textContent   = _SUS_NEXT_TIER[d.tier] || '';
+    document.getElementById('sus-upgrade-features').innerHTML   = upgradeFeats.map(f => {
+      const icon = _SUS_FEATURE_ICONS[f] || '⭐';
+      return `<div class="sus-feature-item"><span class="sus-feature-icon">${icon}</span><span>${f}</span></div>`;
+    }).join('');
+    upgradeCard.style.display = '';
+  } else {
+    upgradeCard.style.display = 'none';
+  }
 
   document.getElementById('sus-loading').style.display = 'none';
   document.getElementById('sus-content').style.display = '';
