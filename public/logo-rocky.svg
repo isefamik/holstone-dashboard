@@ -1,0 +1,24 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" stop-color="#1d4ed8"/>
+<stop offset="100%" stop-color="#1e3a8a"/>
+</linearGradient>
+<linearGradient id="flame" x1="0%" y1="0%" x2="0%" y2="100%">
+<stop offset="0%" stop-color="#fbbf24"/>
+<stop offset="100%" stop-color="#f59e0b"/>
+</linearGradient>
+</defs>
+<rect x="0" y="0" width="200" height="200" rx="20" fill="url(#bg)"/>
+<circle cx="100" cy="100" r="74" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.9"/>
+<g transform="translate(100,100) rotate(0)">
+<line x1="-18" y1="15" x2="-20" y2="33" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+<line x1="-9" y1="15" x2="-11" y2="38" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.4"/>
+<line x1="0" y1="15" x2="0" y2="40" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+<path d="M0 -55 C16 -40 18 -10 18 15 L-18 15 C-18 -10 -16 -40 0 -55 Z" fill="#ffffff"/>
+<circle cx="0" cy="-30" r="6" fill="url(#bg)"/>
+<path d="M-18 0 L-32 25 L-18 18 Z" fill="#ffffff"/>
+<path d="M18 0 L32 25 L18 18 Z" fill="#ffffff"/>
+<path d="M-8 15 L0 40 L8 15 Z" fill="url(#flame)"/>
+</g>
+</svg>
