@@ -10,7 +10,14 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { AsyncLocalStorage } = require('async_hooks');
 const { Resend } = require('resend');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 require('dotenv').config();
+
+const STRIPE_PRICES = {
+  starter: { mensual: 'price_1TlFsB3taXSPAwZ2EGZGH1Di', anual: 'price_1TlFsC3taXSPAwZ29eX4Ks6L' },
+  growth:  { mensual: 'price_1TlFsC3taXSPAwZ2SMNIsK2Q', anual: 'price_1TlFsC3taXSPAwZ22MOL4R4z' },
+  scale:   { mensual: 'price_1TlFsD3taXSPAwZ21udI1wPU', anual: 'price_1TlFsD3taXSPAwZ2KPP4LkUz' },
+};
 
 const requestCtx = new AsyncLocalStorage();
 
@@ -2778,6 +2785,38 @@ app.get('/api/mi-plan-recomendado', async (req, res) => {
   } catch (e) {
     console.error('[mi-plan-recomendado] ML error, usando fallback ventas=0:', e.message);
     res.json({ ...calcularTierPlan(0), ventas_base: 0, mes_calculado: mesCalculado, fallback: true, ...trialInfo });
+  }
+});
+
+// ── Stripe Checkout ───────────────────────────────────────────────────────────
+app.post('/api/crear-checkout', async (req, res) => {
+  const { tier, billing_cycle } = req.body;
+  if (!tier || !billing_cycle) return res.status(400).json({ error: 'tier y billing_cycle son requeridos' });
+  if (tier === 'enterprise') return res.status(400).json({ error: 'Enterprise va por contacto directo' });
+
+  const priceId = STRIPE_PRICES[tier]?.[billing_cycle];
+  if (!priceId) return res.status(400).json({ error: 'Combinación de tier/billing_cycle inválida' });
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('email')
+    .eq('id', req.session.userId)
+    .single();
+
+  try {
+    const appUrl = process.env.APP_URL || 'https://holstone-dashboard.onrender.com';
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      customer_email: user?.email,
+      metadata: { tenant_id: req.tenant.id, tier, billing_cycle },
+      success_url: `${appUrl}/inicio?payment=success`,
+      cancel_url:  `${appUrl}/inicio?payment=cancelled`,
+    });
+    res.json({ checkout_url: session.url });
+  } catch (e) {
+    console.error('Stripe checkout error:', e.message);
+    res.status(500).json({ error: 'Error al crear la sesión de pago' });
   }
 });
 
