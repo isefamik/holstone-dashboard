@@ -655,7 +655,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 <!-- ═══════════════ SIDEBAR ═══════════════ -->
 <aside class="sidebar">
   <div class="sl-logo">
-    <div class="sl-brand">HOLSTONE</div>
+    <div class="sl-brand" id="sl-brand-name">HOLSTONE</div>
     <div class="sl-sub">Rocky</div>
   </div>
   <nav class="sl-nav">
@@ -4571,7 +4571,10 @@ function _showDashboardChrome(tenantName) {
   document.querySelector('.sidebar').style.display = '';
   document.querySelector('.sidebar-overlay').style.display = '';
   document.querySelector('.main').style.display = '';
-  if (tenantName) document.getElementById('sl-tenant-name').textContent = tenantName;
+  if (tenantName) {
+    document.getElementById('sl-tenant-name').textContent = tenantName;
+    document.getElementById('sl-brand-name').textContent = tenantName.toUpperCase();
+  }
 }
 
 // Devuelve true si redirige al connect screen (sin seller_id)
