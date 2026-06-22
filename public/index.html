@@ -570,6 +570,38 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 /* logout en sidebar */
 .btn-logout{width:100%;margin-top:9px;padding:7px 12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11.5px;cursor:pointer;transition:all .15s;text-align:left}
 .btn-logout:hover{background:var(--red);border-color:var(--red);color:#fff}
+/* ── Plan Screen ── */
+#plan-screen{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);backdrop-filter:blur(4px);z-index:1001;align-items:center;justify-content:center}
+#plan-screen.visible{display:flex}
+.psc-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px 36px;max-width:480px;width:calc(100% - 32px);max-height:90vh;overflow-y:auto;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.22)}
+.psc-card h2{font-size:22px;font-weight:700;margin:12px 0 6px;color:var(--text)}
+.psc-subtitle{color:var(--muted);font-size:14px;margin-bottom:24px}
+.psc-ventas-line{font-size:14px;color:var(--muted);margin-bottom:14px}
+.psc-ventas-line strong{color:var(--text);font-weight:700}
+.psc-tier-badge{display:inline-block;color:#fff;font-size:13px;font-weight:800;letter-spacing:2px;padding:6px 22px;border-radius:20px;margin-bottom:18px}
+.psc-billing-toggle{display:inline-flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;gap:2px;margin-bottom:18px}
+.psc-bill-btn{background:none;border:none;padding:6px 18px;border-radius:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s}
+.psc-bill-btn.active{background:var(--card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.psc-discount-tag{font-size:10px;background:#dcfce7;color:#16a34a;padding:1px 5px;border-radius:4px;margin-left:4px}
+.psc-price-wrap{margin-bottom:22px}
+.psc-price-amount{font-size:44px;font-weight:800;color:var(--text)}
+.psc-price-period{font-size:16px;color:var(--muted)}
+.psc-enterprise-msg{margin-bottom:22px}
+.psc-enterprise-msg p{font-size:15px;font-weight:600;color:var(--text);margin-bottom:14px}
+.psc-enterprise-btn{display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:14px;padding:11px 28px;border-radius:8px;text-decoration:none;transition:opacity .15s}
+.psc-enterprise-btn:hover{opacity:.85}
+.psc-features{list-style:none;padding:0;margin:0 0 26px;text-align:left}
+.psc-features li{padding:7px 0;font-size:13px;color:var(--text);border-bottom:1px solid var(--border)}
+.psc-features li:last-child{border-bottom:none}
+.psc-features li::before{content:'✓  ';color:var(--green);font-weight:700}
+.psc-cta-btn{width:100%;background:var(--accent);color:#fff;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-bottom:18px}
+.psc-cta-btn:hover{opacity:.87}
+.psc-why-toggle{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0}
+.psc-why-toggle:hover{color:var(--text)}
+.psc-why-body{margin-top:10px;font-size:13px;color:var(--muted);line-height:1.65;text-align:left}
+.psc-why-body ul{padding-left:18px;margin:8px 0}
+.psc-why-body li{margin-bottom:4px}
+.psc-why-body strong{color:var(--text)}
 /* ── ML Connect screen ── */
 #ml-connect-screen{display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;align-items:center;justify-content:center;flex-direction:column}
 #ml-connect-screen.visible{display:flex}
@@ -650,6 +682,58 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
     <a href="/auth/ml/connect" class="btn-ml-connect">Conectar con MercadoLibre</a>
     <div class="connect-success" id="connect-success">✓ Cuenta conectada exitosamente</div>
     <div><button class="connect-logout-link" onclick="handleLogout()">Cerrar sesión</button></div>
+  </div>
+</div>
+
+<!-- ═══════════════ PLAN SCREEN ═══════════════ -->
+<div id="plan-screen">
+  <div class="psc-card">
+    <div style="font-size:46px;line-height:1">🎉</div>
+    <h2>¡Cuenta conectada!</h2>
+    <p class="psc-subtitle">Calculamos tu plan según tus ventas reales</p>
+
+    <div id="psc-loading" style="color:var(--muted);font-size:14px;padding:24px 0">Calculando tu plan…</div>
+
+    <div id="psc-content" style="display:none">
+      <div class="psc-ventas-line">
+        Tus ventas de <span id="psc-mes"></span>: <strong id="psc-ventas"></strong>
+      </div>
+
+      <div class="psc-tier-badge" id="psc-tier-badge">GROWTH</div>
+
+      <div class="psc-billing-toggle" id="psc-billing-toggle">
+        <button class="psc-bill-btn active" id="psc-btn-mensual" onclick="setPlanBilling('mensual')">Mensual</button>
+        <button class="psc-bill-btn" id="psc-btn-anual" onclick="setPlanBilling('anual')">Anual <span class="psc-discount-tag">-20%</span></button>
+      </div>
+
+      <div class="psc-price-wrap" id="psc-price-wrap">
+        <span class="psc-price-amount" id="psc-price"></span>
+        <span class="psc-price-period"> / mes</span>
+      </div>
+
+      <div class="psc-enterprise-msg" id="psc-enterprise-msg" style="display:none">
+        <p>Tu volumen requiere un plan personalizado</p>
+        <a href="/#pricing" class="psc-enterprise-btn">Contactar ventas</a>
+      </div>
+
+      <ul class="psc-features" id="psc-features"></ul>
+
+      <button class="psc-cta-btn" id="psc-cta-btn" onclick="continuarAlDashboard()">Continuar al pago →</button>
+
+      <div>
+        <button class="psc-why-toggle" id="psc-why-toggle" onclick="togglePlanWhy()">▸ ¿Por qué este plan?</button>
+        <div class="psc-why-body" id="psc-why-body" style="display:none">
+          <p>Asignamos el plan según tus ventas brutas del último mes completo:</p>
+          <ul>
+            <li><strong>Starter</strong> — hasta $500,000 MXN/mes</li>
+            <li><strong>Growth</strong> — hasta $3,000,000 MXN/mes</li>
+            <li><strong>Scale</strong> — hasta $15,000,000 MXN/mes</li>
+            <li><strong>Enterprise</strong> — más de $15,000,000 MXN/mes</li>
+          </ul>
+          <p>Puedes cambiar de plan en cualquier momento desde tu cuenta.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4690,6 +4774,63 @@ async function handleLogout() {
   };
 })();
 
+// ── Plan Screen ──────────────────────────────────────────────────────────────
+const _PSC_FEATURES = {
+  starter:    ['1 cuenta de MercadoLibre', 'Dashboard de ventas en tiempo real', 'Análisis de publicaciones'],
+  growth:     ['Hasta 3 cuentas de MercadoLibre', 'Dashboard de ventas en tiempo real', 'Análisis de publicaciones avanzado', 'Gestión de stock inteligente', 'Reportes de rentabilidad'],
+  scale:      ['Hasta 10 cuentas de MercadoLibre', 'Dashboard de ventas en tiempo real', 'Análisis de publicaciones avanzado', 'Gestión de stock inteligente', 'Reportes de devoluciones', 'Director Comercial AI'],
+  enterprise: ['Cuentas de MercadoLibre ilimitadas', 'Todo lo incluido en Scale', 'Integración con ERP / sistema propio', 'SLA garantizado', 'Soporte dedicado 24/7'],
+};
+const _PSC_COLORS = { starter:'#6366f1', growth:'#10b981', scale:'#f59e0b', enterprise:'#7c3aed' };
+const _PSC_LABELS = { starter:'STARTER', growth:'GROWTH', scale:'SCALE', enterprise:'ENTERPRISE' };
+const _MESES_ES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+let _pscData = null, _pscBilling = 'mensual';
+
+function showPlanScreen(data) {
+  _pscData    = data;
+  _pscBilling = 'mensual';
+  const [y, m] = data.mes_calculado.split('-');
+  document.getElementById('psc-mes').textContent    = `${_MESES_ES[parseInt(m) - 1]} ${y}`;
+  document.getElementById('psc-ventas').textContent = '$' + Math.round(data.ventas_base).toLocaleString('es-MX') + ' MXN';
+  const badge = document.getElementById('psc-tier-badge');
+  badge.textContent      = _PSC_LABELS[data.tier] || data.tier.toUpperCase();
+  badge.style.background = _PSC_COLORS[data.tier] || '#6366f1';
+  document.getElementById('psc-features').innerHTML = (_PSC_FEATURES[data.tier] || []).map(f => `<li>${f}</li>`).join('');
+  _renderPlanPrice();
+  document.getElementById('psc-loading').style.display = 'none';
+  document.getElementById('psc-content').style.display  = '';
+  document.getElementById('plan-screen').classList.add('visible');
+}
+
+function _renderPlanPrice() {
+  if (!_pscData) return;
+  const isEnt = _pscData.tier === 'enterprise';
+  document.getElementById('psc-price-wrap').style.display     = isEnt ? 'none'  : '';
+  document.getElementById('psc-billing-toggle').style.display = isEnt ? 'none'  : '';
+  document.getElementById('psc-enterprise-msg').style.display = isEnt ? 'block' : 'none';
+  document.getElementById('psc-cta-btn').style.display        = isEnt ? 'none'  : '';
+  if (!isEnt) {
+    const precio = _pscBilling === 'anual' ? _pscData.precio_anual : _pscData.precio_mensual;
+    document.getElementById('psc-price').textContent = '$' + precio.toLocaleString('es-MX');
+    document.getElementById('psc-btn-mensual').classList.toggle('active', _pscBilling === 'mensual');
+    document.getElementById('psc-btn-anual').classList.toggle('active',   _pscBilling === 'anual');
+  }
+}
+
+function setPlanBilling(mode) { _pscBilling = mode; _renderPlanPrice(); }
+
+function continuarAlDashboard() {
+  document.getElementById('plan-screen').classList.remove('visible');
+}
+
+function togglePlanWhy() {
+  const body = document.getElementById('psc-why-body');
+  const btn  = document.getElementById('psc-why-toggle');
+  const open = body.style.display === 'none';
+  body.style.display = open ? '' : 'none';
+  btn.textContent    = (open ? '▾' : '▸') + ' ¿Por qué este plan?';
+}
+
 // Verificar sesión al cargar
 (async function initAuth() {
   _hideDashboard();
@@ -4710,12 +4851,13 @@ async function handleLogout() {
       const me = await res.json();
       const needsConnect = showDashboard(me.tenant);
       if (!needsConnect) {
+        loadAll(); // carga en background mientras el usuario lee su plan
         if (mlConnected) {
-          // Pequeño aviso de éxito en el sidebar (no bloqueante)
-          const el = document.getElementById('sl-tenant-name');
-          if (el) { const orig = el.textContent; el.textContent = '✓ ML conectado'; setTimeout(() => el.textContent = orig, 3000); }
+          try {
+            const planRes = await fetch('/api/mi-plan-recomendado');
+            if (planRes.ok) showPlanScreen(await planRes.json());
+          } catch { /* silencioso — dashboard ya visible */ }
         }
-        loadAll();
       } else if (mlConnected) {
         // Vino del callback pero seller_id aún no está en la sesión cacheada — forzar recarga
         window.location.reload();
