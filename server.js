@@ -60,10 +60,11 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'holstone-dev-secret',
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: 3 * 60 * 60 * 1000, // 3 horas; rolling: true reinicia el contador con cada request
   },
 }));
 
