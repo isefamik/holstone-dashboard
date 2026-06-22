@@ -4878,6 +4878,8 @@ function showToast(msg, type) {
 }
 
 async function irAPago() {
+  alert('Click registrado. Tier: ' + (_pscData?.tier || 'SIN DATOS') + ' | Billing: ' + _pscBilling);
+
   if (!_pscData) return;
   if (_pscData.tier === 'enterprise') { window.location.href = '/#pricing'; return; }
 
@@ -4897,13 +4899,15 @@ async function irAPago() {
     if (res.ok && data.checkout_url) {
       window.location.href = data.checkout_url;
     } else {
-      throw new Error(data.error || 'Error desconocido');
+      throw new Error('HTTP ' + res.status + ': ' + (data.error || JSON.stringify(data)));
     }
   } catch (e) {
     btn.disabled = false;
     btn.textContent = _pscTrialVencido ? 'Pagar ahora para continuar' : 'Continuar al pago →';
-    errEl.textContent = 'No se pudo iniciar el pago: ' + e.message;
+    const msg = 'Error: ' + e.message;
+    errEl.textContent = msg;
     errEl.style.display = 'block';
+    alert(msg);
   }
 }
 
