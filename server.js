@@ -463,7 +463,7 @@ app.get('/api/me', (req, res) => {
     userId: req.session.userId,
     tenantId: req.session.tenantId,
     role: req.session.role,
-    tenant: { id: req.tenant.id, name: req.tenant.name },
+    tenant: { id: req.tenant.id, name: req.tenant.name, seller_id: req.tenant.seller_id || '' },
   });
 });
 
@@ -2609,6 +2609,110 @@ app.post('/api/ai-director', async (req, res) => {
       return res.json({ response: NO_KEY_MSG, data_used });
     }
     res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── OAuth ML Self-Service ─────────────────────────────────────────────────────
+
+// Registro de nuevo tenant + usuario admin (sin ML vinculado todavía)
+app.post('/auth/register', async (req, res) => {
+  try {
+    const { email, password, nombreTienda } = req.body;
+    if (!email || !password || !nombreTienda)
+      return res.status(400).json({ error: 'email, password y nombreTienda son requeridos' });
+    if (password.length < 8)
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+
+    const { data: existing } = await supabase.from('users').select('id').eq('email', email.toLowerCase().trim()).maybeSingle();
+    if (existing) return res.status(409).json({ error: 'Este email ya está registrado' });
+
+    const { data: tenant, error: tenantErr } = await supabase.from('tenants').insert({
+      name: nombreTienda.trim(),
+      seller_id: '',
+      ml_client_id: process.env.ML_CLIENT_ID,
+      ml_client_secret: process.env.ML_CLIENT_SECRET,
+      active: true,
+    }).select().single();
+    if (tenantErr) throw tenantErr;
+
+    const password_hash = await bcrypt.hash(password, 12);
+    const { data: user, error: userErr } = await supabase.from('users').insert({
+      tenant_id: tenant.id,
+      email: email.toLowerCase().trim(),
+      password_hash,
+      role: 'admin',
+      active: true,
+    }).select().single();
+    if (userErr) throw userErr;
+
+    req.session.userId = user.id;
+    req.session.tenantId = tenant.id;
+    req.session.role = user.role;
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    console.error('Register error:', e.message);
+    res.status(500).json({ error: 'Error al crear la cuenta' });
+  }
+});
+
+// Inicia el flujo OAuth con MercadoLibre
+app.get('/auth/ml/connect', (req, res) => {
+  if (!req.session?.userId) return res.redirect('/');
+  const { ML_CLIENT_ID, ML_REDIRECT_URI } = process.env;
+  const url = `https://auth.mercadolibre.com.mx/authorization?response_type=code` +
+    `&client_id=${encodeURIComponent(ML_CLIENT_ID)}` +
+    `&redirect_uri=${encodeURIComponent(ML_REDIRECT_URI)}` +
+    `&state=${req.session.tenantId}`;
+  res.redirect(url);
+});
+
+// Recibe el código de ML, obtiene tokens y seller_id, actualiza el tenant
+app.get('/auth/ml/callback', async (req, res) => {
+  const { code, state } = req.query;
+  if (!req.session?.userId || req.session.tenantId !== state) {
+    return res.redirect('/inicio?error=oauth_estado_invalido');
+  }
+  if (!code) return res.redirect('/inicio?error=oauth_sin_codigo');
+
+  try {
+    const params = new URLSearchParams();
+    params.append('grant_type', 'authorization_code');
+    params.append('client_id', process.env.ML_CLIENT_ID);
+    params.append('client_secret', process.env.ML_CLIENT_SECRET);
+    params.append('code', code);
+    params.append('redirect_uri', process.env.ML_REDIRECT_URI);
+
+    const tokenRes = await axios.post('https://api.mercadolibre.com/oauth/token', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    const { access_token, refresh_token, expires_in } = tokenRes.data;
+    const expires_at = Date.now() + ((expires_in - 300) * 1000);
+
+    // Obtener seller_id real del usuario de ML
+    const meRes = await axios.get('https://api.mercadolibre.com/users/me', {
+      headers: { Authorization: `Bearer ${access_token}` },
+    });
+    const seller_id = String(meRes.data.id);
+
+    const tenantId = req.session.tenantId;
+
+    await supabase.from('tenant_tokens').upsert({
+      tenant_id: tenantId,
+      access_token,
+      refresh_token,
+      expires_at,
+      updated_at: new Date().toISOString(),
+    });
+
+    await supabase.from('tenants').update({ seller_id }).eq('id', tenantId);
+
+    // Invalidar cache en memoria para forzar recarga con el nuevo seller_id
+    tenantTokenCache.set(tenantId, { access_token, refresh_token, expires_at });
+
+    res.redirect('/inicio?ml_connected=1');
+  } catch (e) {
+    console.error('ML callback error:', e.response?.data || e.message);
+    res.redirect('/inicio?error=oauth_fallido');
   }
 });
 

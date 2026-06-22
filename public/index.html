@@ -569,14 +569,30 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 /* logout en sidebar */
 .btn-logout{width:100%;margin-top:9px;padding:7px 12px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11.5px;cursor:pointer;transition:all .15s;text-align:left}
 .btn-logout:hover{background:var(--red);border-color:var(--red);color:#fff}
+/* ── ML Connect screen ── */
+#ml-connect-screen{display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;align-items:center;justify-content:center;flex-direction:column}
+#ml-connect-screen.visible{display:flex}
+.connect-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:48px 40px;max-width:460px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.connect-card h2{font-size:22px;font-weight:700;margin-bottom:10px;color:var(--text)}
+.connect-card p{color:var(--muted);margin-bottom:28px;font-size:14px;line-height:1.6}
+.btn-ml-connect{display:inline-block;background:#ffe600;color:#111;font-weight:700;font-size:15px;padding:13px 32px;border-radius:8px;text-decoration:none;transition:opacity .15s}
+.btn-ml-connect:hover{opacity:.85}
+.connect-success{color:#22c55e;font-size:13px;margin-top:14px;font-weight:500;display:none}
+.connect-logout-link{margin-top:18px;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline}
+/* ── Register card ── */
+#register-card{display:none}
+.login-toggle{text-align:center;margin-top:16px;font-size:13px;color:var(--muted)}
+.login-toggle a{color:var(--accent);text-decoration:none;font-weight:500;cursor:pointer}
+.login-toggle a:hover{text-decoration:underline}
 </style>
 <script>if(localStorage.getItem('hk-dark')==='1')document.documentElement.classList.add('dark')</script>
 </head>
 <body>
 
-<!-- ═══════════════ LOGIN ═══════════════ -->
+<!-- ═══════════════ LOGIN / REGISTRO ═══════════════ -->
 <div id="login-screen">
-  <div class="login-card">
+  <!-- Formulario de login -->
+  <div class="login-card" id="login-card">
     <div class="login-logo">
       <div class="login-logo-icon">📊</div>
       <h1>Rocky</h1>
@@ -594,6 +610,45 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
       <button class="login-btn" type="submit" id="login-btn">Iniciar sesión</button>
       <div class="login-error" id="login-error"></div>
     </form>
+    <div class="login-toggle">¿No tienes cuenta? <a onclick="showRegister()">Regístrate gratis</a></div>
+  </div>
+
+  <!-- Formulario de registro -->
+  <div class="login-card" id="register-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">✨</div>
+      <h1>Crear cuenta</h1>
+      <p>Empieza a gestionar tu tienda</p>
+    </div>
+    <form id="register-form" onsubmit="handleRegister(event)">
+      <div class="login-field">
+        <label for="reg-tienda">Nombre de tu tienda</label>
+        <input id="reg-tienda" type="text" placeholder="Mi Tienda MX" required>
+      </div>
+      <div class="login-field">
+        <label for="reg-email">Correo electrónico</label>
+        <input id="reg-email" type="email" placeholder="tu@correo.com" autocomplete="email" required>
+      </div>
+      <div class="login-field">
+        <label for="reg-password">Contraseña</label>
+        <input id="reg-password" type="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password" required>
+      </div>
+      <button class="login-btn" type="submit" id="reg-btn">Crear cuenta</button>
+      <div class="login-error" id="reg-error"></div>
+    </form>
+    <div class="login-toggle"><a onclick="showLoginForm()">← Volver a iniciar sesión</a></div>
+  </div>
+</div>
+
+<!-- ═══════════════ CONECTAR ML ═══════════════ -->
+<div id="ml-connect-screen">
+  <div class="connect-card">
+    <div style="font-size:52px;margin-bottom:16px">🔗</div>
+    <h2>Conecta tu cuenta de MercadoLibre</h2>
+    <p>Para ver tus datos necesitas vincular tu cuenta de MercadoLibre.<br>Solo tarda unos segundos y es completamente seguro.</p>
+    <a href="/auth/ml/connect" class="btn-ml-connect">Conectar con MercadoLibre</a>
+    <div class="connect-success" id="connect-success">✓ Cuenta conectada exitosamente</div>
+    <div><button class="connect-logout-link" onclick="handleLogout()">Cerrar sesión</button></div>
   </div>
 </div>
 
@@ -4504,36 +4559,63 @@ function toggleDarkMode() {
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-function showDashboard(tenantName) {
+function _hideDashboard() {
+  document.querySelector('.sidebar').style.display = 'none';
+  document.querySelector('.sidebar-overlay').style.display = 'none';
+  document.querySelector('.main').style.display = 'none';
+}
+
+function _showDashboardChrome(tenantName) {
   document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('ml-connect-screen').classList.remove('visible');
   document.querySelector('.sidebar').style.display = '';
   document.querySelector('.sidebar-overlay').style.display = '';
   document.querySelector('.main').style.display = '';
   if (tenantName) document.getElementById('sl-tenant-name').textContent = tenantName;
 }
 
+// Devuelve true si redirige al connect screen (sin seller_id)
+function showDashboard(tenant) {
+  const tenantName = typeof tenant === 'string' ? tenant : tenant?.name;
+  const sellerId = typeof tenant === 'string' ? '' : (tenant?.seller_id || '');
+  if (!sellerId) {
+    _hideDashboard();
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('ml-connect-screen').classList.add('visible');
+    return true; // necesita conectar ML
+  }
+  _showDashboardChrome(tenantName);
+  return false;
+}
+
 function showLogin(msg) {
+  _hideDashboard();
+  document.getElementById('ml-connect-screen').classList.remove('visible');
   document.getElementById('login-screen').style.display = '';
-  document.querySelector('.sidebar').style.display = 'none';
-  document.querySelector('.sidebar-overlay').style.display = 'none';
-  document.querySelector('.main').style.display = 'none';
+  showLoginForm(); // asegurar que se ve el form de login, no el de registro
   document.getElementById('login-email').value = '';
   document.getElementById('login-password').value = '';
   const errEl = document.getElementById('login-error');
-  if (msg) {
-    errEl.textContent = msg;
-    errEl.classList.add('visible');
-  } else {
-    errEl.classList.remove('visible');
-  }
+  if (msg) { errEl.textContent = msg; errEl.classList.add('visible'); }
+  else { errEl.classList.remove('visible'); }
+}
+
+function showLoginForm() {
+  document.getElementById('login-card').style.display = '';
+  document.getElementById('register-card').style.display = 'none';
+}
+
+function showRegister() {
+  document.getElementById('login-card').style.display = 'none';
+  document.getElementById('register-card').style.display = '';
+  document.getElementById('reg-error').classList.remove('visible');
 }
 
 async function handleLogin(e) {
   e.preventDefault();
   const btn = document.getElementById('login-btn');
   const errEl = document.getElementById('login-error');
-  btn.disabled = true;
-  btn.textContent = 'Verificando…';
+  btn.disabled = true; btn.textContent = 'Verificando…';
   errEl.classList.remove('visible');
   try {
     const res = await fetch('/api/login', {
@@ -4546,16 +4628,43 @@ async function handleLogin(e) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión');
-    // Fetch tenant name from /api/me
     const me = await fetch('/api/me').then(r => r.json());
-    showDashboard(me.tenant?.name);
-    loadAll();
+    const needsConnect = showDashboard(me.tenant);
+    if (!needsConnect) loadAll();
   } catch (err) {
     errEl.textContent = err.message;
     errEl.classList.add('visible');
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Iniciar sesión';
+    btn.disabled = false; btn.textContent = 'Iniciar sesión';
+  }
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const btn = document.getElementById('reg-btn');
+  const errEl = document.getElementById('reg-error');
+  btn.disabled = true; btn.textContent = 'Creando cuenta…';
+  errEl.classList.remove('visible');
+  try {
+    const res = await fetch('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: document.getElementById('reg-email').value.trim(),
+        password: document.getElementById('reg-password').value,
+        nombreTienda: document.getElementById('reg-tienda').value.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al registrarse');
+    // Sesión creada — mostrar connect screen directamente
+    const me = await fetch('/api/me').then(r => r.json());
+    showDashboard(me.tenant); // seller_id vacío → muestra connect screen
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Crear cuenta';
   }
 }
 
@@ -4578,17 +4687,39 @@ async function handleLogout() {
 
 // Verificar sesión al cargar
 (async function initAuth() {
-  // Ocultar dashboard mientras verificamos
-  document.querySelector('.sidebar').style.display = 'none';
-  document.querySelector('.sidebar-overlay').style.display = 'none';
-  document.querySelector('.main').style.display = 'none';
+  _hideDashboard();
+  document.getElementById('login-screen').style.display = 'none';
+
+  // Detectar parámetros de retorno del callback OAuth
+  const params = new URLSearchParams(window.location.search);
+  const mlConnected = params.get('ml_connected') === '1';
+  const oauthError = params.get('error');
+  if (mlConnected || oauthError) {
+    // Limpiar params de la URL sin recargar
+    history.replaceState({}, '', window.location.pathname);
+  }
 
   try {
     const res = await fetch('/api/me');
     if (res.ok) {
       const me = await res.json();
-      showDashboard(me.tenant?.name);
-      loadAll();
+      const needsConnect = showDashboard(me.tenant);
+      if (!needsConnect) {
+        if (mlConnected) {
+          // Pequeño aviso de éxito en el sidebar (no bloqueante)
+          const el = document.getElementById('sl-tenant-name');
+          if (el) { const orig = el.textContent; el.textContent = '✓ ML conectado'; setTimeout(() => el.textContent = orig, 3000); }
+        }
+        loadAll();
+      } else if (mlConnected) {
+        // Vino del callback pero seller_id aún no está en la sesión cacheada — forzar recarga
+        window.location.reload();
+      } else if (oauthError) {
+        const suc = document.getElementById('connect-success');
+        suc.style.display = 'block';
+        suc.style.color = 'var(--red)';
+        suc.textContent = '✗ Error al conectar con MercadoLibre, intenta de nuevo';
+      }
     } else {
       showLogin();
     }
