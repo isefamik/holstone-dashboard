@@ -2721,6 +2721,49 @@ app.get('/auth/ml/callback', async (req, res) => {
   }
 });
 
+// ── Plan recomendado ─────────────────────────────────────────────────────────
+function calcularTierPlan(ventasMensuales) {
+  if (ventasMensuales <= 500_000)    return { tier: 'starter',    precio_mensual: 399,  precio_anual: 319  };
+  if (ventasMensuales <= 3_000_000)  return { tier: 'growth',     precio_mensual: 899,  precio_anual: 719  };
+  if (ventasMensuales <= 15_000_000) return { tier: 'scale',      precio_mensual: 1999, precio_anual: 1599 };
+  return                               { tier: 'enterprise', precio_mensual: null, precio_anual: null };
+}
+
+app.get('/api/mi-plan-recomendado', async (req, res) => {
+  try {
+    const ahora = new Date();
+    const primerDiaMesActual = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+    const ultimoDiaMesAnterior = new Date(primerDiaMesActual - 1);
+    const y = ultimoDiaMesAnterior.getFullYear();
+    const m = ultimoDiaMesAnterior.getMonth() + 1;
+    const mStr = String(m).padStart(2, '0');
+    const lastDay = new Date(y, m, 0).getDate();
+    const from = `${y}-${mStr}-01T00:00:00.000-06:00`;
+    const to   = `${y}-${mStr}-${lastDay}T23:59:59.000-06:00`;
+
+    let allOrders = [];
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+        seller: getSellerId(), 'order.status': 'paid',
+        'order.date_created.from': from, 'order.date_created.to': to,
+        limit: 50, offset
+      });
+      total = d.paging.total;
+      allOrders = allOrders.concat(d.results);
+      offset += 50;
+    }
+
+    const ventaBruta = allOrders.reduce((s, o) => s + o.total_amount, 0);
+    const plan = calcularTierPlan(ventaBruta);
+
+    res.json({ ...plan, ventas_base: ventaBruta, mes_calculado: `${y}-${mStr}` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Contacto Enterprise ───────────────────────────────────────────────────────
 app.post('/api/contact-enterprise', async (req, res) => {
   const { nombre, email, empresa, telefono, ventas } = req.body;
