@@ -136,6 +136,10 @@ section{padding:96px 0}
 .cross{color:var(--dim)}
 .compare-wrap{overflow-x:auto}
 
+/* ── PRICING NOTE ── */
+.pricing-note{display:flex;align-items:center;justify-content:center;gap:10px;margin:28px auto 0;padding:16px 28px;max-width:500px;background:rgba(16,185,129,.08);border:1.5px solid rgba(16,185,129,.25);border-radius:14px;font-size:15px;color:var(--text);text-align:center;line-height:1.5}
+.pricing-note strong{color:#059669}
+.pricing-note-check{flex-shrink:0;width:26px;height:26px;background:#059669;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;line-height:1}
 /* ── PRICING ── */
 .pricing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
 @media(max-width:1000px){.pricing-grid{grid-template-columns:repeat(2,1fr)}}
@@ -514,7 +518,10 @@ footer{background:var(--navy);color:rgba(255,255,255,.5);padding:48px 0 28px;mar
         <button class="plan-cta" onclick="openEnterpriseModal()">Contactar</button>
       </div>
     </div>
-    <div class="pricing-note">Todos los planes incluyen 14 días de prueba gratis. Sin tarjeta de crédito.</div>
+    <div class="pricing-note">
+      <span class="pricing-note-check">✓</span>
+      Todos los planes incluyen <strong>14 días de prueba gratis</strong>. Sin tarjeta de crédito.
+    </div>
   </div>
 </section>
 
