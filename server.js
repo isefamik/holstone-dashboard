@@ -51,6 +51,10 @@ class SupabaseSessionStore extends session.Store {
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Landing en "/" — debe ir antes de express.static para que no lo intercepte el index.html por defecto
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Sesiones ─────────────────────────────────────────────────────────────────

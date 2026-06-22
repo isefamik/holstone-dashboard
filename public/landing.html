@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rocky — Analytics para vendedores de MercadoLibre</title>
+<link rel="icon" type="image/svg+xml" href="/logo-rocky.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0f172a;
+  --navy2:#1e3a5f;
+  --blue:#1d4ed8;
+  --blue-dark:#1e3a8a;
+  --gold:#fbbf24;
+  --gold-dark:#f59e0b;
+  --bg:#f8fafc;
+  --card:#ffffff;
+  --border:#e2e8f0;
+  --text:#0f172a;
+  --muted:#64748b;
+  --dim:#94a3b8;
+  --green:#059669;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;color:var(--text);background:var(--bg);line-height:1.5;-webkit-font-smoothing:antialiased}
+h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace}
+a{text-decoration:none;color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:0 32px}
+@media(max-width:768px){.wrap{padding:0 20px}}
+
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(15,23,42,.85);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.08)}
+.nav-inner{max-width:1180px;margin:0 auto;padding:16px 32px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:19px;color:#fff}
+.nav-brand img{width:32px;height:32px;border-radius:8px}
+.nav-links{display:flex;gap:32px;align-items:center}
+.nav-links a{color:rgba(255,255,255,.75);font-size:14px;font-weight:500;transition:color .15s}
+.nav-links a:hover{color:#fff}
+.nav-cta{background:var(--gold);color:var(--navy);padding:9px 20px;border-radius:8px;font-weight:600;font-size:14px;transition:transform .15s,box-shadow .15s}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(251,191,36,.35)}
+@media(max-width:768px){.nav-links a:not(.nav-cta){display:none}}
+
+/* ── HERO ── */
+.hero{position:relative;background:linear-gradient(160deg,var(--blue-dark) 0%,var(--blue) 100%);padding:140px 0 100px;overflow:hidden;color:#fff}
+.hero::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(29,78,216,.25),transparent 70%);top:-200px;right:-100px}
+.hero-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:60px;align-items:center;position:relative;z-index:2}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:48px}}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);color:var(--gold);font-size:13px;font-weight:600;padding:6px 14px;border-radius:20px;margin-bottom:24px}
+.hero-eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{font-size:48px;font-weight:700;line-height:1.12;letter-spacing:-.5px;margin-bottom:22px}
+.hero h1 span{color:var(--gold)}
+@media(max-width:900px){.hero h1{font-size:36px}}
+.hero p{font-size:17px;color:rgba(255,255,255,.72);max-width:480px;margin-bottom:32px;line-height:1.6}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:40px}
+.btn-primary{background:var(--gold);color:var(--navy);padding:14px 28px;border-radius:10px;font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:8px;transition:transform .15s,box-shadow .15s}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(251,191,36,.35)}
+.btn-secondary{border:1.5px solid rgba(255,255,255,.25);color:#fff;padding:14px 28px;border-radius:10px;font-weight:600;font-size:15px;transition:background .15s,border-color .15s}
+.btn-secondary:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5)}
+.hero-trust{display:flex;gap:28px;flex-wrap:wrap}
+.hero-trust-item{display:flex;flex-direction:column;gap:2px}
+.hero-trust-item .v{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;color:var(--gold)}
+.hero-trust-item .l{font-size:12px;color:rgba(255,255,255,.55)}
+
+/* ── DASHBOARD MOCKUP ── */
+.mockup-wrap{position:relative;transform:rotate(-2deg)}
+.mockup{background:#fff;border-radius:14px;box-shadow:0 30px 70px rgba(0,0,0,.45);overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.mockup-bar{background:#f1f5f9;padding:10px 14px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--border)}
+.mockup-dot{width:9px;height:9px;border-radius:50%}
+.mockup-body{display:flex;min-height:340px}
+.mockup-side{width:64px;background:var(--navy);padding:16px 0;display:flex;flex-direction:column;align-items:center;gap:18px}
+.mockup-side-icon{width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.1)}
+.mockup-side-icon.active{background:var(--blue)}
+.mockup-main{flex:1;padding:18px 20px;background:#fafbfc}
+.mockup-title{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;font-weight:600}
+.mockup-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.mockup-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px}
+.mockup-card .lbl{font-size:10px;color:var(--dim);margin-bottom:6px;font-weight:600;text-transform:uppercase}
+.mockup-card .num{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--text)}
+.mockup-card .num.up{color:var(--green)}
+.mockup-bars{display:flex;align-items:flex-end;gap:6px;height:80px;padding:0 4px}
+.mockup-bars div{flex:1;background:var(--blue);border-radius:3px 3px 0 0;opacity:.85}
+
+/* ── trajectory line ── */
+.trajectory{position:absolute;top:-40px;left:-60px;width:140px;height:140px;opacity:.5;z-index:1;pointer-events:none}
+
+/* ── LOGOS / SOCIAL PROOF STRIP ── */
+.proof{background:var(--card);border-bottom:1px solid var(--border);padding:24px 0;overflow:hidden}
+.proof-inner{display:flex;flex-direction:column;align-items:center;gap:16px}
+.proof-label{font-size:12px;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.proof-marquee{width:100%;overflow:hidden;position:relative;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.proof-track{display:flex;align-items:center;gap:48px;width:max-content;animation:proof-scroll 28s linear infinite}
+.proof-track:hover{animation-play-state:paused}
+.proof-client{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:600;color:var(--text);opacity:.5;transition:opacity .15s;white-space:nowrap}
+.proof-client:hover{opacity:1}
+@keyframes proof-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media(max-width:600px){.proof-client{font-size:15px}.proof-track{gap:36px}}
+
+/* ── SECTIONS GENERIC ── */
+section{padding:96px 0}
+.section-head{text-align:center;max-width:640px;margin:0 auto 56px}
+.section-eyebrow{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--blue);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+.section-head h2{font-size:34px;font-weight:700;letter-spacing:-.3px;margin-bottom:14px}
+.section-head p{color:var(--muted);font-size:16px;line-height:1.6}
+
+/* ── FEATURES ── */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+@media(max-width:900px){.features-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.features-grid{grid-template-columns:1fr}}
+.feature{background:var(--card);padding:32px 28px}
+.feature-num{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--gold-dark);font-weight:600;margin-bottom:16px}
+.feature h3{font-size:17px;font-weight:600;margin-bottom:10px}
+.feature p{font-size:14px;color:var(--muted);line-height:1.6}
+
+/* ── STATS BAND ── */
+.stats{background:var(--navy);color:#fff}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;text-align:center}
+@media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr);gap:40px}}
+.stat .v{font-family:'JetBrains Mono',monospace;font-size:40px;font-weight:700;color:var(--gold);margin-bottom:6px}
+.stat .l{font-size:13px;color:rgba(255,255,255,.6)}
+
+/* ── COMPARISON TABLE ── */
+.compare-table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border-radius:16px;overflow:hidden;border:1px solid var(--border)}
+.compare-table th,.compare-table td{padding:16px 20px;text-align:center;border-bottom:1px solid var(--border);font-size:14px}
+.compare-table th{background:#f1f5f9;font-weight:600;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.3px}
+.compare-table td:first-child,.compare-table th:first-child{text-align:left;font-weight:500}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-table .col-rocky{background:rgba(29,78,216,.04)}
+.compare-table th.col-rocky{background:var(--navy);color:#fff}
+.check{color:var(--green);font-weight:700}
+.cross{color:var(--dim)}
+.compare-wrap{overflow-x:auto}
+
+/* ── PRICING ── */
+.pricing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+@media(max-width:1000px){.pricing-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.pricing-grid{grid-template-columns:1fr}}
+.plan{background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;position:relative;transition:transform .2s,box-shadow .2s}
+.plan:hover{transform:translateY(-4px);box-shadow:0 16px 36px rgba(15,23,42,.08)}
+.plan.featured{border-color:var(--gold);box-shadow:0 8px 28px rgba(251,191,36,.18)}
+.plan-badge{position:absolute;top:-12px;left:24px;background:var(--gold);color:var(--navy);font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px}
+.plan-name{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px}
+.plan-range{font-size:12px;color:var(--dim);margin-bottom:18px}
+.plan-price{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700;margin-bottom:2px}
+.plan-price span{font-size:14px;font-weight:500;color:var(--muted)}
+.plan-period{font-size:12px;color:var(--dim);margin-bottom:22px}
+.plan-features{list-style:none;margin-bottom:24px;flex:1}
+.plan-features li{font-size:13.5px;color:var(--muted);padding:7px 0;display:flex;gap:8px;align-items:flex-start;border-top:1px solid var(--border)}
+.plan-features li:first-child{border-top:none}
+.plan-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.plan-cta{text-align:center;padding:11px;border-radius:9px;font-weight:600;font-size:14px;border:1.5px solid var(--navy);color:var(--navy);transition:background .15s,color .15s}
+.plan-cta:hover{background:var(--navy);color:#fff}
+.plan.featured .plan-cta{background:var(--navy);color:#fff}
+.plan.featured .plan-cta:hover{background:var(--blue)}
+.pricing-note{text-align:center;margin-top:28px;font-size:13px;color:var(--dim)}
+
+/* ── CTA BAND ── */
+.cta-band{background:linear-gradient(135deg,var(--navy) 0%,var(--blue-dark) 100%);color:#fff;text-align:center;border-radius:24px;padding:64px 40px;margin:0 32px;position:relative;overflow:hidden}
+.cta-band::before{content:'';position:absolute;width:500px;height:500px;background:radial-gradient(circle,rgba(251,191,36,.15),transparent 70%);top:-200px;right:-150px}
+.cta-band h2{font-size:32px;font-weight:700;margin-bottom:14px;position:relative;z-index:1}
+.cta-band p{color:rgba(255,255,255,.7);margin-bottom:28px;font-size:15px;position:relative;z-index:1}
+.cta-band .btn-primary{position:relative;z-index:1}
+
+/* ── FOOTER ── */
+footer{background:var(--navy);color:rgba(255,255,255,.5);padding:48px 0 28px;margin-top:64px}
+.footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-brand{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-family:'Space Grotesk',sans-serif}
+.footer-brand img{width:26px;height:26px;border-radius:6px}
+.footer-links{display:flex;gap:24px;font-size:13px}
+.footer-links a:hover{color:#fff}
+.footer-bottom{font-size:12px;text-align:center;margin-top:28px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08)}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <svg width="32" height="32" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="navlogo-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1d4ed8"/>
+            <stop offset="100%" stop-color="#1e3a8a"/>
+          </linearGradient>
+          <linearGradient id="navlogo-flame" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#fbbf24"/>
+            <stop offset="100%" stop-color="#f59e0b"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="200" height="200" rx="20" fill="url(#navlogo-bg)"/>
+        <circle cx="100" cy="100" r="74" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.9"/>
+        <g transform="translate(100,100)">
+          <line x1="-18" y1="15" x2="-20" y2="33" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+          <line x1="-9" y1="15" x2="-11" y2="38" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.4"/>
+          <line x1="0" y1="15" x2="0" y2="40" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+          <path d="M0 -55 C16 -40 18 -10 18 15 L-18 15 C-18 -10 -16 -40 0 -55 Z" fill="#ffffff"/>
+          <circle cx="0" cy="-30" r="6" fill="url(#navlogo-bg)"/>
+          <path d="M-18 0 L-32 25 L-18 18 Z" fill="#ffffff"/>
+          <path d="M18 0 L32 25 L18 18 Z" fill="#ffffff"/>
+          <path d="M-8 15 L0 40 L8 15 Z" fill="url(#navlogo-flame)"/>
+        </g>
+      </svg>
+      Rocky
+    </div>
+    <div class="nav-links">
+      <a href="#features">Producto</a>
+      <a href="#compare">Comparativa</a>
+      <a href="#pricing">Precios</a>
+      <a href="/inicio" class="nav-cta">Empezar gratis</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="hero-eyebrow"><span class="dot"></span> Datos en vivo de tu cuenta MercadoLibre</div>
+      <h1>Tu negocio en MercadoLibre, <span>despegando</span> con datos reales</h1>
+      <p>Rocky conecta tu cuenta de MercadoLibre y te muestra ventas, rentabilidad real, publicidad y stock en un solo lugar — actualizado en tiempo real, sin hojas de cálculo.</p>
+      <div class="hero-actions">
+        <a href="/inicio" class="btn-primary">Conectar mi cuenta →</a>
+        <a href="#features" class="btn-secondary">Ver qué incluye</a>
+      </div>
+      <div class="hero-trust">
+        <div class="hero-trust-item"><span class="v mono">8</span><span class="l">Módulos de análisis</span></div>
+        <div class="hero-trust-item"><span class="v mono">2 min</span><span class="l">Para conectar tu cuenta</span></div>
+        <div class="hero-trust-item"><span class="v mono">100%</span><span class="l">Datos reales de tu ML</span></div>
+      </div>
+    </div>
+    <div class="mockup-wrap">
+      <div class="mockup">
+        <div class="mockup-bar">
+          <div class="mockup-dot" style="background:#ef4444"></div>
+          <div class="mockup-dot" style="background:#f59e0b"></div>
+          <div class="mockup-dot" style="background:#10b981"></div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-side">
+            <div class="mockup-side-icon active"></div>
+            <div class="mockup-side-icon"></div>
+            <div class="mockup-side-icon"></div>
+            <div class="mockup-side-icon"></div>
+            <div class="mockup-side-icon"></div>
+          </div>
+          <div class="mockup-main">
+            <div class="mockup-title">Panel de control</div>
+            <div class="mockup-cards">
+              <div class="mockup-card"><div class="lbl">Ventas hoy</div><div class="num up">$84,210</div></div>
+              <div class="mockup-card"><div class="lbl">Margen neto</div><div class="num up">22.4%</div></div>
+              <div class="mockup-card"><div class="lbl">Stock</div><div class="num">3,140</div></div>
+              <div class="mockup-card"><div class="lbl">Reputación</div><div class="num" style="color:var(--gold-dark)">Platinum</div></div>
+            </div>
+            <div class="mockup-title">Ventas por hora</div>
+            <div class="mockup-bars">
+              <div style="height:30%"></div><div style="height:55%"></div><div style="height:40%"></div>
+              <div style="height:75%"></div><div style="height:90%"></div><div style="height:60%"></div>
+              <div style="height:85%"></div><div style="height:50%"></div><div style="height:70%"></div>
+              <div style="height:95%;background:var(--gold-dark)"></div><div style="height:65%"></div><div style="height:45%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="proof">
+  <div class="wrap proof-inner">
+    <span class="proof-label">Marcas que ya venden con Rocky</span>
+    <div class="proof-marquee">
+      <div class="proof-track">
+        <span class="proof-client">Holstone</span>
+        <span class="proof-client">Lucky Brand</span>
+        <span class="proof-client">Sprint</span>
+        <span class="proof-client">Northman</span>
+        <span class="proof-client">Gotta de Duero</span>
+        <span class="proof-client">Mondo Bambino</span>
+        <span class="proof-client">Grupo Comercial Timay</span>
+        <span class="proof-client">Holstone</span>
+        <span class="proof-client">Lucky Brand</span>
+        <span class="proof-client">Sprint</span>
+        <span class="proof-client">Northman</span>
+        <span class="proof-client">Gotta de Duero</span>
+        <span class="proof-client">Mondo Bambino</span>
+        <span class="proof-client">Grupo Comercial Timay</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-eyebrow">Qué incluye</div>
+      <h2>Todo lo que necesitas, en un solo dashboard</h2>
+      <p>Sin instalar nada, sin hojas de cálculo. Conecta tu cuenta y empieza a ver tus datos en minutos.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="feature-num">01</div>
+        <h3>Ventas en vivo</h3>
+        <p>Monitor en tiempo real con actualización cada 30 segundos. Ve cada venta apenas sucede, comparada contra ayer.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">02</div>
+        <h3>Rentabilidad real</h3>
+        <p>Carga tus costos por producto y obtén margen neto real — descontando comisiones, envíos y publicidad, no solo precio de venta.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">03</div>
+        <h3>Stock inteligente</h3>
+        <p>Proyecciones de cuándo se te va a agotar cada producto y alertas antes de que pase.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">04</div>
+        <h3>Publicidad con datos</h3>
+        <p>ROAS, ACOS e inversión por campaña, cruzado con tu inventario para saber qué pausar.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">05</div>
+        <h3>Devoluciones y reclamos</h3>
+        <p>Prioriza qué reclamos requieren tu acción inmediata y cuáles solo están en manos de MercadoLibre.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-num">06</div>
+        <h3>Director comercial IA</h3>
+        <p>Pregúntale en lenguaje natural sobre tu negocio y obtén respuestas con tus datos reales del momento.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="stats">
+  <div class="wrap" style="padding:64px 32px">
+    <div class="stats-grid">
+      <div class="stat"><div class="v">30s</div><div class="l">Actualización de ventas en vivo</div></div>
+      <div class="stat"><div class="v">8</div><div class="l">Módulos de análisis incluidos</div></div>
+      <div class="stat"><div class="v">100%</div><div class="l">Datos directos de tu cuenta ML</div></div>
+      <div class="stat"><div class="v">0</div><div class="l">Hojas de cálculo necesarias</div></div>
+    </div>
+  </div>
+</div>
+
+<section id="compare">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-eyebrow">Comparativa</div>
+      <h2>Rocky frente a las herramientas que ya conoces</h2>
+      <p>La mayoría te da datos de mercado caros y desactualizados. Rocky te da tu negocio, en tiempo real, a precio accesible.</p>
+    </div>
+    <div class="compare-wrap">
+      <table class="compare-table">
+        <tr>
+          <th>Funcionalidad</th>
+          <th class="col-rocky">Rocky</th>
+          <th>Nubimetrics</th>
+          <th>Real Trends</th>
+        </tr>
+        <tr>
+          <td>Rentabilidad real por producto</td>
+          <td class="col-rocky"><span class="check">✓</span></td>
+          <td><span class="cross">—</span></td>
+          <td><span class="cross">—</span></td>
+        </tr>
+        <tr>
+          <td>Ventas en tiempo real</td>
+          <td class="col-rocky"><span class="check">✓</span></td>
+          <td><span class="cross">—</span></td>
+          <td><span class="check">✓</span></td>
+        </tr>
+        <tr>
+          <td>Estado de resultados con billing real</td>
+          <td class="col-rocky"><span class="check">✓</span></td>
+          <td><span class="cross">—</span></td>
+          <td><span class="cross">—</span></td>
+        </tr>
+        <tr>
+          <td>Director comercial con IA</td>
+          <td class="col-rocky"><span class="check">✓</span></td>
+          <td><span class="cross">—</span></td>
+          <td><span class="cross">—</span></td>
+        </tr>
+        <tr>
+          <td>Precio público y transparente</td>
+          <td class="col-rocky"><span class="check">✓</span></td>
+          <td><span class="cross">Consultar ventas</span></td>
+          <td><span class="check">✓</span></td>
+        </tr>
+        <tr>
+          <td>Conexión self-service en minutos</td>
+          <td class="col-rocky"><span class="check">✓</span></td>
+          <td><span class="cross">—</span></td>
+          <td><span class="check">✓</span></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-eyebrow">Precios</div>
+      <h2>Un plan para cada tamaño de negocio</h2>
+      <p>Pagas según tu volumen de ventas en MercadoLibre. Sin contratos, cancela cuando quieras.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="plan">
+        <div class="plan-name">Starter</div>
+        <div class="plan-range">Hasta $500K MXN/mes en ventas</div>
+        <div class="plan-price">$399<span> MXN</span></div>
+        <div class="plan-period">por mes</div>
+        <ul class="plan-features">
+          <li>Ventas, stock y publicidad</li>
+          <li>Rentabilidad por producto</li>
+          <li>Devoluciones y reclamos</li>
+          <li>Reputación</li>
+        </ul>
+        <a href="/inicio" class="plan-cta">Empezar</a>
+      </div>
+      <div class="plan featured">
+        <div class="plan-badge">Más elegido</div>
+        <div class="plan-name">Growth</div>
+        <div class="plan-range">$500K – $3M MXN/mes en ventas</div>
+        <div class="plan-price">$899<span> MXN</span></div>
+        <div class="plan-period">por mes</div>
+        <ul class="plan-features">
+          <li>Todo lo de Starter</li>
+          <li>Ventas en vivo</li>
+          <li>Estado de resultados completo</li>
+          <li>Director comercial IA</li>
+        </ul>
+        <a href="/inicio" class="plan-cta">Empezar</a>
+      </div>
+      <div class="plan">
+        <div class="plan-name">Scale</div>
+        <div class="plan-range">$3M – $15M MXN/mes en ventas</div>
+        <div class="plan-price">$1,999<span> MXN</span></div>
+        <div class="plan-period">por mes</div>
+        <ul class="plan-features">
+          <li>Todo lo de Growth</li>
+          <li>Multi-cuenta</li>
+          <li>Tendencia financiera 6 meses</li>
+          <li>Soporte prioritario</li>
+        </ul>
+        <a href="/inicio" class="plan-cta">Empezar</a>
+      </div>
+      <div class="plan">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-range">+$15M MXN/mes en ventas</div>
+        <div class="plan-price">$3,999<span> MXN</span></div>
+        <div class="plan-period">por mes</div>
+        <ul class="plan-features">
+          <li>Todo lo de Scale</li>
+          <li>Cuentas ilimitadas</li>
+          <li>Onboarding personalizado</li>
+          <li>Soporte dedicado</li>
+        </ul>
+        <a href="/inicio" class="plan-cta">Contactar</a>
+      </div>
+    </div>
+    <div class="pricing-note">Todos los planes incluyen 14 días de prueba gratis. Sin tarjeta de crédito.</div>
+  </div>
+</section>
+
+<section>
+  <div class="cta-band">
+    <h2>Conecta tu cuenta y empieza hoy</h2>
+    <p>Dos minutos para vincular tu MercadoLibre. Cero compromiso.</p>
+    <a href="/inicio" class="btn-primary">Crear cuenta gratis →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <svg width="26" height="26" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="footlogo-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1d4ed8"/>
+            <stop offset="100%" stop-color="#1e3a8a"/>
+          </linearGradient>
+          <linearGradient id="footlogo-flame" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#fbbf24"/>
+            <stop offset="100%" stop-color="#f59e0b"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="200" height="200" rx="20" fill="url(#footlogo-bg)"/>
+        <circle cx="100" cy="100" r="74" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.9"/>
+        <g transform="translate(100,100)">
+          <line x1="-18" y1="15" x2="-20" y2="33" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+          <line x1="-9" y1="15" x2="-11" y2="38" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.4"/>
+          <line x1="0" y1="15" x2="0" y2="40" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+          <path d="M0 -55 C16 -40 18 -10 18 15 L-18 15 C-18 -10 -16 -40 0 -55 Z" fill="#ffffff"/>
+          <circle cx="0" cy="-30" r="6" fill="url(#footlogo-bg)"/>
+          <path d="M-18 0 L-32 25 L-18 18 Z" fill="#ffffff"/>
+          <path d="M18 0 L32 25 L18 18 Z" fill="#ffffff"/>
+          <path d="M-8 15 L0 40 L8 15 Z" fill="url(#footlogo-flame)"/>
+        </g>
+      </svg>
+      Rocky
+    </div>
+    <div class="footer-links">
+      <a href="#features">Producto</a>
+      <a href="#pricing">Precios</a>
+      <a href="#">Contacto</a>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    © 2026 Rocky. Plataforma independiente, no afiliada oficialmente a MercadoLibre.
+  </div>
+</footer>
+
+</body>
+</html>
