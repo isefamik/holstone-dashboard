@@ -157,7 +157,18 @@ section{padding:96px 0}
 .plan-cta:hover{background:var(--navy);color:#fff}
 .plan.featured .plan-cta{background:var(--navy);color:#fff}
 .plan.featured .plan-cta:hover{background:var(--blue)}
-.pricing-note{text-align:center;margin-top:28px;font-size:13px;color:var(--dim)}
+.billing-toggle{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 auto 44px}
+.billing-toggle .label{font-size:14px;font-weight:600;color:var(--muted);transition:color .15s}
+.billing-toggle .label.active{color:var(--text)}
+.toggle-switch{position:relative;width:52px;height:28px;background:var(--border);border-radius:20px;cursor:pointer;transition:background .2s;border:none;padding:0}
+.toggle-switch.on{background:var(--blue)}
+.toggle-switch .knob{position:absolute;top:3px;left:3px;width:22px;height:22px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.toggle-switch.on .knob{transform:translateX(24px)}
+.save-badge{background:rgba(5,150,105,.12);color:var(--green);font-size:12px;font-weight:700;padding:4px 10px;border-radius:14px}
+.plan-price-row{display:flex;align-items:baseline;gap:8px;margin-bottom:2px;flex-wrap:wrap}
+.plan-price-old{font-family:'JetBrains Mono',monospace;font-size:17px;color:var(--dim);text-decoration:line-through}
+.price-period-toggle{display:none}
+.price-period-toggle.active{display:block}
 
 /* ── CTA BAND ── */
 .cta-band{background:linear-gradient(135deg,var(--navy) 0%,var(--blue-dark) 100%);color:#fff;text-align:center;border-radius:24px;padding:64px 40px;margin:0 32px;position:relative;overflow:hidden}
@@ -409,12 +420,23 @@ footer{background:var(--navy);color:rgba(255,255,255,.5);padding:48px 0 28px;mar
       <h2>Un plan para cada tamaño de negocio</h2>
       <p>Pagas según tu volumen de ventas en MercadoLibre. Sin contratos, cancela cuando quieras.</p>
     </div>
+    <div class="billing-toggle">
+      <span class="label active" id="label-monthly">Mensual</span>
+      <button class="toggle-switch" id="billing-switch" onclick="toggleBilling()" aria-label="Cambiar a pago anual">
+        <span class="knob"></span>
+      </button>
+      <span class="label" id="label-annual">Anual</span>
+      <span class="save-badge">Ahorra 20%</span>
+    </div>
     <div class="pricing-grid">
       <div class="plan">
         <div class="plan-name">Starter</div>
         <div class="plan-range">Hasta $500K MXN/mes en ventas</div>
-        <div class="plan-price">$399<span> MXN</span></div>
-        <div class="plan-period">por mes</div>
+        <div class="plan-price-row">
+          <span class="plan-price-old">$399</span>
+          <span class="plan-price">$319<span> MXN</span></span>
+        </div>
+        <div class="plan-period">por mes, facturado anual</div>
         <ul class="plan-features">
           <li>Ventas, stock y publicidad</li>
           <li>Rentabilidad por producto</li>
@@ -427,8 +449,11 @@ footer{background:var(--navy);color:rgba(255,255,255,.5);padding:48px 0 28px;mar
         <div class="plan-badge">Más elegido</div>
         <div class="plan-name">Growth</div>
         <div class="plan-range">$500K – $3M MXN/mes en ventas</div>
-        <div class="plan-price">$899<span> MXN</span></div>
-        <div class="plan-period">por mes</div>
+        <div class="plan-price-row">
+          <span class="plan-price-old">$899</span>
+          <span class="plan-price">$719<span> MXN</span></span>
+        </div>
+        <div class="plan-period">por mes, facturado anual</div>
         <ul class="plan-features">
           <li>Todo lo de Starter</li>
           <li>Ventas en vivo</li>
@@ -440,8 +465,11 @@ footer{background:var(--navy);color:rgba(255,255,255,.5);padding:48px 0 28px;mar
       <div class="plan">
         <div class="plan-name">Scale</div>
         <div class="plan-range">$3M – $15M MXN/mes en ventas</div>
-        <div class="plan-price">$1,999<span> MXN</span></div>
-        <div class="plan-period">por mes</div>
+        <div class="plan-price-row">
+          <span class="plan-price-old">$1,999</span>
+          <span class="plan-price">$1,599<span> MXN</span></span>
+        </div>
+        <div class="plan-period">por mes, facturado anual</div>
         <ul class="plan-features">
           <li>Todo lo de Growth</li>
           <li>Multi-cuenta</li>
@@ -453,8 +481,11 @@ footer{background:var(--navy);color:rgba(255,255,255,.5);padding:48px 0 28px;mar
       <div class="plan">
         <div class="plan-name">Enterprise</div>
         <div class="plan-range">+$15M MXN/mes en ventas</div>
-        <div class="plan-price">$3,999<span> MXN</span></div>
-        <div class="plan-period">por mes</div>
+        <div class="plan-price-row">
+          <span class="plan-price-old">$3,999</span>
+          <span class="plan-price">$3,199<span> MXN</span></span>
+        </div>
+        <div class="plan-period">por mes, facturado anual</div>
         <ul class="plan-features">
           <li>Todo lo de Scale</li>
           <li>Cuentas ilimitadas</li>
@@ -467,6 +498,45 @@ footer{background:var(--navy);color:rgba(255,255,255,.5);padding:48px 0 28px;mar
     <div class="pricing-note">Todos los planes incluyen 14 días de prueba gratis. Sin tarjeta de crédito.</div>
   </div>
 </section>
+
+<script>
+const PLAN_PRICES = {
+  starter:    { monthly: 399,  annual: 319  },
+  growth:     { monthly: 899,  annual: 719  },
+  scale:      { monthly: 1999, annual: 1599 },
+  enterprise: { monthly: 3999, annual: 3199 }
+};
+let isAnnual = true;
+function fmtMXN(n){ return '$' + n.toLocaleString('es-MX'); }
+function toggleBilling(){
+  isAnnual = !isAnnual;
+  const sw = document.getElementById('billing-switch');
+  sw.classList.toggle('on', isAnnual);
+  document.getElementById('label-monthly').classList.toggle('active', !isAnnual);
+  document.getElementById('label-annual').classList.toggle('active', isAnnual);
+  const plans = document.querySelectorAll('.plan');
+  const keys = ['starter','growth','scale','enterprise'];
+  plans.forEach((planEl, i) => {
+    const key = keys[i];
+    const oldEl = planEl.querySelector('.plan-price-old');
+    const priceEl = planEl.querySelector('.plan-price');
+    const periodEl = planEl.querySelector('.plan-period');
+    if (isAnnual) {
+      oldEl.style.display = '';
+      oldEl.textContent = fmtMXN(PLAN_PRICES[key].monthly);
+      priceEl.innerHTML = fmtMXN(PLAN_PRICES[key].annual) + '<span> MXN</span>';
+      periodEl.textContent = 'por mes, facturado anual';
+    } else {
+      oldEl.style.display = 'none';
+      priceEl.innerHTML = fmtMXN(PLAN_PRICES[key].monthly) + '<span> MXN</span>';
+      periodEl.textContent = 'por mes';
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('billing-switch').classList.add('on');
+});
+</script>
 
 <section>
   <div class="cta-band">
