@@ -627,6 +627,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <input id="ent-empresa" type="text" placeholder="Nombre de tu empresa">
         </div>
         <div class="modal-field">
+          <label for="ent-telefono">Teléfono / WhatsApp</label>
+          <input id="ent-telefono" type="tel" placeholder="+52 55 1234 5678" required>
+        </div>
+        <div class="modal-field">
           <label for="ent-ventas">Ventas mensuales aproximadas</label>
           <textarea id="ent-ventas" placeholder="Ej: $20M MXN/mes, 5 cuentas de ML…"></textarea>
         </div>
@@ -666,10 +670,11 @@ async function submitEnterpriseForm(e) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        nombre:  document.getElementById('ent-nombre').value.trim(),
-        email:   document.getElementById('ent-email').value.trim(),
-        empresa: document.getElementById('ent-empresa').value.trim(),
-        ventas:  document.getElementById('ent-ventas').value.trim(),
+        nombre:   document.getElementById('ent-nombre').value.trim(),
+        email:    document.getElementById('ent-email').value.trim(),
+        empresa:  document.getElementById('ent-empresa').value.trim(),
+        telefono: document.getElementById('ent-telefono').value.trim(),
+        ventas:   document.getElementById('ent-ventas').value.trim(),
       }),
     });
     document.getElementById('modal-form-wrap').style.display = 'none';

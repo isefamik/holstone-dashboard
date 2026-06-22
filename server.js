@@ -2723,11 +2723,11 @@ app.get('/auth/ml/callback', async (req, res) => {
 
 // ── Contacto Enterprise ───────────────────────────────────────────────────────
 app.post('/api/contact-enterprise', async (req, res) => {
-  const { nombre, email, empresa, ventas } = req.body;
+  const { nombre, email, empresa, telefono, ventas } = req.body;
   if (!nombre || !email) return res.status(400).json({ error: 'nombre y email son requeridos' });
 
   if (!process.env.RESEND_API_KEY) {
-    console.log('[contact-enterprise] Sin RESEND_API_KEY — datos recibidos:', { nombre, email, empresa, ventas });
+    console.log('[contact-enterprise] Sin RESEND_API_KEY — datos recibidos:', { nombre, email, empresa, telefono, ventas });
     return res.json({ ok: true });
   }
 
@@ -2743,6 +2743,7 @@ app.post('/api/contact-enterprise', async (req, res) => {
           <tr><td style="padding:6px 16px 6px 0;color:#64748b">Nombre</td><td style="padding:6px 0"><strong>${nombre}</strong></td></tr>
           <tr><td style="padding:6px 16px 6px 0;color:#64748b">Email</td><td style="padding:6px 0"><a href="mailto:${email}">${email}</a></td></tr>
           <tr><td style="padding:6px 16px 6px 0;color:#64748b">Empresa</td><td style="padding:6px 0">${empresa || '—'}</td></tr>
+          <tr><td style="padding:6px 16px 6px 0;color:#64748b">Teléfono / WhatsApp</td><td style="padding:6px 0">${telefono || '—'}</td></tr>
           <tr><td style="padding:6px 16px 6px 0;color:#64748b">Ventas mensuales</td><td style="padding:6px 0">${ventas || '—'}</td></tr>
         </table>
       `,
