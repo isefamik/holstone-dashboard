@@ -2724,7 +2724,7 @@ app.get('/auth/ml/callback', async (req, res) => {
 // ── Contacto Enterprise ───────────────────────────────────────────────────────
 app.post('/api/contact-enterprise', async (req, res) => {
   const { nombre, email, empresa, telefono, ventas } = req.body;
-  if (!nombre || !email) return res.status(400).json({ error: 'nombre y email son requeridos' });
+  if (!nombre || (!email && !telefono)) return res.status(400).json({ error: 'nombre y (email o teléfono) son requeridos' });
 
   if (!process.env.RESEND_API_KEY) {
     console.log('[contact-enterprise] Sin RESEND_API_KEY — datos recibidos:', { nombre, email, empresa, telefono, ventas });
