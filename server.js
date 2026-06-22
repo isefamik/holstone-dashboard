@@ -2709,7 +2709,11 @@ app.get('/auth/ml/callback', async (req, res) => {
       updated_at: new Date().toISOString(),
     });
 
-    await supabase.from('tenants').update({ seller_id }).eq('id', tenantId);
+    // Guardar seller_id y, solo si es la primera conexión, trial_started_at
+    const { data: tenantRow } = await supabase.from('tenants').select('trial_started_at').eq('id', tenantId).single();
+    const trialUpdate = { seller_id };
+    if (!tenantRow?.trial_started_at) trialUpdate.trial_started_at = new Date().toISOString();
+    await supabase.from('tenants').update(trialUpdate).eq('id', tenantId);
 
     // Invalidar cache en memoria para forzar recarga con el nuevo seller_id
     tenantTokenCache.set(tenantId, { access_token, refresh_token, expires_at });
@@ -2738,6 +2742,18 @@ app.get('/api/mi-plan-recomendado', async (req, res) => {
   const mStr = String(m).padStart(2, '0');
   const mesCalculado = `${y}-${mStr}`;
 
+  // Calcular días de trial
+  const tenantId = requestCtx.getStore()?.tenant?.id;
+  const { data: tenantRow } = tenantId
+    ? await supabase.from('tenants').select('trial_started_at').eq('id', tenantId).single()
+    : { data: null };
+  const trialStarted = tenantRow?.trial_started_at ? new Date(tenantRow.trial_started_at) : null;
+  const diasDesdeInicio = trialStarted ? Math.floor((ahora - trialStarted) / (1000 * 60 * 60 * 24)) : 0;
+  const diasRestantesTrial = Math.max(0, 14 - diasDesdeInicio);
+  const trialVencido = trialStarted ? diasRestantesTrial === 0 : false;
+
+  const trialInfo = { dias_restantes_trial: diasRestantesTrial, trial_vencido: trialVencido };
+
   try {
     const lastDay = new Date(y, m, 0).getDate();
     const from = `${y}-${mStr}-01T00:00:00.000-06:00`;
@@ -2758,11 +2774,10 @@ app.get('/api/mi-plan-recomendado', async (req, res) => {
     }
 
     const ventaBruta = allOrders.reduce((s, o) => s + o.total_amount, 0);
-    res.json({ ...calcularTierPlan(ventaBruta), ventas_base: ventaBruta, mes_calculado: mesCalculado });
+    res.json({ ...calcularTierPlan(ventaBruta), ventas_base: ventaBruta, mes_calculado: mesCalculado, ...trialInfo });
   } catch (e) {
-    // Si la llamada a ML falla, devolver starter con ventas 0 en lugar de error 500
     console.error('[mi-plan-recomendado] ML error, usando fallback ventas=0:', e.message);
-    res.json({ ...calcularTierPlan(0), ventas_base: 0, mes_calculado: mesCalculado, fallback: true });
+    res.json({ ...calcularTierPlan(0), ventas_base: 0, mes_calculado: mesCalculado, fallback: true, ...trialInfo });
   }
 });
 

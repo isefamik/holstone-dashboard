@@ -688,9 +688,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 <!-- ═══════════════ PLAN SCREEN ═══════════════ -->
 <div id="plan-screen">
   <div class="psc-card">
-    <div style="font-size:46px;line-height:1">🎉</div>
-    <h2>¡Cuenta conectada!</h2>
-    <p class="psc-subtitle">Calculamos tu plan según tus ventas reales</p>
+    <div style="font-size:46px;line-height:1" id="psc-emoji">📊</div>
+    <h2 id="psc-header">Tu plan Rocky</h2>
+    <p class="psc-subtitle" id="psc-trial-badge"></p>
 
     <div id="psc-loading" style="color:var(--muted);font-size:14px;padding:24px 0">Calculando tu plan…</div>
 
@@ -730,7 +730,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
             <li><strong>Scale</strong> — hasta $15,000,000 MXN/mes</li>
             <li><strong>Enterprise</strong> — más de $15,000,000 MXN/mes</li>
           </ul>
-          <p>Puedes cambiar de plan en cualquier momento desde tu cuenta.</p>
+          <p>Tu plan se recalcula automáticamente cada mes según tus ventas reales — no necesitas elegir nada.</p>
         </div>
       </div>
     </div>
@@ -4785,19 +4785,56 @@ const _PSC_FEATURES = {
 const _PSC_COLORS = { starter:'#6366f1', growth:'#10b981', scale:'#f59e0b', enterprise:'#7c3aed' };
 const _PSC_LABELS = { starter:'STARTER', growth:'GROWTH', scale:'SCALE', enterprise:'ENTERPRISE' };
 const _MESES_ES   = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-let _pscData = null, _pscBilling = 'mensual';
+let _pscData = null, _pscBilling = 'mensual', _pscTrialVencido = false;
 
 function showPlanScreen(data) {
   _pscData    = data;
   _pscBilling = 'mensual';
+
+  const trialVencido = !!data.trial_vencido;
+  const dias         = data.dias_restantes_trial ?? 14;
+
+  // Header y emoji según estado del trial
+  if (trialVencido) {
+    document.getElementById('psc-emoji').textContent  = '⏰';
+    document.getElementById('psc-header').textContent = 'Tu período de prueba ha vencido';
+    document.getElementById('psc-trial-badge').innerHTML = '<span style="color:var(--red);font-weight:700">Tu prueba gratuita ha terminado. Activa tu plan para seguir usando Rocky.</span>';
+  } else {
+    document.getElementById('psc-emoji').textContent  = '📊';
+    document.getElementById('psc-header').textContent = 'Tu plan Rocky';
+    document.getElementById('psc-trial-badge').innerHTML = dias > 0
+      ? `<span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:12px;font-weight:700;font-size:13px">✓ Te quedan ${dias} día${dias !== 1 ? 's' : ''} de prueba gratis</span>`
+      : '';
+  }
+
+  // Botón CTA y cierre según trial
+  const ctaBtn = document.getElementById('psc-cta-btn');
+  if (trialVencido) {
+    ctaBtn.textContent = 'Pagar ahora para continuar';
+    ctaBtn.style.background = 'var(--red)';
+  } else {
+    ctaBtn.textContent = 'Continuar al pago →';
+    ctaBtn.style.background = '';
+  }
+
+  // Ocultar botón de cierre si trial vencido (no hay forma de escapar)
+  const closeBtn = document.querySelector('#plan-screen .psc-card > button');
+  // No hay botón X en el card — el único escape es continuarAlDashboard
+  // Si trial vencido, deshabilitamos esa función
+  _pscTrialVencido = trialVencido;
+
   const [y, m] = data.mes_calculado.split('-');
   document.getElementById('psc-mes').textContent    = `${_MESES_ES[parseInt(m) - 1]} ${y}`;
   document.getElementById('psc-ventas').textContent = '$' + Math.round(data.ventas_base).toLocaleString('es-MX') + ' MXN';
+
   const badge = document.getElementById('psc-tier-badge');
   badge.textContent      = _PSC_LABELS[data.tier] || data.tier.toUpperCase();
   badge.style.background = _PSC_COLORS[data.tier] || '#6366f1';
+
   document.getElementById('psc-features').innerHTML = (_PSC_FEATURES[data.tier] || []).map(f => `<li>${f}</li>`).join('');
+
   _renderPlanPrice();
+
   document.getElementById('psc-loading').style.display = 'none';
   document.getElementById('psc-content').style.display  = '';
   document.getElementById('plan-screen').classList.add('visible');
@@ -4821,6 +4858,7 @@ function _renderPlanPrice() {
 function setPlanBilling(mode) { _pscBilling = mode; _renderPlanPrice(); }
 
 function continuarAlDashboard() {
+  if (_pscTrialVencido) return; // bloquear cierre si trial vencido
   document.getElementById('plan-screen').classList.remove('visible');
 }
 
@@ -4853,18 +4891,16 @@ function togglePlanWhy() {
       const needsConnect = showDashboard(me.tenant);
       if (!needsConnect) {
         loadAll(); // carga en background mientras el usuario lee su plan
-        if (mlConnected) {
-          try {
-            const planRes = await fetch('/api/mi-plan-recomendado');
-            if (planRes.ok) {
-              showPlanScreen(await planRes.json());
-            } else {
-              const errBody = await planRes.json().catch(() => ({}));
-              alert('[plan-screen] HTTP ' + planRes.status + ': ' + JSON.stringify(errBody));
-            }
-          } catch (e) {
-            alert('[plan-screen] fetch error: ' + e.message);
+        try {
+          const planRes = await fetch('/api/mi-plan-recomendado');
+          if (planRes.ok) {
+            showPlanScreen(await planRes.json());
+          } else {
+            const errBody = await planRes.json().catch(() => ({}));
+            alert('[plan-screen] HTTP ' + planRes.status + ': ' + JSON.stringify(errBody));
           }
+        } catch (e) {
+          alert('[plan-screen] fetch error: ' + e.message);
         }
       } else if (mlConnected) {
         // Vino del callback pero seller_id aún no está en la sesión cacheada — forzar recarga
