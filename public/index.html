@@ -4814,8 +4814,9 @@ function showPlanScreen(data) {
       : '';
   }
 
-  // Botón CTA y cierre según trial
+  // Botón CTA — asignar onclick via JS para no depender del atributo HTML cacheado
   const ctaBtn = document.getElementById('psc-cta-btn');
+  ctaBtn.onclick = irAPago;
   if (trialVencido) {
     ctaBtn.textContent = 'Pagar ahora para continuar';
     ctaBtn.style.background = 'var(--red)';
