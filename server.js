@@ -2730,13 +2730,15 @@ function calcularTierPlan(ventasMensuales) {
 }
 
 app.get('/api/mi-plan-recomendado', async (req, res) => {
+  const ahora = new Date();
+  const primerDiaMesActual = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  const ultimoDiaMesAnterior = new Date(primerDiaMesActual - 1);
+  const y = ultimoDiaMesAnterior.getFullYear();
+  const m = ultimoDiaMesAnterior.getMonth() + 1;
+  const mStr = String(m).padStart(2, '0');
+  const mesCalculado = `${y}-${mStr}`;
+
   try {
-    const ahora = new Date();
-    const primerDiaMesActual = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
-    const ultimoDiaMesAnterior = new Date(primerDiaMesActual - 1);
-    const y = ultimoDiaMesAnterior.getFullYear();
-    const m = ultimoDiaMesAnterior.getMonth() + 1;
-    const mStr = String(m).padStart(2, '0');
     const lastDay = new Date(y, m, 0).getDate();
     const from = `${y}-${mStr}-01T00:00:00.000-06:00`;
     const to   = `${y}-${mStr}-${lastDay}T23:59:59.000-06:00`;
@@ -2756,11 +2758,11 @@ app.get('/api/mi-plan-recomendado', async (req, res) => {
     }
 
     const ventaBruta = allOrders.reduce((s, o) => s + o.total_amount, 0);
-    const plan = calcularTierPlan(ventaBruta);
-
-    res.json({ ...plan, ventas_base: ventaBruta, mes_calculado: `${y}-${mStr}` });
+    res.json({ ...calcularTierPlan(ventaBruta), ventas_base: ventaBruta, mes_calculado: mesCalculado });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    // Si la llamada a ML falla, devolver starter con ventas 0 en lugar de error 500
+    console.error('[mi-plan-recomendado] ML error, usando fallback ventas=0:', e.message);
+    res.json({ ...calcularTierPlan(0), ventas_base: 0, mes_calculado: mesCalculado, fallback: true });
   }
 });
 

@@ -4855,8 +4855,15 @@ function togglePlanWhy() {
         if (mlConnected) {
           try {
             const planRes = await fetch('/api/mi-plan-recomendado');
-            if (planRes.ok) showPlanScreen(await planRes.json());
-          } catch { /* silencioso — dashboard ya visible */ }
+            if (planRes.ok) {
+              showPlanScreen(await planRes.json());
+            } else {
+              const errBody = await planRes.json().catch(() => ({}));
+              alert('[plan-screen] HTTP ' + planRes.status + ': ' + JSON.stringify(errBody));
+            }
+          } catch (e) {
+            alert('[plan-screen] fetch error: ' + e.message);
+          }
         }
       } else if (mlConnected) {
         // Vino del callback pero seller_id aún no está en la sesión cacheada — forzar recarga
