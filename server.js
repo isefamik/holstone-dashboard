@@ -2734,7 +2734,7 @@ app.post('/api/contact-enterprise', async (req, res) => {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     await resend.emails.send({
-      from: 'Rocky <noreply@rocky.mx>',
+      from: 'Rocky <onboarding@resend.dev>',
       to: 'contacto@timaytempo.com.mx',
       subject: `Nuevo lead Enterprise: ${empresa || nombre}`,
       html: `
