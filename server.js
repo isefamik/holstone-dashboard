@@ -428,9 +428,9 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// Protege todas las rutas /api/* excepto login y logout
+// Protege todas las rutas /api/* excepto login, logout y contact-enterprise (público desde la landing)
 app.use('/api', (req, res, next) => {
-  if (req.path === '/login' || req.path === '/logout') return next();
+  if (req.path === '/login' || req.path === '/logout' || req.path === '/contact-enterprise') return next();
   requireAuth(req, res, next);
 });
 
