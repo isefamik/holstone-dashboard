@@ -602,6 +602,10 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 .psc-why-body ul{padding-left:18px;margin:8px 0}
 .psc-why-body li{margin-bottom:4px}
 .psc-why-body strong{color:var(--text)}
+/* ── Toast ── */
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(12px);background:#1e293b;color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;opacity:0;transition:opacity .3s,transform .3s;z-index:2000;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.toast-success{background:#059669}
 /* ── ML Connect screen ── */
 #ml-connect-screen{display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;align-items:center;justify-content:center;flex-direction:column}
 #ml-connect-screen.visible{display:flex}
@@ -685,6 +689,8 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
   </div>
 </div>
 
+<div id="toast"></div>
+
 <!-- ═══════════════ PLAN SCREEN ═══════════════ -->
 <div id="plan-screen">
   <div class="psc-card">
@@ -718,7 +724,8 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 
       <ul class="psc-features" id="psc-features"></ul>
 
-      <button class="psc-cta-btn" id="psc-cta-btn" onclick="continuarAlDashboard()">Continuar al pago →</button>
+      <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()">Continuar al pago →</button>
+      <p id="psc-checkout-error" style="display:none;color:var(--red);font-size:13px;margin:-10px 0 10px"></p>
 
       <div>
         <button class="psc-why-toggle" id="psc-why-toggle" onclick="togglePlanWhy()">▸ ¿Por qué este plan?</button>
@@ -4858,8 +4865,46 @@ function _renderPlanPrice() {
 function setPlanBilling(mode) { _pscBilling = mode; _renderPlanPrice(); }
 
 function continuarAlDashboard() {
-  if (_pscTrialVencido) return; // bloquear cierre si trial vencido
+  if (_pscTrialVencido) return;
   document.getElementById('plan-screen').classList.remove('visible');
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' toast-' + type : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 4500);
+}
+
+async function irAPago() {
+  if (!_pscData) return;
+  if (_pscData.tier === 'enterprise') { window.location.href = '/#pricing'; return; }
+
+  const btn = document.getElementById('psc-cta-btn');
+  const errEl = document.getElementById('psc-checkout-error');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Redirigiendo a pago…';
+
+  try {
+    const res = await fetch('/api/crear-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier: _pscData.tier, billing_cycle: _pscBilling }),
+    });
+    const data = await res.json();
+    if (res.ok && data.checkout_url) {
+      window.location.href = data.checkout_url;
+    } else {
+      throw new Error(data.error || 'Error desconocido');
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = _pscTrialVencido ? 'Pagar ahora para continuar' : 'Continuar al pago →';
+    errEl.textContent = 'No se pudo iniciar el pago: ' + e.message;
+    errEl.style.display = 'block';
+  }
 }
 
 function togglePlanWhy() {
@@ -4875,12 +4920,12 @@ function togglePlanWhy() {
   _hideDashboard();
   document.getElementById('login-screen').style.display = 'none';
 
-  // Detectar parámetros de retorno del callback OAuth
+  // Detectar parámetros de retorno (OAuth y Stripe)
   const params = new URLSearchParams(window.location.search);
-  const mlConnected = params.get('ml_connected') === '1';
-  const oauthError = params.get('error');
-  if (mlConnected || oauthError) {
-    // Limpiar params de la URL sin recargar
+  const mlConnected   = params.get('ml_connected') === '1';
+  const oauthError    = params.get('error');
+  const paymentStatus = params.get('payment'); // 'success' | 'cancelled'
+  if (mlConnected || oauthError || paymentStatus) {
     history.replaceState({}, '', window.location.pathname);
   }
 
@@ -4890,17 +4935,22 @@ function togglePlanWhy() {
       const me = await res.json();
       const needsConnect = showDashboard(me.tenant);
       if (!needsConnect) {
-        loadAll(); // carga en background mientras el usuario lee su plan
-        try {
-          const planRes = await fetch('/api/mi-plan-recomendado');
-          if (planRes.ok) {
-            showPlanScreen(await planRes.json());
-          } else {
-            const errBody = await planRes.json().catch(() => ({}));
-            alert('[plan-screen] HTTP ' + planRes.status + ': ' + JSON.stringify(errBody));
+        loadAll();
+        if (paymentStatus === 'success') {
+          showToast('¡Pago confirmado! Bienvenido a Rocky 🎉', 'success');
+        } else {
+          // Mostrar plan-screen siempre (incluyendo payment=cancelled para reintentar)
+          try {
+            const planRes = await fetch('/api/mi-plan-recomendado');
+            if (planRes.ok) {
+              showPlanScreen(await planRes.json());
+            } else {
+              const errBody = await planRes.json().catch(() => ({}));
+              alert('[plan-screen] HTTP ' + planRes.status + ': ' + JSON.stringify(errBody));
+            }
+          } catch (e) {
+            alert('[plan-screen] fetch error: ' + e.message);
           }
-        } catch (e) {
-          alert('[plan-screen] fetch error: ' + e.message);
         }
       } else if (mlConnected) {
         // Vino del callback pero seller_id aún no está en la sesión cacheada — forzar recarga
