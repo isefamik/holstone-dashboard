@@ -727,6 +727,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 
       <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()">Continuar al pago →</button>
       <p id="psc-checkout-error" style="display:none;color:var(--red);font-size:13px;margin:-10px 0 10px"></p>
+      <p id="psc-skip-link" style="margin:0 0 14px;display:none">
+        <a href="#" onclick="continuarAlDashboard();return false;" style="font-size:13px;color:var(--muted);text-decoration:underline">Continuar al dashboard sin pagar →</a>
+      </p>
 
       <div>
         <button class="psc-why-toggle" id="psc-why-toggle" onclick="togglePlanWhy()">▸ ¿Por qué este plan?</button>
@@ -4875,10 +4878,8 @@ function showPlanScreen(data) {
     ctaBtn.style.background = '';
   }
 
-  // Ocultar botón de cierre si trial vencido (no hay forma de escapar)
-  const closeBtn = document.querySelector('#plan-screen .psc-card > button');
-  // No hay botón X en el card — el único escape es continuarAlDashboard
-  // Si trial vencido, deshabilitamos esa función
+  // Link "Continuar sin pagar": visible en trial activo, oculto cuando vencido
+  document.getElementById('psc-skip-link').style.display = trialVencido ? 'none' : '';
   _pscTrialVencido = trialVencido;
 
   const [y, m] = data.mes_calculado.split('-');
@@ -5076,13 +5077,8 @@ async function susIrAPago() {
             const planRes = await fetch('/api/mi-plan-recomendado');
             if (planRes.ok) {
               showPlanScreen(await planRes.json());
-            } else {
-              const errBody = await planRes.json().catch(() => ({}));
-              alert('[plan-screen] HTTP ' + planRes.status + ': ' + JSON.stringify(errBody));
             }
-          } catch (e) {
-            alert('[plan-screen] fetch error: ' + e.message);
-          }
+          } catch { /* silencioso — dashboard ya visible */ }
         }
       } else if (mlConnected) {
         // Vino del callback pero seller_id aún no está en la sesión cacheada — forzar recarga
