@@ -4612,15 +4612,16 @@ window.addEventListener('popstate', e => {
 // Activar sección según URL al cargar la página
 (function initFromUrl(){
   const seg = window.location.pathname.replace(/^\/+/,'').split('/')[0];
+  const qs  = window.location.search; // preservar query params para initAuth
   if (seg && PAGE_TITLES[seg]) {
     if (seg !== 'inicio') {
       showSection(seg);
       if (SECTION_INITS[seg]) SECTION_INITS[seg]();
     } else {
-      history.replaceState({section:'inicio'}, '', '/inicio');
+      history.replaceState({section:'inicio'}, '', '/inicio' + qs);
     }
   } else {
-    history.replaceState({section:'inicio'}, '', '/inicio');
+    history.replaceState({section:'inicio'}, '', '/inicio' + qs);
   }
 })();
 
