@@ -170,6 +170,26 @@ section{padding:96px 0}
 .price-period-toggle{display:none}
 .price-period-toggle.active{display:block}
 
+/* ── MODAL ENTERPRISE ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;padding:36px 32px;width:100%;max-width:460px;position:relative;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.modal h3{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;margin-bottom:6px}
+.modal .modal-sub{font-size:14px;color:var(--muted);margin-bottom:24px}
+.modal-close{position:absolute;top:16px;right:18px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--dim);line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-field{margin-bottom:14px}
+.modal-field label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.modal-field input,.modal-field textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;color:var(--text);outline:none;transition:border-color .15s;background:#fff}
+.modal-field input:focus,.modal-field textarea:focus{border-color:var(--blue)}
+.modal-field textarea{resize:vertical;min-height:72px}
+.modal-submit{width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px}
+.modal-submit:hover{background:var(--blue)}
+.modal-submit:disabled{opacity:.6;cursor:not-allowed}
+.modal-success{display:none;text-align:center;padding:16px 0}
+.modal-success p{font-size:16px;font-weight:600;color:var(--green);margin-top:10px}
+.modal-success span{font-size:32px}
+
 /* ── CTA BAND ── */
 .cta-band{background:linear-gradient(135deg,var(--navy) 0%,var(--blue-dark) 100%);color:#fff;text-align:center;border-radius:24px;padding:64px 40px;margin:0 32px;position:relative;overflow:hidden}
 .cta-band::before{content:'';position:absolute;width:500px;height:500px;background:radial-gradient(circle,rgba(251,191,36,.15),transparent 70%);top:-200px;right:-150px}
@@ -482,17 +502,16 @@ footer{background:var(--navy);color:rgba(255,255,255,.5);padding:48px 0 28px;mar
         <div class="plan-name">Enterprise</div>
         <div class="plan-range">+$15M MXN/mes en ventas</div>
         <div class="plan-price-row">
-          <span class="plan-price-old">$3,999</span>
-          <span class="plan-price">$3,199<span> MXN</span></span>
+          <span class="plan-price" style="font-size:22px">Precio personalizado</span>
         </div>
-        <div class="plan-period">por mes, facturado anual</div>
+        <div class="plan-period">cotización a medida</div>
         <ul class="plan-features">
           <li>Todo lo de Scale</li>
           <li>Cuentas ilimitadas</li>
           <li>Onboarding personalizado</li>
           <li>Soporte dedicado</li>
         </ul>
-        <a href="/inicio" class="plan-cta">Contactar</a>
+        <button class="plan-cta" onclick="openEnterpriseModal()">Contactar</button>
       </div>
     </div>
     <div class="pricing-note">Todos los planes incluyen 14 días de prueba gratis. Sin tarjeta de crédito.</div>
@@ -585,6 +604,84 @@ document.addEventListener('DOMContentLoaded', () => {
     © 2026 Rocky. Plataforma independiente, no afiliada oficialmente a MercadoLibre.
   </div>
 </footer>
+
+<!-- ── MODAL ENTERPRISE ── -->
+<div class="modal-overlay" id="enterprise-modal" onclick="handleModalOverlayClick(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeEnterpriseModal()" aria-label="Cerrar">×</button>
+    <h3>Plan Enterprise</h3>
+    <p class="modal-sub">Cuéntanos sobre tu negocio y te contactamos con una propuesta a medida.</p>
+
+    <div id="modal-form-wrap">
+      <form id="enterprise-form" onsubmit="submitEnterpriseForm(event)">
+        <div class="modal-field">
+          <label for="ent-nombre">Nombre</label>
+          <input id="ent-nombre" type="text" placeholder="Tu nombre" required>
+        </div>
+        <div class="modal-field">
+          <label for="ent-email">Email</label>
+          <input id="ent-email" type="email" placeholder="tu@empresa.com" required>
+        </div>
+        <div class="modal-field">
+          <label for="ent-empresa">Empresa</label>
+          <input id="ent-empresa" type="text" placeholder="Nombre de tu empresa">
+        </div>
+        <div class="modal-field">
+          <label for="ent-ventas">Ventas mensuales aproximadas</label>
+          <textarea id="ent-ventas" placeholder="Ej: $20M MXN/mes, 5 cuentas de ML…"></textarea>
+        </div>
+        <button class="modal-submit" type="submit" id="ent-btn">Enviar</button>
+      </form>
+    </div>
+
+    <div class="modal-success" id="modal-success">
+      <span>🚀</span>
+      <p>¡Gracias! Te contactaremos pronto.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+function openEnterpriseModal() {
+  document.getElementById('enterprise-modal').classList.add('open');
+  document.getElementById('modal-form-wrap').style.display = '';
+  document.getElementById('modal-success').style.display = 'none';
+  document.getElementById('enterprise-form').reset();
+  document.getElementById('ent-btn').disabled = false;
+  document.getElementById('ent-btn').textContent = 'Enviar';
+}
+function closeEnterpriseModal() {
+  document.getElementById('enterprise-modal').classList.remove('open');
+}
+function handleModalOverlayClick(e) {
+  if (e.target === document.getElementById('enterprise-modal')) closeEnterpriseModal();
+}
+async function submitEnterpriseForm(e) {
+  e.preventDefault();
+  const btn = document.getElementById('ent-btn');
+  btn.disabled = true;
+  btn.textContent = 'Enviando…';
+  try {
+    await fetch('/api/contact-enterprise', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nombre:  document.getElementById('ent-nombre').value.trim(),
+        email:   document.getElementById('ent-email').value.trim(),
+        empresa: document.getElementById('ent-empresa').value.trim(),
+        ventas:  document.getElementById('ent-ventas').value.trim(),
+      }),
+    });
+    document.getElementById('modal-form-wrap').style.display = 'none';
+    document.getElementById('modal-success').style.display = 'block';
+    setTimeout(closeEnterpriseModal, 3500);
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Enviar';
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEnterpriseModal(); });
+</script>
 
 </body>
 </html>

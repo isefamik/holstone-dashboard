@@ -9,6 +9,7 @@ const { createClient } = require('@supabase/supabase-js');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const { AsyncLocalStorage } = require('async_hooks');
+const { Resend } = require('resend');
 require('dotenv').config();
 
 const requestCtx = new AsyncLocalStorage();
@@ -2717,6 +2718,39 @@ app.get('/auth/ml/callback', async (req, res) => {
   } catch (e) {
     console.error('ML callback error:', e.response?.data || e.message);
     res.redirect('/inicio?error=oauth_fallido');
+  }
+});
+
+// ── Contacto Enterprise ───────────────────────────────────────────────────────
+app.post('/api/contact-enterprise', async (req, res) => {
+  const { nombre, email, empresa, ventas } = req.body;
+  if (!nombre || !email) return res.status(400).json({ error: 'nombre y email son requeridos' });
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log('[contact-enterprise] Sin RESEND_API_KEY — datos recibidos:', { nombre, email, empresa, ventas });
+    return res.json({ ok: true });
+  }
+
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    await resend.emails.send({
+      from: 'Rocky <noreply@rocky.mx>',
+      to: 'contacto@timaytempo.com.mx',
+      subject: `Nuevo lead Enterprise: ${empresa || nombre}`,
+      html: `
+        <h2>Nuevo contacto Enterprise — Rocky</h2>
+        <table style="border-collapse:collapse;font-family:sans-serif;font-size:14px">
+          <tr><td style="padding:6px 16px 6px 0;color:#64748b">Nombre</td><td style="padding:6px 0"><strong>${nombre}</strong></td></tr>
+          <tr><td style="padding:6px 16px 6px 0;color:#64748b">Email</td><td style="padding:6px 0"><a href="mailto:${email}">${email}</a></td></tr>
+          <tr><td style="padding:6px 16px 6px 0;color:#64748b">Empresa</td><td style="padding:6px 0">${empresa || '—'}</td></tr>
+          <tr><td style="padding:6px 16px 6px 0;color:#64748b">Ventas mensuales</td><td style="padding:6px 0">${ventas || '—'}</td></tr>
+        </table>
+      `,
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Resend error:', e.message);
+    res.status(500).json({ error: 'Error al enviar el email' });
   }
 });
 
