@@ -2807,8 +2807,29 @@ app.get('/api/mi-plan-recomendado', async (req, res) => {
   const mStr = String(m).padStart(2, '0');
   const mesCalculado = `${y}-${mStr}`;
 
-  // Calcular días de trial
   const tenantId = requestCtx.getStore()?.tenant?.id;
+
+  // Si ya tiene suscripción activa, no calcular trial — responder directo
+  if (tenantId) {
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status, tier, billing_cycle')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'activo')
+      .maybeSingle();
+    if (sub) {
+      return res.json({
+        tiene_suscripcion_activa: true,
+        status: 'activo',
+        tier: sub.tier,
+        billing_cycle: sub.billing_cycle,
+        dias_restantes_trial: 0,
+        trial_vencido: false,
+      });
+    }
+  }
+
+  // Calcular días de trial
   const { data: tenantRow } = tenantId
     ? await supabase.from('tenants').select('trial_started_at').eq('id', tenantId).single()
     : { data: null };

@@ -5237,13 +5237,16 @@ async function reactivarCuenta() {
           try {
             const estadoRes = await fetch('/api/estado-cuenta');
             const estado    = estadoRes.ok ? await estadoRes.json() : { status: 'sin_suscripcion' };
-            if (estado.status === 'pendiente') {
+            if (estado.status === 'activo') {
+              return; // suscripción activa → dashboard directo, sin popup
+            } else if (estado.status === 'pendiente') {
               _mostrarBannerPago(estado);
             } else if (estado.status === 'suspendido' || estado.status === 'cancelado') {
               _mostrarReactivarScreen(estado);
               return; // no mostrar plan-screen
             }
-          } catch { /* silencioso */ }
+            // 'sin_suscripcion' o cualquier valor inesperado → cae al flujo de trial
+          } catch { /* silencioso — si falla estado-cuenta, continúa con plan-screen normal */ }
 
           // Flujo normal de trial / plan-screen
           try {
