@@ -3072,6 +3072,11 @@ app.get('/api/test-mp-preapproval', async (req, res) => {
   const appUrl = process.env.APP_URL || 'https://holstone-dashboard.onrender.com';
   const frecuencia = billing_cycle === 'anual' ? 12 : 1;
 
+  // Usa el token de cuenta vendedora de prueba si está disponible
+  const testClient = process.env.MP_TEST_SELLER_ACCESS_TOKEN
+    ? new MercadoPagoConfig({ accessToken: process.env.MP_TEST_SELLER_ACCESS_TOKEN })
+    : mpClient;
+
   const body = {
     reason:             `TEST Holstone ${tier} - ${billing_cycle}`,
     auto_recurring: {
@@ -3086,7 +3091,7 @@ app.get('/api/test-mp-preapproval', async (req, res) => {
   };
 
   try {
-    const preapprovalClient = new PreApproval(mpClient);
+    const preapprovalClient = new PreApproval(testClient);
     const result = await preapprovalClient.create({ body });
     res.json({ ok: true, init_point: result.init_point, id: result.id, request_sent: body });
   } catch (e) {
