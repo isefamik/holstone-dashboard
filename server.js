@@ -3094,8 +3094,12 @@ app.post('/api/crear-checkout-mp', async (req, res) => {
     });
     res.json({ checkout_url: result.init_point });
   } catch (e) {
-    console.error('[crear-checkout-mp] Error:', e.message);
-    res.status(500).json({ error: 'Error al crear la suscripción en Mercado Pago' });
+    console.error('[crear-checkout-mp] Error completo:', JSON.stringify(e, null, 2));
+    res.status(500).json({
+      error:    'Error al crear la suscripción en Mercado Pago',
+      detail:   e.message || e.error || 'sin mensaje',
+      apiError: e,
+    });
   }
 });
 
