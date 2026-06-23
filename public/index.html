@@ -5236,29 +5236,29 @@ function showForgot() {
 }
 
 async function handleForgot(e) {
-  e.preventDefault();
+  e.preventDefault(); // PRIMERO — antes de cualquier alert
   const msgEl = document.getElementById('forgot-msg');
   try {
-    console.log('[handleForgot] paso 1: obteniendo elementos');
+    alert('PASO 1: preventDefault OK, buscando elementos');
     const btn   = document.getElementById('forgot-btn');
     const email = document.getElementById('forgot-email').value.trim();
-    console.log('[handleForgot] paso 2: deshabilitando botón, email=' + email);
+    alert('PASO 2: btn=' + (btn ? 'OK' : 'NULL') + ', email=' + email);
     btn.disabled = true; btn.textContent = 'Enviando…';
     msgEl.textContent = ''; msgEl.style.color = '';
-    console.log('[handleForgot] paso 3: antes del fetch');
+    alert('PASO 3: antes del fetch a /auth/forgot-password');
     try {
       await fetch('/auth/forgot-password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-    } catch { /* ignorar error de red — mostrar mismo mensaje siempre */ }
-    console.log('[handleForgot] paso 4: después del fetch, actualizando msgEl');
+    } catch (fe) { alert('PASO 3b: error de red: ' + fe.message); }
+    alert('PASO 4: después del fetch, actualizando botón y mensaje');
     btn.disabled = false; btn.textContent = 'Enviar link de recuperación';
     msgEl.style.color = '#16a34a';
+    alert('PASO 5: antes de escribir textContent en msgEl');
     msgEl.textContent = 'Si el correo existe, te enviamos un link para restablecer tu contraseña.';
-    console.log('[handleForgot] paso 5: mensaje actualizado — ' + msgEl.textContent);
+    alert('PASO 6: textContent actualizado — ' + msgEl.textContent);
   } catch (err) {
-    console.error('[handleForgot] CATCH:', err);
     alert('CATCH: ' + (err.message || err || 'error desconocido'));
     document.getElementById('forgot-msg').textContent = 'ERROR JS: ' + (err.message || err);
   }
