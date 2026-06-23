@@ -773,7 +773,10 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
     <div style="font-size:56px;line-height:1;margin-bottom:18px">📊</div>
     <h2 id="reactivar-title" style="font-size:22px;font-weight:900;color:var(--text);margin:0 0 12px;line-height:1.3">Tus datos de Holstone te están esperando</h2>
     <p id="reactivar-body" style="font-size:14px;color:var(--muted);margin:0 0 28px;line-height:1.65">Reactiva tu cuenta y vuelve a ver tus ventas, rentabilidad y stock en tiempo real.</p>
-    <button id="reactivar-btn" onclick="reactivarCuenta()" style="width:100%;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:14px;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">Reactivar mi cuenta →</button>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+      <button id="reactivar-btn" onclick="reactivarCuenta()" style="width:100%;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">💳 Reactivar con Tarjeta / PayPal →</button>
+      <button id="reactivar-btn-mp" onclick="reactivarCuentaMP()" style="width:100%;background:linear-gradient(135deg,#009ee3,#0057a6);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">Reactivar con Mercado Pago →</button>
+    </div>
     <p id="reactivar-error" style="font-size:12px;color:var(--red);margin:0;display:none"></p>
   </div>
 </div>
@@ -812,7 +815,10 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 
       <ul class="psc-features" id="psc-features"></ul>
 
-      <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()">Continuar al pago →</button>
+      <div id="psc-payment-btns" style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+        <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()" style="margin-bottom:0">💳 Pagar con Tarjeta / PayPal →</button>
+        <button class="psc-cta-btn" id="psc-cta-btn-mp" onclick="irAPagoMP()" style="margin-bottom:0;background:linear-gradient(135deg,#009ee3,#0057a6)">Pagar con Mercado Pago →</button>
+      </div>
       <p id="psc-checkout-error" style="display:none;color:var(--red);font-size:13px;margin:-10px 0 10px"></p>
       <p id="psc-skip-link" style="margin:0 0 14px;display:none">
         <a href="#" onclick="continuarAlDashboard();return false;" style="font-size:13px;color:var(--muted);text-decoration:underline">Explorar el dashboard primero</a>
@@ -4995,10 +5001,10 @@ function showPlanScreen(data) {
   const ctaBtn = document.getElementById('psc-cta-btn');
   ctaBtn.onclick = irAPago;
   if (trialVencido) {
-    ctaBtn.textContent = 'Pagar ahora para continuar';
+    ctaBtn.textContent = '💳 Pagar con Tarjeta / PayPal (requerido)';
     ctaBtn.style.background = 'var(--red)';
   } else {
-    ctaBtn.textContent = 'Continuar al pago →';
+    ctaBtn.textContent = '💳 Pagar con Tarjeta / PayPal →';
     ctaBtn.style.background = '';
   }
 
@@ -5029,7 +5035,7 @@ function _renderPlanPrice() {
   document.getElementById('psc-price-wrap').style.display     = isEnt ? 'none'  : '';
   document.getElementById('psc-billing-toggle').style.display = isEnt ? 'none'  : '';
   document.getElementById('psc-enterprise-msg').style.display = isEnt ? 'block' : 'none';
-  document.getElementById('psc-cta-btn').style.display        = isEnt ? 'none'  : '';
+  document.getElementById('psc-payment-btns').style.display   = isEnt ? 'none'  : '';
   if (!isEnt) {
     const isAnual = _pscBilling === 'anual';
     const precio  = isAnual ? _pscData.precio_anual * 12 : _pscData.precio_mensual;
@@ -5083,11 +5089,41 @@ async function irAPago() {
     }
   } catch (e) {
     btn.disabled = false;
-    btn.textContent = _pscTrialVencido ? 'Pagar ahora para continuar' : 'Continuar al pago →';
+    btn.textContent = _pscTrialVencido ? '💳 Pagar con Tarjeta / PayPal (requerido)' : '💳 Pagar con Tarjeta / PayPal →';
     const msg = 'Error: ' + e.message;
     errEl.textContent = msg;
     errEl.style.display = 'block';
     alert(msg);
+  }
+}
+
+async function irAPagoMP() {
+  if (!_pscData) return;
+  if (_pscData.tier === 'enterprise') { window.location.href = '/#pricing'; return; }
+
+  const btn   = document.getElementById('psc-cta-btn-mp');
+  const errEl = document.getElementById('psc-checkout-error');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Redirigiendo a Mercado Pago…';
+
+  try {
+    const res  = await fetch('/api/crear-checkout-mp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier: _pscData.tier, billing_cycle: _pscBilling }),
+    });
+    const data = await res.json();
+    if (res.ok && data.checkout_url) {
+      window.location.href = data.checkout_url;
+    } else {
+      throw new Error('HTTP ' + res.status + ': ' + (data.error || JSON.stringify(data)));
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Pagar con Mercado Pago →';
+    errEl.textContent = 'Error: ' + e.message;
+    errEl.style.display = 'block';
   }
 }
 
@@ -5366,6 +5402,34 @@ async function reactivarCuenta() {
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Reactivar mi cuenta →'; }
     if (bannerBtn) { bannerBtn.disabled = false; bannerBtn.textContent = 'Actualizar pago'; }
+    if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
+  }
+}
+
+async function reactivarCuentaMP() {
+  const estado = _estadoCuenta;
+  const tier        = estado?.tier || 'starter';
+  const billingCycle = estado?.billing_cycle || 'mensual';
+  const btn   = document.getElementById('reactivar-btn-mp');
+  const errEl = document.getElementById('reactivar-error');
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirigiendo…'; }
+  errEl && (errEl.style.display = 'none');
+
+  try {
+    const res  = await fetch('/api/crear-checkout-mp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier, billing_cycle: billingCycle }),
+    });
+    const data = await res.json();
+    if (res.ok && data.checkout_url) {
+      window.location.href = data.checkout_url;
+    } else {
+      throw new Error(data.error || 'Error al crear suscripción en Mercado Pago');
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Reactivar con Mercado Pago →'; }
     if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
   }
 }

@@ -11,7 +11,16 @@ const bcrypt = require('bcryptjs');
 const { AsyncLocalStorage } = require('async_hooks');
 const { Resend } = require('resend');
 require('dotenv').config();
+const crypto = require('crypto');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { MercadoPagoConfig, PreApproval, WebhookSignatureValidator } = require('mercadopago');
+const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+
+const MP_PRICES = {
+  starter: { mensual: 399,     anual: 3830.40 },
+  growth:  { mensual: 899,     anual: 8630.40 },
+  scale:   { mensual: 1999,    anual: 19190.40 },
+};
 
 const STRIPE_PRICES = {
   starter: { mensual: 'price_1TlILo3hvybH0Z3nEOY03GZb', anual: 'price_1TlILn3hvybH0Z3njFBuybrS' },
@@ -111,6 +120,60 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
     }
   } catch (err) {
     console.error('Stripe webhook processing error:', err);
+  }
+
+  res.json({ received: true });
+});
+
+// POST /api/mercadopago-webhook — antes de express.json() global; usa su propio parser
+app.post('/api/mercadopago-webhook', express.json(), async (req, res) => {
+  if (process.env.MP_WEBHOOK_SECRET) {
+    try {
+      WebhookSignatureValidator.validate({
+        xSignature: req.headers['x-signature'],
+        xRequestId: req.headers['x-request-id'],
+        dataId:     req.body?.data?.id,
+        secret:     process.env.MP_WEBHOOK_SECRET,
+      });
+    } catch (err) {
+      console.warn('[mp-webhook] Firma inválida:', err.message);
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+  }
+
+  const { action, data } = req.body || {};
+
+  try {
+    if (action === 'subscription_preapproval' && data?.id) {
+      const preapprovalClient = new PreApproval(mpClient);
+      const details = await preapprovalClient.get({ id: data.id });
+      const extRef  = details.external_reference ? JSON.parse(details.external_reference) : null;
+
+      if (extRef?.tenant_id) {
+        if (details.status === 'authorized') {
+          await supabase.from('subscriptions').upsert({
+            tenant_id:         extRef.tenant_id,
+            tier:              extRef.tier,
+            billing_cycle:     extRef.billing_cycle || 'mensual',
+            precio_mxn:        details.auto_recurring?.transaction_amount,
+            metodo_pago:       'mercadopago',
+            status:            'activo',
+            mp_preapproval_id: data.id,
+            updated_at:        new Date().toISOString(),
+          }, { onConflict: 'tenant_id' });
+        } else if (details.status === 'cancelled') {
+          await supabase.from('subscriptions')
+            .update({ status: 'suspendido', updated_at: new Date().toISOString() })
+            .eq('mp_preapproval_id', data.id);
+        } else if (details.status === 'paused') {
+          await supabase.from('subscriptions')
+            .update({ status: 'pendiente', updated_at: new Date().toISOString() })
+            .eq('mp_preapproval_id', data.id);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[mp-webhook] Error:', err.message);
   }
 
   res.json({ received: true });
@@ -2999,6 +3062,43 @@ app.post('/api/crear-checkout', async (req, res) => {
   }
 });
 
+app.post('/api/crear-checkout-mp', async (req, res) => {
+  const { tier, billing_cycle } = req.body;
+  if (!tier || !billing_cycle) return res.status(400).json({ error: 'tier y billing_cycle son requeridos' });
+  if (tier === 'enterprise') return res.status(400).json({ error: 'Enterprise va por contacto directo' });
+
+  const precio = MP_PRICES[tier]?.[billing_cycle];
+  if (!precio) return res.status(400).json({ error: 'Combinación inválida' });
+
+  const { data: user } = await supabase
+    .from('users').select('email').eq('id', req.session.userId).single();
+
+  const appUrl = process.env.APP_URL || 'https://holstone-dashboard.onrender.com';
+  const frecuencia = billing_cycle === 'anual' ? 12 : 1;
+
+  try {
+    const preapprovalClient = new PreApproval(mpClient);
+    const result = await preapprovalClient.create({
+      body: {
+        reason:             `Holstone ${tier} - ${billing_cycle}`,
+        auto_recurring: {
+          frequency:          frecuencia,
+          frequency_type:     'months',
+          transaction_amount: precio,
+          currency_id:        'MXN',
+        },
+        back_url:           `${appUrl}/inicio?payment=success`,
+        payer_email:        user?.email,
+        external_reference: JSON.stringify({ tenant_id: req.tenant.id, tier, billing_cycle }),
+      },
+    });
+    res.json({ checkout_url: result.init_point });
+  } catch (e) {
+    console.error('[crear-checkout-mp] Error:', e.message);
+    res.status(500).json({ error: 'Error al crear la suscripción en Mercado Pago' });
+  }
+});
+
 // ── Contacto Enterprise ───────────────────────────────────────────────────────
 app.post('/api/contact-enterprise', async (req, res) => {
   const { nombre, email, empresa, telefono, ventas } = req.body;
@@ -3043,7 +3143,6 @@ app.post('/auth/forgot-password', async (req, res) => {
       .from('users').select('id').eq('email', email.toLowerCase().trim()).maybeSingle();
 
     if (user) {
-      const crypto = require('crypto');
       const token     = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
