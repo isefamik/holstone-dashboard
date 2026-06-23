@@ -3062,6 +3062,16 @@ app.post('/api/crear-checkout', async (req, res) => {
   }
 });
 
+app.get('/api/debug-mp-config', (req, res) => {
+  const check = (val) => val ? { set: true, prefix: val.slice(0, 4) } : { set: false, prefix: null };
+  res.json({
+    MP_ACCESS_TOKEN:  check(process.env.MP_ACCESS_TOKEN),
+    MP_PUBLIC_KEY:    check(process.env.MP_PUBLIC_KEY),
+    MP_WEBHOOK_SECRET: check(process.env.MP_WEBHOOK_SECRET),
+    mpClientReady:    !!process.env.MP_ACCESS_TOKEN,
+  });
+});
+
 app.post('/api/crear-checkout-mp', async (req, res) => {
   const { tier, billing_cycle } = req.body;
   if (!tier || !billing_cycle) return res.status(400).json({ error: 'tier y billing_cycle son requeridos' });
