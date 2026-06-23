@@ -5231,36 +5231,34 @@ function showForgot() {
   document.getElementById('register-card').style.display = 'none';
   document.getElementById('forgot-card').style.display   = '';
   document.getElementById('forgot-email').value = '';
-  document.getElementById('forgot-msg').textContent = '';
-  document.getElementById('forgot-msg').style.color = '';
+  const fm = document.getElementById('forgot-msg');
+  fm.classList.remove('visible'); fm.textContent = ''; fm.style.color = '';
 }
 
 async function handleForgot(e) {
-  e.preventDefault(); // PRIMERO — antes de cualquier alert
+  e.preventDefault();
   const msgEl = document.getElementById('forgot-msg');
+  const btn   = document.getElementById('forgot-btn');
   try {
-    alert('PASO 1: preventDefault OK, buscando elementos');
-    const btn   = document.getElementById('forgot-btn');
     const email = document.getElementById('forgot-email').value.trim();
-    alert('PASO 2: btn=' + (btn ? 'OK' : 'NULL') + ', email=' + email);
     btn.disabled = true; btn.textContent = 'Enviando…';
-    msgEl.textContent = ''; msgEl.style.color = '';
-    alert('PASO 3: antes del fetch a /auth/forgot-password');
+    msgEl.classList.remove('visible'); msgEl.textContent = ''; msgEl.style.color = '';
     try {
       await fetch('/auth/forgot-password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-    } catch (fe) { alert('PASO 3b: error de red: ' + fe.message); }
-    alert('PASO 4: después del fetch, actualizando botón y mensaje');
+    } catch { /* ignorar error de red — mostrar mismo mensaje siempre */ }
     btn.disabled = false; btn.textContent = 'Enviar link de recuperación';
     msgEl.style.color = '#16a34a';
-    alert('PASO 5: antes de escribir textContent en msgEl');
     msgEl.textContent = 'Si el correo existe, te enviamos un link para restablecer tu contraseña.';
-    alert('PASO 6: textContent actualizado — ' + msgEl.textContent);
+    msgEl.classList.add('visible');
   } catch (err) {
-    alert('CATCH: ' + (err.message || err || 'error desconocido'));
-    document.getElementById('forgot-msg').textContent = 'ERROR JS: ' + (err.message || err);
+    console.error('[handleForgot]', err);
+    btn.disabled = false; btn.textContent = 'Enviar link de recuperación';
+    msgEl.style.color = '';
+    msgEl.textContent = 'Error inesperado. Intenta de nuevo.';
+    msgEl.classList.add('visible');
   }
 }
 
@@ -5274,14 +5272,20 @@ function showResetScreen(token) {
 
 async function handleReset(e) {
   e.preventDefault();
-  const btn      = document.getElementById('reset-btn');
-  const msgEl    = document.getElementById('reset-msg');
-  const newPass  = document.getElementById('reset-password').value;
-  const confirm  = document.getElementById('reset-confirm').value;
-  msgEl.textContent = ''; msgEl.style.color = 'var(--red)';
+  const btn     = document.getElementById('reset-btn');
+  const msgEl   = document.getElementById('reset-msg');
+  const newPass = document.getElementById('reset-password').value;
+  const confirm = document.getElementById('reset-confirm').value;
+  msgEl.classList.remove('visible'); msgEl.textContent = ''; msgEl.style.color = 'var(--red)';
 
-  if (newPass.length < 8) { msgEl.textContent = 'La contraseña debe tener al menos 8 caracteres.'; return; }
-  if (newPass !== confirm) { msgEl.textContent = 'Las contraseñas no coinciden.'; return; }
+  if (newPass.length < 8) {
+    msgEl.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+    msgEl.classList.add('visible'); return;
+  }
+  if (newPass !== confirm) {
+    msgEl.textContent = 'Las contraseñas no coinciden.';
+    msgEl.classList.add('visible'); return;
+  }
 
   btn.disabled = true; btn.textContent = 'Restableciendo…';
   try {
@@ -5293,6 +5297,7 @@ async function handleReset(e) {
     if (res.ok) {
       msgEl.style.color = '#16a34a';
       msgEl.textContent = '✓ Contraseña actualizada. Redirigiendo al login…';
+      msgEl.classList.add('visible');
       history.replaceState({}, '', '/inicio');
       setTimeout(() => {
         document.getElementById('reset-password-screen').style.display = 'none';
@@ -5301,10 +5306,12 @@ async function handleReset(e) {
       }, 3000);
     } else {
       msgEl.textContent = data.error || 'Error al restablecer la contraseña.';
+      msgEl.classList.add('visible');
       btn.disabled = false; btn.textContent = 'Restablecer contraseña';
     }
   } catch {
     msgEl.textContent = 'Error de conexión. Intenta de nuevo.';
+    msgEl.classList.add('visible');
     btn.disabled = false; btn.textContent = 'Restablecer contraseña';
   }
 }
