@@ -4794,6 +4794,8 @@ window.addEventListener('popstate', e => {
 (function initFromUrl(){
   const seg = window.location.pathname.replace(/^\/+/,'').split('/')[0];
   const qs  = window.location.search; // preservar query params para initAuth
+  // Rutas especiales que initAuth() maneja directamente — no tocar la URL
+  if (seg === 'reset-password') return;
   if (seg && PAGE_TITLES[seg]) {
     if (seg !== 'inicio') {
       showSection(seg);
@@ -5235,20 +5237,25 @@ function showForgot() {
 
 async function handleForgot(e) {
   e.preventDefault();
-  const btn   = document.getElementById('forgot-btn');
   const msgEl = document.getElementById('forgot-msg');
-  const email = document.getElementById('forgot-email').value.trim();
-  btn.disabled = true; btn.textContent = 'Enviando…';
-  msgEl.textContent = ''; msgEl.style.color = '';
   try {
-    await fetch('/auth/forgot-password', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-  } catch { /* ignorar — mostrar mismo mensaje siempre */ }
-  btn.disabled = false; btn.textContent = 'Enviar link de recuperación';
-  msgEl.style.color = '#16a34a';
-  msgEl.textContent = 'Si el correo existe, te enviamos un link para restablecer tu contraseña.';
+    const btn   = document.getElementById('forgot-btn');
+    const email = document.getElementById('forgot-email').value.trim();
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    msgEl.textContent = ''; msgEl.style.color = '';
+    try {
+      await fetch('/auth/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    } catch { /* ignorar error de red — mostrar mismo mensaje siempre */ }
+    btn.disabled = false; btn.textContent = 'Enviar link de recuperación';
+    msgEl.style.color = '#16a34a';
+    msgEl.textContent = 'Si el correo existe, te enviamos un link para restablecer tu contraseña.';
+  } catch (err) {
+    console.error('[handleForgot]', err);
+    document.getElementById('forgot-msg').textContent = 'ERROR JS: ' + (err.message || err);
+  }
 }
 
 let _resetToken = null;
