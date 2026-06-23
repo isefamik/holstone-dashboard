@@ -3062,6 +3062,40 @@ app.post('/api/crear-checkout', async (req, res) => {
   }
 });
 
+// GET /api/test-mp-preapproval?tier=starter&billing_cycle=mensual&payer_email=test_user_...@testuser.com
+// Endpoint TEMPORAL de diagnóstico — protegido por requireAuth, eliminar después de pruebas
+app.get('/api/test-mp-preapproval', async (req, res) => {
+  const { tier = 'starter', billing_cycle = 'mensual', payer_email } = req.query;
+  const precio = MP_PRICES[tier]?.[billing_cycle];
+  if (!precio) return res.status(400).json({ error: 'Combinación inválida' });
+
+  const appUrl = process.env.APP_URL || 'https://holstone-dashboard.onrender.com';
+  const frecuencia = billing_cycle === 'anual' ? 12 : 1;
+
+  const body = {
+    reason:             `TEST Holstone ${tier} - ${billing_cycle}`,
+    auto_recurring: {
+      frequency:          frecuencia,
+      frequency_type:     'months',
+      transaction_amount: precio,
+      currency_id:        'MXN',
+    },
+    back_url:           `${appUrl}/inicio?payment=success`,
+    payer_email:        payer_email || undefined,
+    external_reference: JSON.stringify({ tenant_id: req.tenant.id, tier, billing_cycle, test: true }),
+  };
+
+  try {
+    const preapprovalClient = new PreApproval(mpClient);
+    const result = await preapprovalClient.create({ body });
+    res.json({ ok: true, init_point: result.init_point, id: result.id, request_sent: body });
+  } catch (e) {
+    let errObj;
+    try { errObj = JSON.parse(JSON.stringify(e)); } catch { errObj = String(e); }
+    res.status(500).json({ ok: false, error: errObj, request_sent: body });
+  }
+});
+
 app.get('/api/debug-mp-config', (req, res) => {
   const check = (val) => val ? { set: true, prefix: val.slice(0, 4) } : { set: false, prefix: null };
   res.json({
@@ -3073,7 +3107,7 @@ app.get('/api/debug-mp-config', (req, res) => {
 });
 
 app.post('/api/crear-checkout-mp', async (req, res) => {
-  const { tier, billing_cycle } = req.body;
+  const { tier, billing_cycle, payer_email: payerEmailOverride } = req.body;
   if (!tier || !billing_cycle) return res.status(400).json({ error: 'tier y billing_cycle son requeridos' });
   if (tier === 'enterprise') return res.status(400).json({ error: 'Enterprise va por contacto directo' });
 
@@ -3085,6 +3119,7 @@ app.post('/api/crear-checkout-mp', async (req, res) => {
 
   const appUrl = process.env.APP_URL || 'https://holstone-dashboard.onrender.com';
   const frecuencia = billing_cycle === 'anual' ? 12 : 1;
+  const payerEmail = payerEmailOverride || user?.email;
 
   try {
     const preapprovalClient = new PreApproval(mpClient);
@@ -3098,7 +3133,7 @@ app.post('/api/crear-checkout-mp', async (req, res) => {
           currency_id:        'MXN',
         },
         back_url:           `${appUrl}/inicio?payment=success`,
-        payer_email:        user?.email,
+        payer_email:        payerEmail,
         external_reference: JSON.stringify({ tenant_id: req.tenant.id, tier, billing_cycle }),
       },
     });
