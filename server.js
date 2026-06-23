@@ -14,9 +14,9 @@ require('dotenv').config();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const STRIPE_PRICES = {
-  starter: { mensual: 'price_1TlFsB3taXSPAwZ2EGZGH1Di', anual: 'price_1TlFsC3taXSPAwZ29eX4Ks6L' },
-  growth:  { mensual: 'price_1TlFsC3taXSPAwZ2SMNIsK2Q', anual: 'price_1TlFsC3taXSPAwZ22MOL4R4z' },
-  scale:   { mensual: 'price_1TlFsD3taXSPAwZ21udI1wPU', anual: 'price_1TlFsD3taXSPAwZ2KPP4LkUz' },
+  starter: { mensual: 'price_1TlILo3hvybH0Z3nEOY03GZb', anual: 'price_1TlILn3hvybH0Z3njFBuybrS' },
+  growth:  { mensual: 'price_1TlILr3hvybH0Z3nyeBOILcQ', anual: 'price_1TlILr3hvybH0Z3nQ3fzjAFl' },
+  scale:   { mensual: 'price_1TlILq3hvybH0Z3n3xEjZR9q', anual: 'price_1TlILq3hvybH0Z3nKAaEtAG0' },
 };
 
 const requestCtx = new AsyncLocalStorage();
