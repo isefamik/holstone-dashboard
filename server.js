@@ -2871,54 +2871,81 @@ app.get('/api/mi-plan-recomendado', async (req, res) => {
 app.get('/api/mi-suscripcion', async (req, res) => {
   try {
     const tenantId = req.tenant.id;
-    const { data: tenant } = await supabase
-      .from('tenants')
-      .select('trial_started_at')
-      .eq('id', tenantId)
-      .single();
-
     const ahora = new Date();
-    const trialStarted = tenant?.trial_started_at ? new Date(tenant.trial_started_at) : null;
-    const diasDesdeInicio = trialStarted
-      ? Math.floor((ahora - trialStarted) / (1000 * 60 * 60 * 24))
-      : 0;
-    const diasRestantesTrial = trialStarted ? Math.max(0, 14 - diasDesdeInicio) : 14;
-    const trialVencido = trialStarted ? diasRestantesTrial === 0 : false;
-
-    // Calcular tier según ventas del mes anterior (mismo que /api/mi-plan-recomendado)
     const primerDiaMesActual = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
     const ultimoDiaMesAnterior = new Date(primerDiaMesActual - 1);
     const y = ultimoDiaMesAnterior.getFullYear();
     const m = ultimoDiaMesAnterior.getMonth() + 1;
     const mStr = String(m).padStart(2, '0');
-    let ventaBruta = 0;
-    try {
-      const lastDay = new Date(y, m, 0).getDate();
-      const from = `${y}-${mStr}-01T00:00:00.000-06:00`;
-      const to   = `${y}-${mStr}-${lastDay}T23:59:59.000-06:00`;
-      let allOrders = [], offset = 0, total = 1;
-      while (offset < total) {
-        const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-          seller: getSellerId(), 'order.status': 'paid',
-          'order.date_created.from': from, 'order.date_created.to': to,
-          limit: 50, offset
-        });
-        total = d.paging.total;
-        allOrders = allOrders.concat(d.results);
-        offset += 50;
-      }
-      ventaBruta = allOrders.reduce((s, o) => s + o.total_amount, 0);
-    } catch { /* fallback a 0 */ }
 
+    // Helper para obtener ventas del mes anterior
+    async function fetchVentas() {
+      try {
+        const lastDay = new Date(y, m, 0).getDate();
+        const from = `${y}-${mStr}-01T00:00:00.000-06:00`;
+        const to   = `${y}-${mStr}-${lastDay}T23:59:59.000-06:00`;
+        let allOrders = [], offset = 0, total = 1;
+        while (offset < total) {
+          const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+            seller: getSellerId(), 'order.status': 'paid',
+            'order.date_created.from': from, 'order.date_created.to': to,
+            limit: 50, offset
+          });
+          total = d.paging.total;
+          allOrders = allOrders.concat(d.results);
+          offset += 50;
+        }
+        return allOrders.reduce((s, o) => s + o.total_amount, 0);
+      } catch { return 0; }
+    }
+
+    // Si tiene suscripción activa, devolver estado real sin calcular trial
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status, tier, billing_cycle, precio_mxn, proxima_fecha_pago, metodo_pago')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'activo')
+      .maybeSingle();
+
+    if (sub) {
+      const ventaBruta = await fetchVentas();
+      const plan = calcularTierPlan(ventaBruta);
+      return res.json({
+        tiene_suscripcion_activa: true,
+        status:               'activo',
+        tier:                 sub.tier,
+        billing_cycle:        sub.billing_cycle,
+        precio_mensual:       plan.precio_mensual,
+        precio_anual:         plan.precio_anual,
+        precio_mxn:           sub.precio_mxn,
+        proxima_fecha_pago:   sub.proxima_fecha_pago,
+        metodo_pago:          sub.metodo_pago,
+        ventas_base:          ventaBruta,
+        mes_calculado:        `${y}-${mStr}`,
+        dias_restantes_trial: 0,
+        trial_vencido:        false,
+        trial_started_at:     null,
+      });
+    }
+
+    // Sin suscripción activa — calcular estado de trial
+    const { data: tenant } = await supabase
+      .from('tenants').select('trial_started_at').eq('id', tenantId).single();
+    const trialStarted = tenant?.trial_started_at ? new Date(tenant.trial_started_at) : null;
+    const diasDesdeInicio = trialStarted ? Math.floor((ahora - trialStarted) / (1000 * 60 * 60 * 24)) : 0;
+    const diasRestantesTrial = trialStarted ? Math.max(0, 14 - diasDesdeInicio) : 14;
+    const trialVencido = trialStarted ? diasRestantesTrial === 0 : false;
+
+    const ventaBruta = await fetchVentas();
     const plan = calcularTierPlan(ventaBruta);
 
     res.json({
       ...plan,
-      ventas_base: ventaBruta,
-      mes_calculado: `${y}-${mStr}`,
+      ventas_base:          ventaBruta,
+      mes_calculado:        `${y}-${mStr}`,
       dias_restantes_trial: diasRestantesTrial,
-      trial_vencido: trialVencido,
-      trial_started_at: tenant?.trial_started_at || null,
+      trial_vencido:        trialVencido,
+      trial_started_at:     tenant?.trial_started_at || null,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });

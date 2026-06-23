@@ -288,6 +288,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sus-tier-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);color:#fff;padding:6px 18px;border-radius:30px;font-size:12px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:10px}
 .sus-status-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:20px;font-size:12px;font-weight:700}
 .sus-status-trial{background:rgba(255,255,255,.18);color:#fff}
+.sus-status-active{background:rgba(52,211,153,.28);color:#6ee7b7}
 .sus-status-vencido{background:rgba(239,68,68,.3);color:#fca5a5}
 .sus-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
 .sus-info-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px}
@@ -5101,9 +5102,13 @@ function renderSuscripcion(d) {
     : '—';
   document.getElementById('sus-start-date').textContent = startDate;
 
-  const pill    = document.getElementById('sus-status-pill');
+  const pill     = document.getElementById('sus-status-pill');
   const pagarBtn = document.getElementById('sus-pagar-btn');
-  if (d.trial_vencido) {
+  if (d.tiene_suscripcion_activa) {
+    pill.className   = 'sus-status-pill sus-status-active';
+    pill.textContent = '✓ Suscripción activa';
+    pagarBtn.style.display = 'none';
+  } else if (d.trial_vencido) {
     pill.className   = 'sus-status-pill sus-status-vencido';
     pill.textContent = '⏰ Prueba vencida';
     pagarBtn.style.display = '';
@@ -5115,13 +5120,29 @@ function renderSuscripcion(d) {
   }
 
   // B) Info cards
-  if (d.tier !== 'enterprise') {
+  if (d.tiene_suscripcion_activa && d.precio_mxn) {
+    document.getElementById('sus-precio-val').textContent   = `$${d.precio_mxn.toLocaleString('es-MX')}`;
+    document.getElementById('sus-precio-hint2').textContent = `/ ${d.billing_cycle === 'anual' ? 'año' : 'mes'}`;
+  } else if (d.tier !== 'enterprise') {
     document.getElementById('sus-precio-val').textContent   = `$${d.precio_mensual.toLocaleString('es-MX')}/mes`;
     document.getElementById('sus-precio-hint2').textContent = `o $${(d.precio_anual * 12).toLocaleString('es-MX')}/año`;
   } else {
     document.getElementById('sus-precio-val').textContent   = 'Personalizado';
     document.getElementById('sus-precio-hint2').textContent = 'Contacta a ventas';
   }
+
+  // Card de facturación — datos reales si tiene suscripción activa
+  const billingVal  = document.getElementById('sus-billing-val');
+  const billingHint = document.getElementById('sus-billing-hint');
+  if (d.tiene_suscripcion_activa) {
+    billingVal.textContent = d.billing_cycle === 'anual' ? 'Anual' : 'Mensual';
+    billingVal.style.cssText = 'font-size:21px;font-weight:800;color:var(--text)';
+    const proxFecha = d.proxima_fecha_pago
+      ? new Date(d.proxima_fecha_pago).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' })
+      : '—';
+    billingHint.textContent = `Próximo cobro: ${proxFecha}`;
+  }
+
   document.getElementById('sus-ventas-val').textContent = `$${(d.ventas_base || 0).toLocaleString('es-MX')}`;
   document.getElementById('sus-ventas-mes').textContent = d.mes_calculado || '';
 
