@@ -5468,6 +5468,7 @@ async function reactivarCuentaMP() {
           try {
             const estadoRes = await fetch('/api/estado-cuenta');
             const estado    = estadoRes.ok ? await estadoRes.json() : { status: 'sin_suscripcion' };
+            console.log('[initAuth] estado-cuenta:', JSON.stringify(estado));
             if (estado.status === 'activo') {
               return; // suscripción activa → dashboard directo, sin popup
             } else if (estado.status === 'pendiente') {
@@ -5477,15 +5478,15 @@ async function reactivarCuentaMP() {
               return; // no mostrar plan-screen
             }
             // 'sin_suscripcion' o cualquier valor inesperado → cae al flujo de trial
-          } catch { /* silencioso — si falla estado-cuenta, continúa con plan-screen normal */ }
+          } catch (e) { console.error('[initAuth] estado-cuenta ERROR:', e); }
 
           // Flujo normal de trial / plan-screen
           try {
             const planRes = await fetch('/api/mi-plan-recomendado');
-            if (planRes.ok) {
-              showPlanScreen(await planRes.json());
-            }
-          } catch { /* silencioso — dashboard ya visible */ }
+            const planData = planRes.ok ? await planRes.json() : null;
+            console.log('[initAuth] mi-plan-recomendado:', JSON.stringify(planData));
+            if (planData) showPlanScreen(planData);
+          } catch (e) { console.error('[initAuth] showPlanScreen ERROR:', e); }
         }
       } else if (mlConnected) {
         // Vino del callback pero seller_id aún no está en la sesión cacheada — forzar recarga
