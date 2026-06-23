@@ -3033,6 +3033,108 @@ app.post('/api/contact-enterprise', async (req, res) => {
   }
 });
 
+// ── Olvidé mi contraseña ──────────────────────────────────────────────────────
+app.post('/auth/forgot-password', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.json({ ok: true });
+
+  try {
+    const { data: user } = await supabase
+      .from('users').select('id').eq('email', email.toLowerCase().trim()).maybeSingle();
+
+    if (user) {
+      const crypto = require('crypto');
+      const token     = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+      await supabase.from('password_reset_tokens').insert({
+        user_id: user.id, token, expires_at: expiresAt, used: false,
+      });
+
+      const appUrl    = process.env.APP_URL || 'https://holstone-dashboard.onrender.com';
+      const resetLink = `${appUrl}/reset-password?token=${token}`;
+      const resend    = new Resend(process.env.RESEND_API_KEY);
+
+      await resend.emails.send({
+        from:    'Rocky <onboarding@resend.dev>',
+        to:      email,
+        subject: 'Restablece tu contraseña de Rocky',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+            <h2 style="margin:0 0 8px;color:#1e293b">Restablece tu contraseña</h2>
+            <p style="color:#475569;margin:0 0 24px">
+              Recibiste este correo porque solicitaste restablecer tu contraseña de Rocky.
+              Haz clic en el botón para elegir una nueva:
+            </p>
+            <a href="${resetLink}" style="display:inline-block;background:#6366f1;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+              Restablecer contraseña
+            </a>
+            <p style="color:#94a3b8;margin:24px 0 0;font-size:13px">
+              Este link expira en <strong>1 hora</strong>. Si no solicitaste esto, puedes ignorar este correo.
+            </p>
+            <p style="color:#cbd5e1;margin:8px 0 0;font-size:12px">${resetLink}</p>
+          </div>
+        `,
+      });
+    }
+  } catch (e) {
+    console.error('[forgot-password]', e.message);
+  }
+
+  res.json({ ok: true }); // siempre la misma respuesta — no revelar si el email existe
+});
+
+// ── Restablecer contraseña con token ─────────────────────────────────────────
+app.post('/auth/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body || {};
+  if (!token || !newPassword) return res.status(400).json({ error: 'Datos incompletos' });
+  if (newPassword.length < 8)  return res.status(400).json({ error: 'Mínimo 8 caracteres' });
+
+  try {
+    const { data: row } = await supabase
+      .from('password_reset_tokens')
+      .select('id, user_id, expires_at, used')
+      .eq('token', token)
+      .maybeSingle();
+
+    if (!row || row.used || new Date(row.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Link inválido o expirado' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await supabase.from('users').update({ password_hash: hash }).eq('id', row.user_id);
+    await supabase.from('password_reset_tokens').update({ used: true }).eq('id', row.id);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[reset-password]', e.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Cambiar contraseña (usuario logueado) ─────────────────────────────────────
+app.post('/api/cambiar-password', async (req, res) => {
+  const { passwordActual, passwordNueva } = req.body || {};
+  if (!passwordActual || !passwordNueva) return res.status(400).json({ error: 'Datos incompletos' });
+  if (passwordNueva.length < 8) return res.status(400).json({ error: 'Mínimo 8 caracteres' });
+
+  try {
+    const { data: user } = await supabase
+      .from('users').select('password_hash').eq('id', req.session.userId).single();
+
+    const valid = await bcrypt.compare(passwordActual, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+
+    const hash = await bcrypt.hash(passwordNueva, 10);
+    await supabase.from('users').update({ password_hash: hash }).eq('id', req.session.userId);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[cambiar-password]', e.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // ── Catch-all: serve index.html para rutas de sección (/ventas, /stock, etc.) ──
 app.use((req, res, next) => {
   if (req.method === 'GET' && !req.path.startsWith('/api/')) {

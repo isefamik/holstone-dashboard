@@ -644,6 +644,30 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 <body>
 
 <!-- ═══════════════ LOGIN / REGISTRO ═══════════════ -->
+<!-- ═══════════════ RESET PASSWORD SCREEN ═══════════════ -->
+<div id="reset-password-screen" style="display:none;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#0f172a 100%)">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="/logo-rocky.svg" style="width:72px;height:72px;border-radius:14px;margin-bottom:4px">
+      <h1>Rocky</h1>
+      <p>Elige tu nueva contraseña</p>
+    </div>
+    <form id="reset-form" onsubmit="handleReset(event)">
+      <div class="login-field">
+        <label for="reset-password">Nueva contraseña</label>
+        <input id="reset-password" type="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password" required>
+      </div>
+      <div class="login-field">
+        <label for="reset-confirm">Confirmar contraseña</label>
+        <input id="reset-confirm" type="password" placeholder="Repite la contraseña" autocomplete="new-password" required>
+      </div>
+      <button class="login-btn" type="submit" id="reset-btn">Restablecer contraseña</button>
+      <div class="login-error" id="reset-msg" style="text-align:center"></div>
+    </form>
+    <div class="login-toggle"><a onclick="showForgot();document.getElementById('reset-password-screen').style.display='none';document.getElementById('login-screen').style.display=''">← Pedir un nuevo link</a></div>
+  </div>
+</div>
+
 <div id="login-screen">
   <!-- Formulario de login -->
   <div class="login-card" id="login-card">
@@ -663,8 +687,30 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
       </div>
       <button class="login-btn" type="submit" id="login-btn">Iniciar sesión</button>
       <div class="login-error" id="login-error"></div>
+      <div style="text-align:center;margin-top:10px">
+        <a onclick="showForgot()" style="font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline">¿Olvidaste tu contraseña?</a>
+      </div>
     </form>
     <div class="login-toggle">¿No tienes cuenta? <a onclick="showRegister()">Regístrate gratis</a></div>
+  </div>
+
+  <!-- Formulario de recuperación de contraseña -->
+  <div class="login-card" id="forgot-card" style="display:none">
+    <div class="login-logo">
+      <img src="/logo-rocky.svg" style="width:72px;height:72px;border-radius:14px;margin-bottom:4px">
+      <h1>Rocky</h1>
+      <p>Recupera tu contraseña</p>
+    </div>
+    <p style="font-size:13px;color:var(--muted);text-align:center;margin:0 0 18px;line-height:1.5">Ingresa tu correo y te enviamos un link para restablecer tu contraseña.</p>
+    <form id="forgot-form" onsubmit="handleForgot(event)">
+      <div class="login-field">
+        <label for="forgot-email">Correo electrónico</label>
+        <input id="forgot-email" type="email" placeholder="tu@correo.com" autocomplete="email" required>
+      </div>
+      <button class="login-btn" type="submit" id="forgot-btn">Enviar link de recuperación</button>
+      <div class="login-error" id="forgot-msg" style="text-align:center"></div>
+    </form>
+    <div class="login-toggle"><a onclick="showLoginForm()">← Volver a iniciar sesión</a></div>
   </div>
 
   <!-- Formulario de registro -->
@@ -4826,8 +4872,9 @@ function showLogin(msg) {
 }
 
 function showLoginForm() {
-  document.getElementById('login-card').style.display = '';
+  document.getElementById('login-card').style.display    = '';
   document.getElementById('register-card').style.display = 'none';
+  document.getElementById('forgot-card').style.display   = 'none';
 }
 
 function showRegister() {
@@ -5176,6 +5223,79 @@ async function susIrAPago() {
   }
 }
 
+// ── Olvidé / Restablecer contraseña ──────────────────────────────────────────
+function showForgot() {
+  document.getElementById('login-card').style.display    = 'none';
+  document.getElementById('register-card').style.display = 'none';
+  document.getElementById('forgot-card').style.display   = '';
+  document.getElementById('forgot-email').value = '';
+  document.getElementById('forgot-msg').textContent = '';
+  document.getElementById('forgot-msg').style.color = '';
+}
+
+async function handleForgot(e) {
+  e.preventDefault();
+  const btn   = document.getElementById('forgot-btn');
+  const msgEl = document.getElementById('forgot-msg');
+  const email = document.getElementById('forgot-email').value.trim();
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  msgEl.textContent = ''; msgEl.style.color = '';
+  try {
+    await fetch('/auth/forgot-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+  } catch { /* ignorar — mostrar mismo mensaje siempre */ }
+  btn.disabled = false; btn.textContent = 'Enviar link de recuperación';
+  msgEl.style.color = '#16a34a';
+  msgEl.textContent = 'Si el correo existe, te enviamos un link para restablecer tu contraseña.';
+}
+
+let _resetToken = null;
+
+function showResetScreen(token) {
+  _resetToken = token;
+  document.getElementById('reset-password-screen').style.display = 'flex';
+  document.getElementById('login-screen').style.display = 'none';
+}
+
+async function handleReset(e) {
+  e.preventDefault();
+  const btn      = document.getElementById('reset-btn');
+  const msgEl    = document.getElementById('reset-msg');
+  const newPass  = document.getElementById('reset-password').value;
+  const confirm  = document.getElementById('reset-confirm').value;
+  msgEl.textContent = ''; msgEl.style.color = 'var(--red)';
+
+  if (newPass.length < 8) { msgEl.textContent = 'La contraseña debe tener al menos 8 caracteres.'; return; }
+  if (newPass !== confirm) { msgEl.textContent = 'Las contraseñas no coinciden.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Restableciendo…';
+  try {
+    const res  = await fetch('/auth/reset-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: _resetToken, newPassword: newPass }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      msgEl.style.color = '#16a34a';
+      msgEl.textContent = '✓ Contraseña actualizada. Redirigiendo al login…';
+      history.replaceState({}, '', '/inicio');
+      setTimeout(() => {
+        document.getElementById('reset-password-screen').style.display = 'none';
+        document.getElementById('login-screen').style.display = '';
+        showLoginForm();
+      }, 3000);
+    } else {
+      msgEl.textContent = data.error || 'Error al restablecer la contraseña.';
+      btn.disabled = false; btn.textContent = 'Restablecer contraseña';
+    }
+  } catch {
+    msgEl.textContent = 'Error de conexión. Intenta de nuevo.';
+    btn.disabled = false; btn.textContent = 'Restablecer contraseña';
+  }
+}
+
 // ── Lógica de estado de cuenta ────────────────────────────────────────────────
 let _estadoCuenta = null;
 
@@ -5232,6 +5352,12 @@ async function reactivarCuenta() {
 
 // Verificar sesión al cargar
 (async function initAuth() {
+  // Detectar pantalla de reset-password antes de cualquier otra cosa
+  if (window.location.pathname === '/reset-password') {
+    const _rToken = new URLSearchParams(window.location.search).get('token');
+    if (_rToken) { showResetScreen(_rToken); return; }
+  }
+
   _hideDashboard();
   document.getElementById('login-screen').style.display = 'none';
 
