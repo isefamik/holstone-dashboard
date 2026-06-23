@@ -96,10 +96,17 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
           .update({ proxima_fecha_pago: proximaFecha, updated_at: new Date().toISOString() })
           .eq('stripe_subscription_id', subId);
       }
+    } else if (event.type === 'invoice.payment_failed') {
+      const subId = event.data.object.subscription;
+      if (subId) {
+        await supabase.from('subscriptions')
+          .update({ status: 'pendiente', updated_at: new Date().toISOString() })
+          .eq('stripe_subscription_id', subId);
+      }
     } else if (event.type === 'customer.subscription.deleted') {
       const sub = event.data.object;
       await supabase.from('subscriptions')
-        .update({ status: 'cancelado', updated_at: new Date().toISOString() })
+        .update({ status: 'suspendido', updated_at: new Date().toISOString() })
         .eq('stripe_subscription_id', sub.id);
     }
   } catch (err) {
@@ -2894,6 +2901,21 @@ app.get('/api/mi-suscripcion', async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Estado de cuenta (suscripción activa, pendiente, suspendida, etc.) ────────
+app.get('/api/estado-cuenta', async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('status, tier, billing_cycle')
+      .eq('tenant_id', req.tenant.id)
+      .maybeSingle();
+    res.json(data ?? { status: 'sin_suscripcion' });
+  } catch (e) {
+    console.error('[estado-cuenta]', e.message);
+    res.json({ status: 'sin_suscripcion' });
   }
 });
 
