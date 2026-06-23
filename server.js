@@ -58,6 +58,57 @@ class SupabaseSessionStore extends session.Store {
 
 const app = express();
 app.use(cors());
+
+// POST /api/stripe-webhook — debe ir ANTES de express.json() para recibir raw body
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error('Stripe webhook signature error:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const { tenant_id, tier, billing_cycle } = session.metadata || {};
+      if (tenant_id && tier) {
+        await supabase.from('subscriptions').upsert({
+          tenant_id,
+          tier,
+          billing_cycle:          billing_cycle || 'mensual',
+          precio_mxn:             session.amount_total ? session.amount_total / 100 : null,
+          metodo_pago:            'stripe',
+          status:                 'activo',
+          stripe_customer_id:     session.customer,
+          stripe_subscription_id: session.subscription,
+          updated_at:             new Date().toISOString(),
+        }, { onConflict: 'tenant_id' });
+      }
+    } else if (event.type === 'invoice.payment_succeeded') {
+      const invoice = event.data.object;
+      const subId   = invoice.subscription;
+      if (subId && invoice.lines?.data?.[0]?.period?.end) {
+        const proximaFecha = new Date(invoice.lines.data[0].period.end * 1000).toISOString();
+        await supabase.from('subscriptions')
+          .update({ proxima_fecha_pago: proximaFecha, updated_at: new Date().toISOString() })
+          .eq('stripe_subscription_id', subId);
+      }
+    } else if (event.type === 'customer.subscription.deleted') {
+      const sub = event.data.object;
+      await supabase.from('subscriptions')
+        .update({ status: 'cancelado', updated_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', sub.id);
+    }
+  } catch (err) {
+    console.error('Stripe webhook processing error:', err);
+  }
+
+  res.json({ received: true });
+});
+
 app.use(express.json());
 
 // Landing en "/" — debe ir antes de express.static para que no lo intercepte el index.html por defecto
