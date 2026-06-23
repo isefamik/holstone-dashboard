@@ -296,9 +296,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sus-info-hint{font-size:11px;color:var(--muted);margin-top:3px}
 .sus-feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
 .sus-feature-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;font-size:13px;color:var(--text)}
-.sus-feature-icon{font-size:17px;flex-shrink:0;width:26px;text-align:center}
-.sus-upgrade-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:16px}
-.sus-hist-empty{text-align:center;padding:36px 0;color:var(--muted);font-size:13px;line-height:1.8}
+.sus-feature-icon{font-size:17px;flex-shrink:0;width:26px;text-align:center}.sus-hist-empty{text-align:center;padding:36px 0;color:var(--muted);font-size:13px;line-height:1.8}
 .rep-metric-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.09)}
 .rep-metric-icon{font-size:26px;margin-bottom:10px;display:block}
 .rep-metric-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px}
@@ -746,7 +744,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
       <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()">Continuar al pago →</button>
       <p id="psc-checkout-error" style="display:none;color:var(--red);font-size:13px;margin:-10px 0 10px"></p>
       <p id="psc-skip-link" style="margin:0 0 14px;display:none">
-        <a href="#" onclick="continuarAlDashboard();return false;" style="font-size:13px;color:var(--muted);text-decoration:underline">Continuar al dashboard sin pagar →</a>
+        <a href="#" onclick="continuarAlDashboard();return false;" style="font-size:13px;color:var(--muted);text-decoration:underline">Explorar el dashboard primero</a>
       </p>
 
       <div>
@@ -1663,7 +1661,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
               <div id="sus-status-pill" class="sus-status-pill sus-status-trial">✓ En prueba gratuita</div>
-              <button id="sus-pagar-btn" onclick="susIrAPago()" style="display:none;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer">Activar suscripción →</button>
+              <button id="sus-pagar-btn" onclick="susIrAPago()" style="display:none;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">Activar suscripción →</button>
             </div>
           </div>
         </div>
@@ -1698,13 +1696,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
           <div id="sus-features-grid" class="sus-feature-grid"></div>
         </div>
 
-        <!-- Upgrade nudge -->
-        <div id="sus-upgrade-card" class="sus-upgrade-card" style="display:none">
-          <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px">
-            ⬆️ Lo que desbloqueas con <span id="sus-next-tier-name">GROWTH</span>
-          </div>
-          <div id="sus-upgrade-features" class="sus-feature-grid" style="opacity:.8"></div>
-          <div style="margin-top:14px;font-size:12px;color:var(--muted)">Tu plan se ajusta automáticamente cada mes según tus ventas reales — no necesitas hacer nada.</div>
+        <!-- Nota informativa de ajuste automático -->
+        <div style="margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;font-size:13px;color:var(--muted);line-height:1.6">
+          ✦ Todas las funciones de Rocky están incluidas en tu cuenta — tu plan se ajusta automáticamente cada mes según tus ventas reales.
         </div>
 
         <!-- D) HISTORIAL DE FACTURACIÓN -->
@@ -5057,13 +5051,6 @@ const _SUS_FEATURE_ICONS = {
   'SLA garantizado':'📋',
   'Soporte dedicado 24/7':'🎯',
 };
-const _SUS_UPGRADE_FEATURES = {
-  starter:    ['Hasta 3 cuentas de MercadoLibre','Gestión de stock inteligente','Reportes de rentabilidad'],
-  growth:     ['Hasta 10 cuentas de MercadoLibre','Director Comercial AI','Reportes de devoluciones'],
-  scale:      ['Cuentas de MercadoLibre ilimitadas','Integración con ERP / sistema propio','Soporte dedicado 24/7'],
-  enterprise: [],
-};
-const _SUS_NEXT_TIER = { starter:'GROWTH', growth:'SCALE', scale:'ENTERPRISE', enterprise:null };
 let _susBilling = 'mensual';
 
 async function initSuscripcion() {
@@ -5120,20 +5107,6 @@ function renderSuscripcion(d) {
     const icon = _SUS_FEATURE_ICONS[f] || '✓';
     return `<div class="sus-feature-item"><span class="sus-feature-icon">${icon}</span><span>${f}</span></div>`;
   }).join('');
-
-  // Upgrade nudge
-  const upgradeFeats = _SUS_UPGRADE_FEATURES[d.tier] || [];
-  const upgradeCard  = document.getElementById('sus-upgrade-card');
-  if (upgradeFeats.length) {
-    document.getElementById('sus-next-tier-name').textContent   = _SUS_NEXT_TIER[d.tier] || '';
-    document.getElementById('sus-upgrade-features').innerHTML   = upgradeFeats.map(f => {
-      const icon = _SUS_FEATURE_ICONS[f] || '⭐';
-      return `<div class="sus-feature-item"><span class="sus-feature-icon">${icon}</span><span>${f}</span></div>`;
-    }).join('');
-    upgradeCard.style.display = '';
-  } else {
-    upgradeCard.style.display = 'none';
-  }
 
   document.getElementById('sus-loading').style.display = 'none';
   document.getElementById('sus-content').style.display = '';
