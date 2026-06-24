@@ -758,7 +758,8 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 <div id="payment-banner" style="display:none;position:fixed;top:56px;left:var(--sw);right:0;z-index:90;background:#fffbeb;border-bottom:1px solid #f59e0b;padding:10px 24px;display:none;align-items:center;gap:12px;flex-wrap:wrap">
   <span style="font-size:18px">⚠️</span>
   <span style="font-size:13px;color:#92400e;font-weight:600;flex:1">Tu último pago no se pudo procesar. Actualiza tu método de pago para evitar interrupciones.</span>
-  <button id="payment-banner-btn" onclick="reactivarCuenta()" style="background:#f59e0b;color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Actualizar pago</button>
+  <button id="payment-banner-btn" onclick="reactivarCuenta()" style="background:#f59e0b;color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">💳 Actualizar pago</button>
+  <button id="payment-banner-btn-mp" onclick="reactivarCuentaMP()" style="background:linear-gradient(135deg,#009ee3,#0057a6);color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Mercado Pago</button>
   <button onclick="document.getElementById('payment-banner').style.display='none'" style="background:none;border:none;font-size:16px;color:#92400e;cursor:pointer;padding:0 4px;line-height:1">✕</button>
 </div>
 <style>
@@ -5433,10 +5434,12 @@ async function reactivarCuentaMP() {
   const estado = _estadoCuenta;
   const tier        = estado?.tier || 'starter';
   const billingCycle = estado?.billing_cycle || 'mensual';
-  const btn   = document.getElementById('reactivar-btn-mp');
-  const errEl = document.getElementById('reactivar-error');
+  const btn       = document.getElementById('reactivar-btn-mp');
+  const bannerBtn = document.getElementById('payment-banner-btn-mp');
+  const errEl     = document.getElementById('reactivar-error');
 
-  if (btn) { btn.disabled = true; btn.textContent = 'Redirigiendo…'; }
+  if (btn)       { btn.disabled = true;       btn.textContent = 'Redirigiendo…'; }
+  if (bannerBtn) { bannerBtn.disabled = true;  bannerBtn.textContent = 'Redirigiendo…'; }
   errEl && (errEl.style.display = 'none');
 
   try {
@@ -5452,7 +5455,8 @@ async function reactivarCuentaMP() {
       throw new Error(data.error || 'Error al crear suscripción en Mercado Pago');
     }
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Reactivar con Mercado Pago →'; }
+    if (btn)       { btn.disabled = false;       btn.textContent = 'Reactivar con Mercado Pago →'; }
+    if (bannerBtn) { bannerBtn.disabled = false;  bannerBtn.textContent = 'Mercado Pago'; }
     if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
   }
 }
