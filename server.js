@@ -778,22 +778,35 @@ app.get('/api/ventas-mes', async (req, res) => {
     const { year, month } = req.query;
     const y = year || new Date().getFullYear();
     const m = month || String(new Date().getMonth() + 1).padStart(2, '0');
-    const from = `${y}-${String(m).padStart(2,'0')}-01T00:00:00.000-06:00`;
+    const yStr = String(y);
+    const mStr = String(m).padStart(2, '0');
     const lastDay = new Date(y, m, 0).getDate();
-    const to = `${y}-${String(m).padStart(2,'0')}-${lastDay}T23:59:59.000-06:00`;
+    const dates = Array.from({ length: lastDay }, (_, i) => `${yStr}-${mStr}-${String(i + 1).padStart(2, '0')}`);
+
+    const BATCH = 8;
     let allOrders = [];
-    let offset = 0;
-    let total = 1;
-    while (offset < total) {
-      const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-        seller: getSellerId(), 'order.status': 'paid',
-        'order.date_created.from': from, 'order.date_created.to': to,
-        limit: 50, offset
-      });
-      total = d.paging.total;
-      allOrders = allOrders.concat(d.results);
-      offset += 50;
+    for (let i = 0; i < dates.length; i += BATCH) {
+      const batch = dates.slice(i, i + BATCH);
+      const batchOrders = await Promise.all(batch.map(async fecha => {
+        const from = `${fecha}T00:00:00.000-06:00`;
+        const to   = `${fecha}T23:59:59.000-06:00`;
+        let orders = [], offset = 0, total = 1;
+        while (offset < total) {
+          const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+            seller: getSellerId(), 'order.status': 'paid',
+            'order.date_created.from': from, 'order.date_created.to': to,
+            limit: 50, offset
+          });
+          total = d.paging.total;
+          orders = orders.concat(d.results);
+          offset += 50;
+        }
+        return orders;
+      }));
+      batchOrders.forEach(dayOrders => allOrders.push(...dayOrders));
     }
+
+    const total = allOrders.length;
     const ventaBruta = allOrders.reduce((s, o) => s + o.total_amount, 0);
     const unidades = allOrders.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.quantity, 0), 0);
     const precioLista = allOrders.reduce((s, o) => s + o.order_items.reduce((ss, i) => ss + i.gross_price, 0), 0);
@@ -808,7 +821,7 @@ app.get('/api/ventas-mes', async (req, res) => {
       });
     });
     const top = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 10).map(([title, v]) => ({ title, ...v }));
-    res.json({ ordenes: total, ventaBruta, precioLista, descuentos: precioLista - ventaBruta, unidades, ticketPromedio: total > 0 ? ventaBruta / total : 0, top, mes: `${y}-${String(m).padStart(2,'0')}` });
+    res.json({ ordenes: total, ventaBruta, precioLista, descuentos: precioLista - ventaBruta, unidades, ticketPromedio: total > 0 ? ventaBruta / total : 0, top, mes: `${yStr}-${mStr}` });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1560,15 +1573,36 @@ app.get('/api/heatmap', async (req, res) => {
   try {
     const period = req.query.period === '30days' ? '30days' : '7days';
     const days = period === '30days' ? 30 : 7;
-    const from = `${dateNDaysAgo(days - 1)}T00:00:00.000-06:00`;
-    const to = `${today()}T23:59:59.000-06:00`;
-    const orders = await fetchPaidOrders(from, to);
+    const dates = Array.from({ length: days }, (_, i) => dateNDaysAgo(days - 1 - i));
+
+    const BATCH = 8;
+    const allOrders = [];
+    for (let i = 0; i < dates.length; i += BATCH) {
+      const batch = dates.slice(i, i + BATCH);
+      const batchOrders = await Promise.all(batch.map(async fecha => {
+        const from = `${fecha}T00:00:00.000-06:00`;
+        const to   = `${fecha}T23:59:59.000-06:00`;
+        let orders = [], offset = 0, total = 1;
+        while (offset < total) {
+          const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+            seller: getSellerId(), 'order.status': 'paid',
+            'order.date_created.from': from, 'order.date_created.to': to,
+            limit: 50, offset
+          });
+          total = d.paging.total;
+          orders = orders.concat(d.results);
+          offset += 50;
+        }
+        return orders;
+      }));
+      batchOrders.forEach(dayOrders => allOrders.push(...dayOrders));
+    }
 
     const DOW = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const DOW_MAP = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
     const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ ventas: 0, ordenes: 0 })));
 
-    orders.forEach(o => {
+    allOrders.forEach(o => {
       const d = new Date(o.date_created);
       const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', weekday: 'short', hour: '2-digit', hour12: false }).formatToParts(d);
       const weekdayShort = parts.find(p => p.type === 'weekday').value;
@@ -1592,7 +1626,7 @@ app.get('/api/heatmap', async (req, res) => {
     const diaTop = porDia.reduce((a, b) => b.ventas > a.ventas ? b : a, porDia[0]);
     const porHora = Array.from({ length: 24 }, (_, h) => ({ hora: h, ventas: grid.reduce((s, row) => s + row[h].ventas, 0) }));
     const horaTop = porHora.reduce((a, b) => b.ventas > a.ventas ? b : a, porHora[0]);
-    const ventaTotal = orders.reduce((s, o) => s + o.total_amount, 0);
+    const ventaTotal = allOrders.reduce((s, o) => s + o.total_amount, 0);
 
     res.json({
       period, days, grid, dow: DOW,

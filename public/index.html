@@ -395,13 +395,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .heatmap-grid{display:grid;grid-template-columns:54px repeat(24,minmax(26px,1fr));gap:3px;min-width:760px}
 .hm-label{font-size:10.5px;color:var(--muted);display:flex;align-items:center;white-space:nowrap}
 .hm-hour-label{font-size:9px;color:var(--dim);text-align:center;padding-bottom:2px}
-.hm-cell{aspect-ratio:1;border-radius:4px;cursor:default;position:relative}
+.hm-cell{aspect-ratio:1;border-radius:4px;cursor:default}
 .hm-lvl-0{background:#f3f4f6}
 .hm-lvl-1{background:#bfdbfe}
 .hm-lvl-2{background:#60a5fa}
 .hm-lvl-3{background:#1d4ed8}
 .hm-cell:hover{outline:2px solid var(--accent);outline-offset:1px}
-.hm-cell[title]:hover::after{content:attr(title);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:#1a1a2a;color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;white-space:nowrap;z-index:10;pointer-events:none}
+#hm-tip{position:fixed;background:#1a1a2a;color:#fff;font-size:11px;padding:4px 10px;border-radius:6px;white-space:nowrap;z-index:1000;pointer-events:none;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .hm-legend{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:11px;color:var(--muted)}
 .hm-legend .hm-cell{width:14px;height:14px;flex:none;aspect-ratio:unset}
 
@@ -3128,8 +3128,8 @@ async function loadHeatmap(){
     d.grid.forEach((row,dow)=>{
       cells+=`<div class="hm-label">${d.dow[dow].slice(0,3)}</div>`;
       row.forEach((cell,h)=>{
-        const title=`${d.dow[dow]} ${String(h).padStart(2,'0')}:00 — ${fmtMXN(cell.ventas)} (${cell.ordenes} órdenes)`;
-        cells+=`<div class="hm-cell hm-lvl-${cell.nivel}" title="${title}"></div>`;
+        const tip=`${d.dow[dow]} ${String(h).padStart(2,'0')}:00 — ${fmtMXN(cell.ventas)} (${cell.ordenes} órdenes)`;
+        cells+=`<div class="hm-cell hm-lvl-${cell.nivel}" data-tip="${tip}"></div>`;
       });
     });
     el.innerHTML=`
@@ -3142,6 +3142,21 @@ async function loadHeatmap(){
         <div class="hm-cell hm-lvl-3"></div>
         <span>Más</span>
       </div>`;
+
+    let tip=document.getElementById('hm-tip');
+    if(!tip){tip=document.createElement('div');tip.id='hm-tip';document.body.appendChild(tip);}
+    const grid=el.querySelector('.heatmap-grid');
+    grid.addEventListener('mousemove',e=>{
+      const cell=e.target.closest('[data-tip]');
+      if(!cell){tip.style.display='none';return;}
+      tip.textContent=cell.dataset.tip;
+      tip.style.display='';
+      const x=e.clientX+14,y=e.clientY+18;
+      const tw=tip.offsetWidth,th=tip.offsetHeight;
+      tip.style.left=(x+tw>window.innerWidth?e.clientX-tw-8:x)+'px';
+      tip.style.top=(y+th>window.innerHeight?e.clientY-th-12:y)+'px';
+    });
+    grid.addEventListener('mouseleave',()=>{tip.style.display='none';});
   }catch(e){
     el.innerHTML=`<div class="error">Error: ${e.message}</div>`;
   }
