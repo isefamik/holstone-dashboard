@@ -1749,6 +1749,12 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
               </div>
             </div>
           </div>
+          <div id="sus-billing-toggle" style="display:none;margin-top:16px">
+            <div class="psc-billing-toggle">
+              <button class="psc-bill-btn active" id="sus-btn-mensual" onclick="susCambiarBilling('mensual')">Mensual</button>
+              <button class="psc-bill-btn" id="sus-btn-anual" onclick="susCambiarBilling('anual')">Anual <span class="psc-discount-tag">-20%</span></button>
+            </div>
+          </div>
         </div>
 
         <!-- B) 4 CARDS DE INFORMACIÓN -->
@@ -5147,7 +5153,8 @@ function togglePlanWhy() {
 }
 
 // ── Mi Suscripción ───────────────────────────────────────────────────────────
-let _susData = null;
+let _susData   = null;
+let _susBilling = 'mensual';
 const _SUS_GRADIENTS = {
   starter:    'linear-gradient(135deg,#4f46e5 0%,#6366f1 50%,#818cf8 100%)',
   growth:     'linear-gradient(135deg,#059669 0%,#10b981 50%,#34d399 100%)',
@@ -5172,7 +5179,6 @@ const _SUS_FEATURE_ICONS = {
   'SLA garantizado':'📋',
   'Soporte dedicado 24/7':'🎯',
 };
-let _susBilling = 'mensual';
 
 async function initSuscripcion() {
   document.getElementById('sus-loading').style.display = '';
@@ -5188,6 +5194,8 @@ async function initSuscripcion() {
 }
 
 function renderSuscripcion(d) {
+  _susBilling = 'mensual';
+
   // A) Hero banner
   document.getElementById('sus-hero').style.background = _SUS_GRADIENTS[d.tier] || _SUS_GRADIENTS.starter;
   document.getElementById('sus-tier-emoji').textContent = _SUS_EMOJIS[d.tier] || '🚀';
@@ -5197,6 +5205,11 @@ function renderSuscripcion(d) {
     ? new Date(d.trial_started_at).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' })
     : '—';
   document.getElementById('sus-start-date').textContent = startDate;
+
+  document.getElementById('sus-billing-toggle').style.display =
+    (!d.tiene_suscripcion_activa && d.tier !== 'enterprise') ? '' : 'none';
+  document.getElementById('sus-btn-mensual').classList.add('active');
+  document.getElementById('sus-btn-anual').classList.remove('active');
 
   const pill      = document.getElementById('sus-status-pill');
   const pagarBtns = document.getElementById('sus-pagar-btns');
@@ -5221,7 +5234,7 @@ function renderSuscripcion(d) {
     document.getElementById('sus-precio-hint2').textContent = `/ ${d.billing_cycle === 'anual' ? 'año' : 'mes'}`;
   } else if (d.tier !== 'enterprise') {
     document.getElementById('sus-precio-val').textContent   = `$${d.precio_mensual.toLocaleString('es-MX')}/mes`;
-    document.getElementById('sus-precio-hint2').textContent = `o $${(d.precio_anual * 12).toLocaleString('es-MX')}/año`;
+    document.getElementById('sus-precio-hint2').textContent = `o $${d.precio_anual.toLocaleString('es-MX')}/mes en plan anual`;
   } else {
     document.getElementById('sus-precio-val').textContent   = 'Personalizado';
     document.getElementById('sus-precio-hint2').textContent = 'Contacta a ventas';
@@ -5253,6 +5266,21 @@ function renderSuscripcion(d) {
   document.getElementById('sus-content').style.display = '';
 }
 
+function susCambiarBilling(ciclo) {
+  _susBilling = ciclo;
+  document.getElementById('sus-btn-mensual').classList.toggle('active', ciclo === 'mensual');
+  document.getElementById('sus-btn-anual').classList.toggle('active',   ciclo === 'anual');
+  if (_susData && _susData.tier !== 'enterprise') {
+    const isAnual = ciclo === 'anual';
+    document.getElementById('sus-precio-val').textContent   = isAnual
+      ? `$${_susData.precio_anual.toLocaleString('es-MX')}/mes`
+      : `$${_susData.precio_mensual.toLocaleString('es-MX')}/mes`;
+    document.getElementById('sus-precio-hint2').textContent = isAnual
+      ? `Facturado anualmente: $${(_susData.precio_anual * 12).toLocaleString('es-MX')}/año`
+      : `o $${_susData.precio_anual.toLocaleString('es-MX')}/mes en plan anual`;
+  }
+}
+
 async function susIrAPago() {
   if (!_susData || _susData.tier === 'enterprise') return;
   const btn = document.getElementById('sus-pagar-btn');
@@ -5261,7 +5289,7 @@ async function susIrAPago() {
     const res = await fetch('/api/crear-checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tier: _susData.tier, billing_cycle: 'mensual' }),
+      body: JSON.stringify({ tier: _susData.tier, billing_cycle: _susBilling }),
     });
     const data = await res.json();
     if (res.ok && data.checkout_url) { window.location.href = data.checkout_url; }
@@ -5280,7 +5308,7 @@ async function susIrAPagoMP() {
     const res = await fetch('/api/crear-checkout-mp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tier: _susData.tier, billing_cycle: 'mensual' }),
+      body: JSON.stringify({ tier: _susData.tier, billing_cycle: _susBilling }),
     });
     const data = await res.json();
     if (res.ok && data.checkout_url) { window.location.href = data.checkout_url; }
