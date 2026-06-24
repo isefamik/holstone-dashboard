@@ -284,13 +284,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* ── MI SUSCRIPCIÓN ── */
 .sus-cards-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:20px}
 @media(max-width:680px){.sus-cards-grid{grid-template-columns:1fr}}
-.sus-plan-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.sus-plan-card.sus-featured{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 4px 16px rgba(99,102,241,.10)}
+.sus-plan-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.05);display:flex;flex-direction:column}
+.sus-plan-card.sus-featured{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 4px 16px rgba(99,102,241,.10);background:linear-gradient(145deg,rgba(99,102,241,.07) 0%,var(--card) 100%)}
 .sus-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-bottom:12px}
 .sus-badge-green{background:#dcfce7;color:#16a34a}
 .sus-badge-blue{background:#dbeafe;color:#1d4ed8}
 .sus-badge-red{background:#fee2e2;color:#dc2626}
 .sus-badge-gray{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.sus-badge-accent{background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff}
 .sus-price-crossed{text-decoration:line-through;color:var(--muted);font-weight:400}
 .sus-hist-empty{text-align:center;padding:36px 0;color:var(--muted);font-size:13px;line-height:1.8}
 .sus-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
@@ -1753,7 +1754,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
             <div id="sus-essential-hint" style="font-size:12px;color:var(--muted);margin-bottom:6px"></div>
             <div id="sus-essential-tier" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
             <div id="sus-essential-dates" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:16px"></div>
-            <ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:7px">
+            <ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:7px;flex:1">
               <li style="display:flex;gap:9px;font-size:13px;color:var(--text)"><span>📊</span>Ventas en tiempo real, heatmap y resumen</li>
               <li style="display:flex;gap:9px;font-size:13px;color:var(--text)"><span>📦</span>Stock inteligente</li>
               <li style="display:flex;gap:9px;font-size:13px;color:var(--text)"><span>📣</span>Publicidad con ROAS y ACOS</li>
@@ -1772,11 +1773,12 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 
           <!-- Card 2: AI Boost -->
           <div class="sus-plan-card sus-featured">
-            <div class="sus-badge sus-badge-gray">Add-on</div>
-            <div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:4px">✨ AI Boost</div>
+            <div class="sus-badge sus-badge-accent">⚡ Potencia tu negocio</div>
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:10px">✨</div>
+            <div style="font-size:20px;font-weight:900;color:var(--text);margin-bottom:4px">AI Boost</div>
             <div style="font-size:30px;font-weight:900;color:var(--text);line-height:1.1;margin:14px 0 4px">Personalizado</div>
             <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Contáctanos para definir tu precio</div>
-            <ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:7px">
+            <ul style="list-style:none;padding:0;margin:0 0 20px;display:flex;flex-direction:column;gap:7px;flex:1">
               <li style="display:flex;gap:9px;font-size:13px;color:var(--text)"><span>✓</span>Todo lo de Essential incluido</li>
               <li style="display:flex;gap:9px;font-size:13px;color:var(--text)"><span>🤖</span>Director Comercial AI</li>
               <li style="display:flex;gap:9px;font-size:13px;color:var(--text)"><span>📈</span>Análisis y recomendaciones automáticas</li>
@@ -1784,6 +1786,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
               <li style="display:flex;gap:9px;font-size:13px;color:var(--text)"><span>🎯</span>Soporte prioritario</li>
             </ul>
             <button onclick="openAIBoostModal()" style="width:100%;background:var(--accent);color:#fff;border:none;padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:opacity .15s">Contactar a ventas →</button>
+            <p style="text-align:center;font-size:11px;color:var(--muted);margin:8px 0 0">Respuesta en menos de 24 horas</p>
           </div>
 
         </div>
@@ -5198,8 +5201,11 @@ function renderSuscripcion(d) {
   if (d.mes_calculado && d.tier !== 'enterprise') {
     const [y, m] = d.mes_calculado.split('-');
     const mesStr = `${_MESES_ES[parseInt(m)-1]} ${y}`;
+    const ventasLabel = d.ventas_base != null
+      ? `calculado sobre $${Math.round(d.ventas_base).toLocaleString('es-MX')} en ventas de ${mesStr}`
+      : `según ventas de ${mesStr}`;
     document.getElementById('sus-essential-tier').textContent =
-      `Tier ${_PSC_LABELS[d.tier] || d.tier} · según ventas de ${mesStr}`;
+      `Tier ${_PSC_LABELS[d.tier] || d.tier} · ${ventasLabel}`;
   } else {
     document.getElementById('sus-essential-tier').textContent = '';
   }
@@ -5213,7 +5219,7 @@ function renderSuscripcion(d) {
     const proxFecha = d.proxima_fecha_pago
       ? new Date(d.proxima_fecha_pago).toLocaleDateString('es-MX', { year:'numeric', month:'long', day:'numeric' })
       : '—';
-    datesEl.innerHTML = `Activo desde ${activoDesde}<br>Próximo cobro: ${proxFecha}`;
+    datesEl.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:3px">Activo desde</div><div style="font-size:12px;font-weight:600;color:var(--text)">${activoDesde}</div></div><div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:3px">Próximo cobro</div><div style="font-size:12px;font-weight:600;color:var(--text)">${proxFecha}</div></div></div>`;
     datesEl.style.display = '';
   } else {
     datesEl.style.display = 'none';
