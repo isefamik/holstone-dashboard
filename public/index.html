@@ -1092,6 +1092,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
         </div>
         <div class="card">
           <div class="card-title">Mapa de calor — ventas por día y hora (hora de México)</div>
+          <div id="hm-subtitle" style="font-size:12px;color:var(--muted);margin:2px 0 14px;line-height:1.5"></div>
           <div id="hm-content"><div class="loading"><div class="spin"></div>Cargando...</div></div>
         </div>
       </div>
@@ -3113,6 +3114,14 @@ function setHeatmapPeriod(period,el){
 async function loadHeatmap(){
   const el=document.getElementById('hm-content');
   el.innerHTML=spin();
+
+  const subtitleEl=document.getElementById('hm-subtitle');
+  if(heatmapPeriod==='7days'){
+    subtitleEl.textContent='Cada celda corresponde a ese día específico de la semana actual.';
+  }else{
+    subtitleEl.textContent='Cada celda suma todas las ventas de ese día de la semana durante los últimos 30 días (aprox. 4 ocurrencias por día).';
+  }
+
   try{
     const r=await fetch(`/api/heatmap?period=${heatmapPeriod}`);
     const d=await r.json();
@@ -3122,13 +3131,14 @@ async function loadHeatmap(){
     document.getElementById('hm-hora').textContent=d.horaConMasVentas||'Sin ventas';
     document.getElementById('hm-promedio').textContent=fmtMXN(d.promedioPorDia);
 
+    const tipSuffix=heatmapPeriod==='30days'?' · suma del periodo':'';
     let cells='';
     cells+='<div></div>';
     for(let h=0;h<24;h++)cells+=`<div class="hm-hour-label">${h}</div>`;
     d.grid.forEach((row,dow)=>{
       cells+=`<div class="hm-label">${d.dow[dow].slice(0,3)}</div>`;
       row.forEach((cell,h)=>{
-        const tip=`${d.dow[dow]} ${String(h).padStart(2,'0')}:00 — ${fmtMXN(cell.ventas)} (${cell.ordenes} órdenes)`;
+        const tip=`${d.dow[dow]} ${String(h).padStart(2,'0')}:00 — ${fmtMXN(cell.ventas)} (${cell.ordenes} órdenes)${tipSuffix}`;
         cells+=`<div class="hm-cell hm-lvl-${cell.nivel}" data-tip="${tip}"></div>`;
       });
     });
