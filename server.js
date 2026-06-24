@@ -3065,13 +3065,17 @@ app.post('/api/crear-checkout', async (req, res) => {
 // GET /api/test-mp-preapproval?tier=starter&billing_cycle=mensual&raw=1
 // Endpoint TEMPORAL de diagnóstico — protegido por requireAuth, eliminar después de pruebas
 app.get('/api/test-mp-preapproval', async (req, res) => {
-  const { tier = 'starter', billing_cycle = 'mensual', payer_email, raw } = req.query;
+  const { tier = 'starter', billing_cycle = 'mensual', payer_email, raw, use_test_token } = req.query;
   const precio = MP_PRICES[tier]?.[billing_cycle];
   if (!precio) return res.status(400).json({ error: 'Combinación inválida' });
 
   const appUrl = process.env.APP_URL || 'https://holstone-dashboard.onrender.com';
   const frecuencia = billing_cycle === 'anual' ? 12 : 1;
-  const token = process.env.MP_ACCESS_TOKEN;
+
+  // use_test_token=1 → MP_TEST_SELLER_ACCESS_TOKEN, por defecto usa MP_ACCESS_TOKEN
+  const token = (use_test_token === '1' && process.env.MP_TEST_SELLER_ACCESS_TOKEN)
+    ? process.env.MP_TEST_SELLER_ACCESS_TOKEN
+    : process.env.MP_ACCESS_TOKEN;
 
   const mpBody = {
     reason:             `TEST Holstone ${tier} - ${billing_cycle}`,
@@ -3095,21 +3099,24 @@ app.get('/api/test-mp-preapproval', async (req, res) => {
         body: JSON.stringify(mpBody),
       });
       const text = await r.text();
-      return res.json({ mode: 'raw_fetch', http_status: r.status, response: text, request_sent: mpBody });
+      return res.json({ mode: 'raw_fetch', token_used: token.slice(0, 8) + '...', http_status: r.status, response: text, request_sent: mpBody });
     } catch (e) {
       return res.status(500).json({ mode: 'raw_fetch', fetch_error: e.message, request_sent: mpBody });
     }
   }
 
-  // SDK
+  // SDK (siempre usa mpClient global con MP_ACCESS_TOKEN)
   try {
-    const preapprovalClient = new PreApproval(mpClient);
+    const activeClient = (use_test_token === '1' && process.env.MP_TEST_SELLER_ACCESS_TOKEN)
+      ? new MercadoPagoConfig({ accessToken: process.env.MP_TEST_SELLER_ACCESS_TOKEN })
+      : mpClient;
+    const preapprovalClient = new PreApproval(activeClient);
     const result = await preapprovalClient.create({ body: mpBody });
-    res.json({ mode: 'sdk', ok: true, init_point: result.init_point, id: result.id, request_sent: mpBody });
+    res.json({ mode: 'sdk', token_used: token.slice(0, 8) + '...', ok: true, init_point: result.init_point, id: result.id, request_sent: mpBody });
   } catch (e) {
     let errObj;
     try { errObj = JSON.parse(JSON.stringify(e)); } catch { errObj = String(e); }
-    res.status(500).json({ mode: 'sdk', ok: false, error: errObj, request_sent: mpBody });
+    res.status(500).json({ mode: 'sdk', token_used: token.slice(0, 8) + '...', ok: false, error: errObj, request_sent: mpBody });
   }
 });
 
