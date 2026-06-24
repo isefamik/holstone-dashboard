@@ -2861,6 +2861,14 @@ function calcularTierPlan(ventasMensuales) {
   return                               { tier: 'enterprise', precio_mensual: null, precio_anual: null };
 }
 
+function calcularTrial(trialStartedAt) {
+  const trialStarted = trialStartedAt ? new Date(trialStartedAt) : null;
+  const diasDesdeInicio = trialStarted ? Math.floor((new Date() - trialStarted) / (1000 * 60 * 60 * 24)) : 0;
+  const dias_restantes_trial = trialStarted ? Math.max(0, 14 - diasDesdeInicio) : 14;
+  const trial_vencido = trialStarted ? dias_restantes_trial === 0 : false;
+  return { dias_restantes_trial, trial_vencido };
+}
+
 app.get('/api/mi-plan-recomendado', async (req, res) => {
   const ahora = new Date();
   const primerDiaMesActual = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
@@ -2896,12 +2904,7 @@ app.get('/api/mi-plan-recomendado', async (req, res) => {
   const { data: tenantRow } = tenantId
     ? await supabase.from('tenants').select('trial_started_at').eq('id', tenantId).single()
     : { data: null };
-  const trialStarted = tenantRow?.trial_started_at ? new Date(tenantRow.trial_started_at) : null;
-  const diasDesdeInicio = trialStarted ? Math.floor((ahora - trialStarted) / (1000 * 60 * 60 * 24)) : 0;
-  const diasRestantesTrial = Math.max(0, 14 - diasDesdeInicio);
-  const trialVencido = trialStarted ? diasRestantesTrial === 0 : false;
-
-  const trialInfo = { dias_restantes_trial: diasRestantesTrial, trial_vencido: trialVencido };
+  const trialInfo = calcularTrial(tenantRow?.trial_started_at);
 
   try {
     const lastDay = new Date(y, m, 0).getDate();
@@ -2994,10 +2997,7 @@ app.get('/api/mi-suscripcion', async (req, res) => {
     // Sin suscripción activa — calcular estado de trial
     const { data: tenant } = await supabase
       .from('tenants').select('trial_started_at').eq('id', tenantId).single();
-    const trialStarted = tenant?.trial_started_at ? new Date(tenant.trial_started_at) : null;
-    const diasDesdeInicio = trialStarted ? Math.floor((ahora - trialStarted) / (1000 * 60 * 60 * 24)) : 0;
-    const diasRestantesTrial = trialStarted ? Math.max(0, 14 - diasDesdeInicio) : 14;
-    const trialVencido = trialStarted ? diasRestantesTrial === 0 : false;
+    const { dias_restantes_trial, trial_vencido } = calcularTrial(tenant?.trial_started_at);
 
     const ventaBruta = await fetchVentas();
     const plan = calcularTierPlan(ventaBruta);
@@ -3006,8 +3006,8 @@ app.get('/api/mi-suscripcion', async (req, res) => {
       ...plan,
       ventas_base:          ventaBruta,
       mes_calculado:        `${y}-${mStr}`,
-      dias_restantes_trial: diasRestantesTrial,
-      trial_vencido:        trialVencido,
+      dias_restantes_trial,
+      trial_vencido,
       trial_started_at:     tenant?.trial_started_at || null,
     });
   } catch (e) {
