@@ -590,7 +590,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 /* ── Plan Screen ── */
 #plan-screen{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);backdrop-filter:blur(4px);z-index:1001;align-items:center;justify-content:center}
 #plan-screen.visible{display:flex}
-.psc-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px 36px;max-width:480px;width:calc(100% - 32px);max-height:90vh;overflow-y:auto;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.22)}
+.psc-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px 36px;max-width:480px;width:calc(100% - 32px);max-height:90vh;overflow-y:auto;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.22);position:relative}
+#psc-close-btn{display:none;position:absolute;top:14px;right:14px;width:28px;height:28px;border-radius:50%;border:none;background:var(--border);color:var(--muted);font-size:14px;line-height:1;cursor:pointer;transition:background .15s,color .15s}
+#psc-close-btn:hover{background:var(--muted);color:var(--card)}
 .psc-card h2{font-size:22px;font-weight:700;margin:12px 0 6px;color:var(--text)}
 .psc-subtitle{color:var(--muted);font-size:14px;margin-bottom:24px}
 .psc-ventas-line{font-size:14px;color:var(--muted);margin-bottom:14px}
@@ -785,6 +787,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 <!-- ═══════════════ PLAN SCREEN ═══════════════ -->
 <div id="plan-screen">
   <div class="psc-card">
+    <button id="psc-close-btn" onclick="continuarAlDashboard()" title="Explorar el dashboard primero">✕</button>
     <div style="font-size:46px;line-height:1" id="psc-emoji">📊</div>
     <h2 id="psc-header">Tu plan Rocky</h2>
     <p class="psc-subtitle" id="psc-trial-badge"></p>
@@ -5012,8 +5015,9 @@ function showPlanScreen(data) {
     ctaBtn.style.background = '';
   }
 
-  // Link "Continuar sin pagar": visible en trial activo, oculto cuando vencido
-  document.getElementById('psc-skip-link').style.display = trialVencido ? 'none' : '';
+  // Botón ✕ y link "Continuar sin pagar": visibles en trial activo, ocultos cuando vencido
+  document.getElementById('psc-close-btn').style.display  = trialVencido ? 'none' : '';
+  document.getElementById('psc-skip-link').style.display  = trialVencido ? 'none' : '';
   _pscTrialVencido = trialVencido;
 
   const [y, m] = data.mes_calculado.split('-');
