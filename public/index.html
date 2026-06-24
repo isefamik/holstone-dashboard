@@ -361,6 +361,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .si-search:focus{border-color:var(--accent)}
 .si-search-wrap{position:relative;display:inline-flex;align-items:center}
 .si-search-wrap::before{content:'🔍';position:absolute;left:10px;font-size:11px;pointer-events:none}
+.si-alert-clickable{cursor:pointer;transition:box-shadow .15s,transform .15s}
+.si-alert-clickable:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)!important;transform:translateY(-1px)}
 
 /* ── STOCK INTELIGENTE ── */
 .si-table{width:100%;border-collapse:collapse}
@@ -3816,19 +3818,21 @@ async function loadStockInteligente(force){
 
     // ── Alert panel (5 cards) ──
     const cards=[
-      {bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados',val:d.summary.agotados},
-      {bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (≤7d)',val:d.summary.criticos},
-      {bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Bajos (≤14d)',val:d.summary.bajos},
-      {bg:'#f0fdf4',bd:'#bbf7d0',c:'#15803d',icon:'✅',lbl:'Saludables',val:d.summary.ok},
-      {bg:'#eff6ff',bd:'#bfdbfe',c:'#2563eb',icon:'💰',lbl:'Valor inventario',val:fmtMXN(d.summary.valorInventario),big:true}
+      {bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados',       val:d.summary.agotados,  sub:d.summary.agotados+' productos',  filter:'out'},
+      {bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (≤7d)', val:d.summary.criticos,  sub:d.summary.criticos+' productos',  filter:'critical'},
+      {bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Bajos (≤14d)',  val:d.summary.bajos,     sub:d.summary.bajos+' productos',     filter:'low'},
+      {bg:'#f0fdf4',bd:'#bbf7d0',c:'#15803d',icon:'✅',lbl:'Saludables',     val:d.summary.ok,        sub:d.summary.ok+' productos',        filter:'ok'},
+      {bg:'#eff6ff',bd:'#bfdbfe',c:'#2563eb',icon:'💰',lbl:'Valor inventario',val:fmtMXN(d.summary.valorInventario),sub:d.summary.total+' productos',big:true}
     ];
-    alertasEl.innerHTML=cards.map(a=>
-      '<div style="background:'+a.bg+';border:1px solid '+a.bd+';border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05)">'+
-      '<div style="font-size:12px;color:'+a.c+';font-weight:600;margin-bottom:10px">'+a.icon+' '+a.lbl+'</div>'+
-      '<div style="font-size:'+(a.big?'20':'30')+'px;font-weight:800;color:'+a.c+';line-height:1">'+a.val+'</div>'+
-      '<div style="font-size:11px;color:'+a.c+';opacity:.65;margin-top:4px">'+d.summary.total+' productos</div>'+
-      '</div>'
-    ).join('');
+    alertasEl.innerHTML=cards.map(a=>{
+      const cl=a.filter?'si-alert-clickable':'';
+      const oc=a.filter?'onclick="siFilterFromCard(\''+a.filter+'\')"':'';
+      return '<div class="'+cl+'" '+oc+' style="background:'+a.bg+';border:1px solid '+a.bd+';border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05)">'+
+        '<div style="font-size:12px;color:'+a.c+';font-weight:600;margin-bottom:10px">'+a.icon+' '+a.lbl+'</div>'+
+        '<div style="font-size:'+(a.big?'20':'30')+'px;font-weight:800;color:'+a.c+';line-height:1">'+a.val+'</div>'+
+        '<div style="font-size:11px;color:'+a.c+';opacity:.65;margin-top:4px">'+a.sub+'</div>'+
+        '</div>';
+    }).join('');
 
     // ── Filter counts ──
     document.getElementById('fc-all').textContent=d.summary.total;
@@ -3868,6 +3872,13 @@ function siFilter(level,btn){
   document.querySelectorAll('.si-filter-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   siRender(siGetFiltered());
+}
+
+function siFilterFromCard(level){
+  const btn=[...document.querySelectorAll('.si-filter-btn')]
+    .find(b=>b.getAttribute('onclick')&&b.getAttribute('onclick').includes("'"+level+"'"));
+  if(btn)btn.click();
+  document.getElementById('si-filter-bar').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
 function siSearch(term){
