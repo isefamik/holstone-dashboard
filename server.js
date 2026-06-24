@@ -1186,39 +1186,46 @@ async function computeStockInteligente() {
     const startDate = new Date(months[0].year, months[0].month - 1, 1);
     const totalDays = Math.max(1, Math.round((now - startDate) / 86400000));
 
-    // 4. Fetch 3 months of paid orders concurrently
-    const allMonthOrders = await Promise.all(months.map(async ({ year, month }) => {
-      const mm = String(month).padStart(2, '0');
-      const from = `${year}-${mm}-01T00:00:00.000-06:00`;
-      const lastDay = new Date(year, month, 0).getDate();
-      const isCurrent = year === cy && month === cm;
-      const dayTo = isCurrent ? String(now.getDate()).padStart(2, '0') : String(lastDay).padStart(2, '0');
-      const to = `${year}-${mm}-${dayTo}T23:59:59.000-06:00`;
-      let orders = []; let off = 0; let tot = 1;
-      while (off < tot) {
-        const d = await mlGet('https://api.mercadolibre.com/orders/search', {
-          seller: getSellerId(), 'order.status': 'paid',
-          'order.date_created.from': from, 'order.date_created.to': to,
-          limit: 50, offset: off
-        });
-        tot = d.paging.total;
-        orders = orders.concat(d.results);
-        off += 50;
-      }
-      return orders;
-    }));
-    const allOrders = allMonthOrders.flat();
+    // 4. Fetch orders day-by-day (BATCH=8) to bypass the 1000-order ML cap
+    const dates = [];
+    const cur = new Date(startDate);
+    while (cur <= now) {
+      dates.push(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(new Date(cur)));
+      cur.setDate(cur.getDate() + 1);
+    }
+    const BATCH = 8;
+    const allOrders = [];
+    for (let i = 0; i < dates.length; i += BATCH) {
+      const batch = dates.slice(i, i + BATCH);
+      const batchOrders = await Promise.all(batch.map(async fecha => {
+        const from = `${fecha}T00:00:00.000-06:00`;
+        const to   = `${fecha}T23:59:59.000-06:00`;
+        let orders = [], offset = 0, total = 1;
+        while (offset < total) {
+          const d = await mlGet('https://api.mercadolibre.com/orders/search', {
+            seller: getSellerId(), 'order.status': 'paid',
+            'order.date_created.from': from, 'order.date_created.to': to,
+            limit: 50, offset
+          });
+          total = d.paging.total;
+          orders = orders.concat(d.results);
+          offset += 50;
+        }
+        return orders;
+      }));
+      batchOrders.forEach(dayOrders => allOrders.push(...dayOrders));
+    }
 
     // 5. Build sales map: itemId -> { total, byVariant: { variantId: qty } }
     const salesMap = {};
     allOrders.forEach(order => {
       order.order_items.forEach(oi => {
         const iid = oi.item.id;
-        const vid = oi.item.variation_id || 0;
         const qty = oi.quantity;
         if (!salesMap[iid]) salesMap[iid] = { total: 0, byVariant: {} };
         salesMap[iid].total += qty;
-        salesMap[iid].byVariant[vid] = (salesMap[iid].byVariant[vid] || 0) + qty;
+        const vid = oi.item.variation_id;
+        if (vid != null) salesMap[iid].byVariant[vid] = (salesMap[iid].byVariant[vid] || 0) + qty;
       });
     });
 
