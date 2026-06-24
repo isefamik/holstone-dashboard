@@ -3817,8 +3817,8 @@ async function loadStockInteligente(force){
     // ── Alert panel (5 cards) ──
     const cards=[
       {bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados',val:d.summary.agotados},
-      {bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (<7d)',val:d.summary.criticos},
-      {bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Bajos (<15d)',val:d.summary.bajos},
+      {bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (≤7d)',val:d.summary.criticos},
+      {bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Bajos (≤14d)',val:d.summary.bajos},
       {bg:'#f0fdf4',bd:'#bbf7d0',c:'#15803d',icon:'✅',lbl:'Saludables',val:d.summary.ok},
       {bg:'#eff6ff',bd:'#bfdbfe',c:'#2563eb',icon:'💰',lbl:'Valor inventario',val:fmtMXN(d.summary.valorInventario),big:true}
     ];
