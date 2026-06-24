@@ -613,8 +613,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 .psc-features li{padding:7px 0;font-size:13px;color:var(--text);border-bottom:1px solid var(--border)}
 .psc-features li:last-child{border-bottom:none}
 .psc-features li::before{content:'✓  ';color:var(--green);font-weight:700}
-.psc-cta-btn{width:100%;background:var(--accent);color:#fff;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s;margin-bottom:18px}
+.psc-cta-btn{width:100%;background:var(--accent);color:#fff;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s}
 .psc-cta-btn:hover{opacity:.87}
+#psc-payment-btns{flex-direction:column;gap:10px;margin-bottom:18px}
 .psc-why-toggle{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0}
 .psc-why-toggle:hover{color:var(--text)}
 .psc-why-body{margin-top:10px;font-size:13px;color:var(--muted);line-height:1.65;text-align:left}
@@ -777,7 +778,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
     <h2 id="reactivar-title" style="font-size:22px;font-weight:900;color:var(--text);margin:0 0 12px;line-height:1.3">Tus datos de Holstone te están esperando</h2>
     <p id="reactivar-body" style="font-size:14px;color:var(--muted);margin:0 0 28px;line-height:1.65">Reactiva tu cuenta y vuelve a ver tus ventas, rentabilidad y stock en tiempo real.</p>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
-      <button id="reactivar-btn" onclick="reactivarCuenta()" style="width:100%;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">💳 Reactivar con Tarjeta / PayPal →</button>
+      <button id="reactivar-btn" onclick="reactivarCuenta()" style="width:100%;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">💳 Reactivar con Tarjeta →</button>
       <button id="reactivar-btn-mp" onclick="reactivarCuentaMP()" style="width:100%;background:linear-gradient(135deg,#009ee3,#0057a6);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">Reactivar con Mercado Pago →</button>
     </div>
     <p id="reactivar-error" style="font-size:12px;color:var(--red);margin:0;display:none"></p>
@@ -819,9 +820,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 
       <ul class="psc-features" id="psc-features"></ul>
 
-      <div id="psc-payment-btns" style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
-        <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()" style="margin-bottom:0">💳 Pagar con Tarjeta / PayPal →</button>
-        <button class="psc-cta-btn" id="psc-cta-btn-mp" onclick="irAPagoMP()" style="margin-bottom:0;background:linear-gradient(135deg,#009ee3,#0057a6)">Pagar con Mercado Pago →</button>
+      <div id="psc-payment-btns" style="display:flex">
+        <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()">💳 Pagar con Tarjeta →</button>
+        <button class="psc-cta-btn" id="psc-cta-btn-mp" onclick="irAPagoMP()" style="background:linear-gradient(135deg,#009ee3,#0057a6)">Pagar con Mercado Pago →</button>
       </div>
       <p id="psc-checkout-error" style="display:none;color:var(--red);font-size:13px;margin:-10px 0 10px"></p>
       <p id="psc-skip-link" style="margin:0 0 14px;display:none">
@@ -1743,7 +1744,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
               <div id="sus-status-pill" class="sus-status-pill sus-status-trial">✓ En prueba gratuita</div>
               <div id="sus-pagar-btns" style="display:none;flex-direction:column;gap:6px;align-items:flex-end">
-                <button id="sus-pagar-btn" onclick="susIrAPago()" style="background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">💳 Tarjeta / PayPal →</button>
+                <button id="sus-pagar-btn" onclick="susIrAPago()" style="background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">💳 Tarjeta →</button>
                 <button id="sus-pagar-btn-mp" onclick="susIrAPagoMP()" style="background:linear-gradient(135deg,rgba(0,158,227,.7),rgba(0,87,166,.7));backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.3);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">Mercado Pago →</button>
               </div>
             </div>
@@ -5008,10 +5009,10 @@ function showPlanScreen(data) {
   const ctaBtn = document.getElementById('psc-cta-btn');
   ctaBtn.onclick = irAPago;
   if (trialVencido) {
-    ctaBtn.textContent = '💳 Pagar con Tarjeta / PayPal (requerido)';
+    ctaBtn.textContent = '💳 Pagar con Tarjeta (requerido)';
     ctaBtn.style.background = 'var(--red)';
   } else {
-    ctaBtn.textContent = '💳 Pagar con Tarjeta / PayPal →';
+    ctaBtn.textContent = '💳 Pagar con Tarjeta →';
     ctaBtn.style.background = '';
   }
 
@@ -5043,7 +5044,7 @@ function _renderPlanPrice() {
   document.getElementById('psc-price-wrap').style.display     = isEnt ? 'none'  : '';
   document.getElementById('psc-billing-toggle').style.display = isEnt ? 'none'  : '';
   document.getElementById('psc-enterprise-msg').style.display = isEnt ? 'block' : 'none';
-  document.getElementById('psc-payment-btns').style.display   = isEnt ? 'none'  : '';
+  document.getElementById('psc-payment-btns').style.display   = isEnt ? 'none'  : 'flex';
   if (!isEnt) {
     const isAnual = _pscBilling === 'anual';
     const precio  = isAnual ? _pscData.precio_anual * 12 : _pscData.precio_mensual;
@@ -5097,7 +5098,7 @@ async function irAPago() {
     }
   } catch (e) {
     btn.disabled = false;
-    btn.textContent = _pscTrialVencido ? '💳 Pagar con Tarjeta / PayPal (requerido)' : '💳 Pagar con Tarjeta / PayPal →';
+    btn.textContent = _pscTrialVencido ? '💳 Pagar con Tarjeta (requerido)' : '💳 Pagar con Tarjeta →';
     const msg = 'Error: ' + e.message;
     errEl.textContent = msg;
     errEl.style.display = 'block';
@@ -5265,7 +5266,7 @@ async function susIrAPago() {
     if (res.ok && data.checkout_url) { window.location.href = data.checkout_url; }
     else throw new Error(data.error || 'Error');
   } catch (e) {
-    btn.disabled = false; btn.textContent = '💳 Tarjeta / PayPal →';
+    btn.disabled = false; btn.textContent = '💳 Tarjeta →';
     alert('Error: ' + e.message);
   }
 }
@@ -5428,8 +5429,8 @@ async function reactivarCuenta() {
       throw new Error(data.error || 'Error al crear sesión de pago');
     }
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Reactivar mi cuenta →'; }
-    if (bannerBtn) { bannerBtn.disabled = false; bannerBtn.textContent = 'Actualizar pago'; }
+    if (btn) { btn.disabled = false; btn.textContent = '💳 Reactivar con Tarjeta →'; }
+    if (bannerBtn) { bannerBtn.disabled = false; bannerBtn.textContent = '💳 Actualizar pago'; }
     if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
   }
 }
