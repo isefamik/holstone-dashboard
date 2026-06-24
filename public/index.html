@@ -761,8 +761,8 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
 <div id="payment-banner" style="display:none;position:fixed;top:56px;left:var(--sw);right:0;z-index:90;background:#fffbeb;border-bottom:1px solid #f59e0b;padding:10px 24px;display:none;align-items:center;gap:12px;flex-wrap:wrap">
   <span style="font-size:18px">⚠️</span>
   <span style="font-size:13px;color:#92400e;font-weight:600;flex:1">Tu último pago no se pudo procesar. Actualiza tu método de pago para evitar interrupciones.</span>
-  <button id="payment-banner-btn" onclick="reactivarCuenta()" style="background:#f59e0b;color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">💳 Actualizar pago</button>
-  <button id="payment-banner-btn-mp" onclick="reactivarCuentaMP()" style="background:linear-gradient(135deg,#009ee3,#0057a6);color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Mercado Pago</button>
+  <button id="payment-banner-btn" onclick="reactivarCuenta()" data-original-text="💳 Actualizar pago" style="background:#f59e0b;color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">💳 Actualizar pago</button>
+  <button id="payment-banner-btn-mp" onclick="reactivarCuentaMP()" data-original-text="Mercado Pago" style="background:linear-gradient(135deg,#009ee3,#0057a6);color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Mercado Pago</button>
   <button onclick="document.getElementById('payment-banner').style.display='none'" style="background:none;border:none;font-size:16px;color:#92400e;cursor:pointer;padding:0 4px;line-height:1">✕</button>
 </div>
 <style>
@@ -778,8 +778,8 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
     <h2 id="reactivar-title" style="font-size:22px;font-weight:900;color:var(--text);margin:0 0 12px;line-height:1.3">Tus datos de Holstone te están esperando</h2>
     <p id="reactivar-body" style="font-size:14px;color:var(--muted);margin:0 0 28px;line-height:1.65">Reactiva tu cuenta y vuelve a ver tus ventas, rentabilidad y stock en tiempo real.</p>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
-      <button id="reactivar-btn" onclick="reactivarCuenta()" style="width:100%;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">💳 Reactivar con Tarjeta →</button>
-      <button id="reactivar-btn-mp" onclick="reactivarCuentaMP()" style="width:100%;background:linear-gradient(135deg,#009ee3,#0057a6);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">Reactivar con Mercado Pago →</button>
+      <button id="reactivar-btn" onclick="reactivarCuenta()" data-original-text="💳 Reactivar con Tarjeta →" style="width:100%;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">💳 Reactivar con Tarjeta →</button>
+      <button id="reactivar-btn-mp" onclick="reactivarCuentaMP()" data-original-text="Reactivar con Mercado Pago →" style="width:100%;background:linear-gradient(135deg,#009ee3,#0057a6);color:#fff;border:none;padding:14px 24px;border-radius:14px;font-size:15px;font-weight:800;cursor:pointer;transition:opacity .15s" onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">Reactivar con Mercado Pago →</button>
     </div>
     <p id="reactivar-error" style="font-size:12px;color:var(--red);margin:0;display:none"></p>
   </div>
@@ -821,8 +821,8 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
       <ul class="psc-features" id="psc-features"></ul>
 
       <div id="psc-payment-btns" style="display:flex">
-        <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()">💳 Pagar con Tarjeta →</button>
-        <button class="psc-cta-btn" id="psc-cta-btn-mp" onclick="irAPagoMP()" style="background:linear-gradient(135deg,#009ee3,#0057a6)">Pagar con Mercado Pago →</button>
+        <button class="psc-cta-btn" id="psc-cta-btn" onclick="irAPago()" data-original-text="💳 Pagar con Tarjeta →">💳 Pagar con Tarjeta →</button>
+        <button class="psc-cta-btn" id="psc-cta-btn-mp" onclick="irAPagoMP()" data-original-text="Pagar con Mercado Pago →" style="background:linear-gradient(135deg,#009ee3,#0057a6)">Pagar con Mercado Pago →</button>
       </div>
       <p id="psc-checkout-error" style="display:none;color:var(--red);font-size:13px;margin:-10px 0 10px"></p>
       <p id="psc-skip-link" style="margin:0 0 14px;display:none">
@@ -1744,8 +1744,8 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
               <div id="sus-status-pill" class="sus-status-pill sus-status-trial">✓ En prueba gratuita</div>
               <div id="sus-pagar-btns" style="display:none;flex-direction:column;gap:6px;align-items:flex-end">
-                <button id="sus-pagar-btn" onclick="susIrAPago()" style="background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">💳 Tarjeta →</button>
-                <button id="sus-pagar-btn-mp" onclick="susIrAPagoMP()" style="background:linear-gradient(135deg,rgba(0,158,227,.7),rgba(0,87,166,.7));backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.3);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">Mercado Pago →</button>
+                <button id="sus-pagar-btn" onclick="susIrAPago()" data-original-text="💳 Tarjeta →" style="background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">💳 Tarjeta →</button>
+                <button id="sus-pagar-btn-mp" onclick="susIrAPagoMP()" data-original-text="Mercado Pago →" style="background:linear-gradient(135deg,rgba(0,158,227,.7),rgba(0,87,166,.7));backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.3);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">Mercado Pago →</button>
               </div>
             </div>
           </div>
@@ -5015,6 +5015,7 @@ function showPlanScreen(data) {
     ctaBtn.textContent = '💳 Pagar con Tarjeta →';
     ctaBtn.style.background = '';
   }
+  ctaBtn.dataset.originalText = ctaBtn.textContent;
 
   // Botón ✕ y link "Continuar sin pagar": visibles en trial activo, ocultos cuando vencido
   document.getElementById('psc-close-btn').style.display  = trialVencido ? 'none' : '';
@@ -5534,6 +5535,18 @@ async function reactivarCuentaMP() {
     showLogin();
   }
 })();
+
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState !== 'visible') return;
+  ['psc-cta-btn','psc-cta-btn-mp','sus-pagar-btn','sus-pagar-btn-mp',
+   'reactivar-btn','reactivar-btn-mp','payment-banner-btn','payment-banner-btn-mp']
+  .forEach(function(id) {
+    var btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = false;
+    if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
+  });
+});
 </script>
 </body>
 </html>
