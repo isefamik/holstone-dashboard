@@ -3818,7 +3818,7 @@ async function loadStockInteligente(force){
 
     // ── Alert panel (5 cards) ──
     const cards=[
-      {bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados',       val:d.summary.agotados,  sub:d.summary.agotados+' productos',  filter:'out'},
+      {bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados (total o variante)',val:d.summary.agotados,sub:d.summary.agotados+' productos',filter:'out'},
       {bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (≤7d)', val:d.summary.criticos,  sub:d.summary.criticos+' productos',  filter:'critical'},
       {bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Bajos (≤14d)',  val:d.summary.bajos,     sub:d.summary.bajos+' productos',     filter:'low'},
       {bg:'#f0fdf4',bd:'#bbf7d0',c:'#15803d',icon:'✅',lbl:'Saludables',     val:d.summary.ok,        sub:d.summary.ok+' productos',        filter:'ok'},
@@ -3903,6 +3903,7 @@ function siRender(items){
 
   tbodyEl.innerHTML=items.map(item=>{
     const hasV=item.variations&&item.variations.length>0;
+    const agotadasCount=item.totalStock>0&&item.variations?item.variations.filter(v=>v.stock===0).length:0;
     let varHtml='';
     if(hasV){
       const vRows=item.variations.map(v=>{
@@ -3942,7 +3943,8 @@ function siRender(items){
         '<span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.title+'</span>'+
       '</div></td>'+
       '<td style="text-align:right">'+item.monthlyAvg+'</td>'+
-      '<td style="text-align:right;font-weight:700;color:'+(item.totalStock===0?'var(--red)':'var(--text)')+'">'+fmt(item.totalStock)+'</td>'+
+      '<td style="text-align:right;font-weight:700;color:'+(item.totalStock===0?'var(--red)':'var(--text)')+'">'+fmt(item.totalStock)+(agotadasCount>0?'<br><span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-weight:600">'+agotadasCount+' var.'+(agotadasCount>1?' agotadas':' agotada')+'</span>':'')+
+      '</td>'+
       '<td>'+bar(item.alertLevel,item.daysRemaining)+'</td>'+
       '<td style="text-align:right;color:var(--muted)">'+nd(item.needed30)+'</td>'+
       '<td style="text-align:right;color:var(--muted)">'+nd(item.needed60)+'</td>'+
