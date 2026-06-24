@@ -5024,7 +5024,7 @@ function showPlanScreen(data) {
   ctaBtn.dataset.originalText = ctaBtn.textContent;
 
   // Botón ✕ y link "Continuar sin pagar": visibles en trial activo, ocultos cuando vencido
-  document.getElementById('psc-close-btn').style.display  = trialVencido ? 'none' : '';
+  document.getElementById('psc-close-btn').style.display  = trialVencido ? 'none' : 'block';
   document.getElementById('psc-skip-link').style.display  = trialVencido ? 'none' : '';
   _pscTrialVencido = trialVencido;
 
