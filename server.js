@@ -2968,7 +2968,7 @@ app.get('/api/mi-suscripcion', async (req, res) => {
     // Si tiene suscripción activa, devolver estado real sin calcular trial
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('status, tier, billing_cycle, precio_mxn, proxima_fecha_pago, metodo_pago')
+      .select('status, tier, billing_cycle, precio_mxn, proxima_fecha_pago, metodo_pago, updated_at')
       .eq('tenant_id', tenantId)
       .eq('status', 'activo')
       .maybeSingle();
@@ -2986,6 +2986,7 @@ app.get('/api/mi-suscripcion', async (req, res) => {
         precio_mxn:           sub.precio_mxn,
         proxima_fecha_pago:   sub.proxima_fecha_pago,
         metodo_pago:          sub.metodo_pago,
+        activo_desde:         sub.updated_at,
         ventas_base:          ventaBruta,
         mes_calculado:        `${y}-${mStr}`,
         dias_restantes_trial: 0,
