@@ -1738,7 +1738,10 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
               <div id="sus-status-pill" class="sus-status-pill sus-status-trial">✓ En prueba gratuita</div>
-              <button id="sus-pagar-btn" onclick="susIrAPago()" style="display:none;background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">Activar suscripción →</button>
+              <div id="sus-pagar-btns" style="display:none;flex-direction:column;gap:6px;align-items:flex-end">
+                <button id="sus-pagar-btn" onclick="susIrAPago()" style="background:rgba(255,255,255,.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">💳 Tarjeta / PayPal →</button>
+                <button id="sus-pagar-btn-mp" onclick="susIrAPagoMP()" style="background:linear-gradient(135deg,rgba(0,158,227,.7),rgba(0,87,166,.7));backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.3);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .15s" onmouseenter="this.style.opacity='.8';this.style.transform='translateY(-1px)'" onmouseleave="this.style.opacity='1';this.style.transform='none'">Mercado Pago →</button>
+              </div>
             </div>
           </div>
         </div>
@@ -5188,21 +5191,21 @@ function renderSuscripcion(d) {
     : '—';
   document.getElementById('sus-start-date').textContent = startDate;
 
-  const pill     = document.getElementById('sus-status-pill');
-  const pagarBtn = document.getElementById('sus-pagar-btn');
+  const pill      = document.getElementById('sus-status-pill');
+  const pagarBtns = document.getElementById('sus-pagar-btns');
   if (d.tiene_suscripcion_activa) {
     pill.className   = 'sus-status-pill sus-status-active';
     pill.textContent = '✓ Suscripción activa';
-    pagarBtn.style.display = 'none';
+    pagarBtns.style.display = 'none';
   } else if (d.trial_vencido) {
     pill.className   = 'sus-status-pill sus-status-vencido';
     pill.textContent = '⏰ Prueba vencida';
-    pagarBtn.style.display = '';
+    pagarBtns.style.display = 'flex';
   } else {
     pill.className = 'sus-status-pill sus-status-trial';
     const diasStr = d.dias_restantes_trial != null ? ` · ${d.dias_restantes_trial} días restantes` : '';
     pill.textContent = '✓ En prueba gratuita' + diasStr;
-    pagarBtn.style.display = '';
+    pagarBtns.style.display = 'flex';
   }
 
   // B) Info cards
@@ -5257,7 +5260,26 @@ async function susIrAPago() {
     if (res.ok && data.checkout_url) { window.location.href = data.checkout_url; }
     else throw new Error(data.error || 'Error');
   } catch (e) {
-    btn.disabled = false; btn.textContent = 'Activar suscripción →';
+    btn.disabled = false; btn.textContent = '💳 Tarjeta / PayPal →';
+    alert('Error: ' + e.message);
+  }
+}
+
+async function susIrAPagoMP() {
+  if (!_susData || _susData.tier === 'enterprise') return;
+  const btn = document.getElementById('sus-pagar-btn-mp');
+  btn.disabled = true; btn.textContent = 'Redirigiendo…';
+  try {
+    const res = await fetch('/api/crear-checkout-mp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tier: _susData.tier, billing_cycle: 'mensual' }),
+    });
+    const data = await res.json();
+    if (res.ok && data.checkout_url) { window.location.href = data.checkout_url; }
+    else throw new Error(data.error || 'Error');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Mercado Pago →';
     alert('Error: ' + e.message);
   }
 }
