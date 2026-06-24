@@ -1168,7 +1168,7 @@ async function computeStockInteligente() {
     for (let i = 0; i < allIds.length; i += 20) {
       const ids = allIds.slice(i, i + 20).join(',');
       const details = await mlGet(
-        `https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status,variations`
+        `https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status,variations,catalog_listing`
       );
       items = items.concat(details.filter(d => d.code === 200).map(d => d.body));
     }
@@ -1234,8 +1234,8 @@ async function computeStockInteligente() {
     const calcAlert = (days, stock) => {
       if (stock <= 0 || (days !== null && days <= 1)) return 'out';
       if (days === null) return 'ok';
-      if (days <= 7) return 'critical';
-      if (days < 15) return 'low';
+      if (days <= 15) return 'critical';
+      if (days <= 45) return 'low';
       return 'ok';
     };
     const calcDate = days => {
@@ -1282,11 +1282,15 @@ async function computeStockInteligente() {
         needed60: Math.ceil(dailyAvg * 60),
         needed90: Math.ceil(dailyAvg * 90),
         alertLevel: calcAlert(daysRemaining, totalStock),
-        variations
+        variations,
+        catalogListing: item.catalog_listing || false
       };
     });
 
-    result.sort((a, b) => b.sales3m - a.sales3m);
+    result.sort((a, b) => {
+      if (a.catalogListing !== b.catalogListing) return (b.catalogListing ? 1 : 0) - (a.catalogListing ? 1 : 0);
+      return b.sales3m - a.sales3m;
+    });
 
     const summary = {
       total: result.length,

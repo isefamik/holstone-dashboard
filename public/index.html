@@ -3819,8 +3819,8 @@ async function loadStockInteligente(force){
     // ── Alert panel (5 cards) ──
     const cards=[
       {bg:'#fef2f2',bd:'#fecaca',c:'#dc2626',icon:'⛔',lbl:'Agotados (total o variante)',val:d.summary.agotados,sub:d.summary.agotados+' productos',filter:'out'},
-      {bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (≤7d)', val:d.summary.criticos,  sub:d.summary.criticos+' productos',  filter:'critical'},
-      {bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Bajos (≤14d)',  val:d.summary.bajos,     sub:d.summary.bajos+' productos',     filter:'low'},
+      {bg:'#fff7ed',bd:'#fed7aa',c:'#ea580c',icon:'🔶',lbl:'Críticos (≤15d)', val:d.summary.criticos,  sub:d.summary.criticos+' productos',  filter:'critical'},
+      {bg:'#fffbeb',bd:'#fde68a',c:'#d97706',icon:'⚠️',lbl:'Bajos (≤45d)',  val:d.summary.bajos,     sub:d.summary.bajos+' productos',     filter:'low'},
       {bg:'#f0fdf4',bd:'#bbf7d0',c:'#15803d',icon:'✅',lbl:'Saludables',     val:d.summary.ok,        sub:d.summary.ok+' productos',        filter:'ok'},
       {bg:'#eff6ff',bd:'#bfdbfe',c:'#2563eb',icon:'💰',lbl:'Valor inventario',val:fmtMXN(d.summary.valorInventario),sub:d.summary.total+' productos',big:true}
     ];
@@ -3940,6 +3940,7 @@ function siRender(items){
       '<td style="max-width:260px"><div style="display:flex;align-items:center;gap:6px">'+
         '<span id="si-ch-'+item.id+'" class="si-chevron">'+(hasV?'▶':'')+'</span>'+
         (item.pack>1?'<span class="badge badge-pack">'+item.pack+'P</span>':'')+
+        (item.catalogListing?'<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:4px;font-weight:700;white-space:nowrap;flex-shrink:0">Catálogo ML</span>':'')+
         '<span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.title+'</span>'+
       '</div></td>'+
       '<td style="text-align:right">'+item.monthlyAvg+'</td>'+
