@@ -4056,6 +4056,7 @@ function renderTendencia(){
   const dias=d.dias;
   const m=TENDENCIA_METRICS[tendenciaMetric];
   const values=dias.map(x=>x[m.key]);
+  const valuesPrev=(d.periodo_anterior||[]).map(x=>x[m.key]);
   const sum=values.reduce((a,b)=>a+b,0);
   const avg=dias.length?sum/dias.length:0;
 
@@ -4088,24 +4089,38 @@ function renderTendencia(){
     type:'line',
     data:{
       labels,
-      datasets:[{
-        label:m.label,
-        data:values,
-        borderColor:'#2563eb',
-        backgroundColor:'rgba(37,99,235,.08)',
-        fill:true,
-        tension:0.4,
-        pointRadius:2,
-        pointHoverRadius:4,
-        borderWidth:2
-      }]
+      datasets:[
+        {
+          label:m.label,
+          data:values,
+          borderColor:'#2563eb',
+          backgroundColor:'rgba(37,99,235,.08)',
+          fill:true,
+          tension:0.4,
+          pointRadius:2,
+          pointHoverRadius:4,
+          borderWidth:2
+        },
+        {
+          label:'Período anterior',
+          data:valuesPrev,
+          borderColor:'rgba(156,163,175,.8)',
+          backgroundColor:'transparent',
+          fill:false,
+          tension:0.4,
+          pointRadius:2,
+          pointHoverRadius:4,
+          borderWidth:1.5,
+          borderDash:[5,5]
+        }
+      ]
     },
     options:{
       responsive:true,
       maintainAspectRatio:false,
       plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>m.fmt(ctx.parsed.y)}}
+        legend:{display:true,position:'top',labels:{boxWidth:16,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${m.fmt(ctx.parsed.y)}`}}
       },
       scales:{
         y:{
