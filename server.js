@@ -207,6 +207,14 @@ const SELLER_ID = process.env.SELLER_ID;
 
 // ── Multi-tenant helpers ─────────────────────────────────────────────────────
 
+class TokenExpiredError extends Error {
+  constructor(tenantId) {
+    super('TOKEN_EXPIRED');
+    this.name = 'TokenExpiredError';
+    this.tenantId = tenantId;
+  }
+}
+
 const tenantTokenCache = new Map(); // tenantId → { access_token, refresh_token, expires_at }
 
 function getSellerId() {
@@ -230,22 +238,37 @@ async function refreshTenantToken(tenant) {
   params.append('client_id', tenant.ml_client_id);
   params.append('client_secret', tenant.ml_client_secret);
   params.append('refresh_token', cached.refresh_token || tenant.ml_refresh_token);
-  const response = await axios.post('https://api.mercadolibre.com/oauth/token', params, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  });
+
+  let response;
+  try {
+    response = await axios.post('https://api.mercadolibre.com/oauth/token', params, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+  } catch (e) {
+    const status = e.response?.status;
+    console.error(`[token] Refresh falló para tenant ${tenant.id}:`, e.response?.data || e.message);
+    // 4xx = refresh_token inválido o vencido → el usuario debe reconectar
+    if (status >= 400 && status < 500) throw new TokenExpiredError(tenant.id);
+    throw e; // 5xx o red → error transitorio, el caller decide
+  }
+
   const newToken = {
     access_token: response.data.access_token,
     refresh_token: response.data.refresh_token || cached.refresh_token,
     expires_at: Date.now() + ((response.data.expires_in - 300) * 1000),
   };
   tenantTokenCache.set(tenant.id, newToken);
-  await supabase.from('tenant_tokens').upsert({
+
+  const { error: upsertErr } = await supabase.from('tenant_tokens').upsert({
     tenant_id: tenant.id,
     access_token: newToken.access_token,
     refresh_token: newToken.refresh_token,
     expires_at: newToken.expires_at,
     updated_at: new Date().toISOString(),
   });
+  if (upsertErr) console.error(`[token] Supabase upsert falló para tenant ${tenant.id}:`, upsertErr.message);
+
+  console.log(`[token] Renovado para tenant ${tenant.id}, expira: ${new Date(newToken.expires_at).toLocaleString('es-MX')}`);
   return newToken.access_token;
 }
 
@@ -378,14 +401,53 @@ async function initTokens() {
     await saveTokenToSupabase(tokenData);
   }
 
-  // Refresh at startup if token is expired or about to expire (< 10 min)
   if (Date.now() >= tokenData.expires_at - 10 * 60 * 1000) {
     await refreshToken();
   } else {
     console.log('Token vigente, no es necesario renovar al arrancar');
   }
 
+  // Legacy Holstone: refresh cada 5.5h
   setInterval(refreshToken, 5.5 * 60 * 60 * 1000);
+
+  // Tenants multi-tenant: refresh proactivo escalonado
+  // Distribución: cada tenant refresca cada TENANT_REFRESH_INTERVAL ms,
+  // pero arranca con un delay de (índice * TENANT_STAGGER_MS) para no
+  // golpear la API de ML todos al mismo tiempo al reiniciar el servidor.
+  // Con 500 tenants: 500 × 100s = 50.000s ≈ 13.8h de distribución de arranque,
+  // con refreshes escalonados en ventanas de 5.5h → ≤90 req/h en el peor caso.
+  const TENANT_REFRESH_INTERVAL = 5.5 * 60 * 60 * 1000; // 5.5h
+  const TENANT_STAGGER_MS = 100 * 1000;                  // 100s entre tenants
+
+  try {
+    const { data: tenants } = await supabase.from('tenants').select('id, ml_client_id, ml_client_secret, ml_refresh_token').eq('active', true);
+    if (!tenants || tenants.length === 0) return;
+
+    console.log(`[token] Programando refresh proactivo para ${tenants.length} tenant(s)`);
+
+    tenants.forEach((tenant, idx) => {
+      const delay = idx * TENANT_STAGGER_MS;
+
+      const scheduleRefresh = () => {
+        refreshTenantToken(tenant).catch(e => {
+          if (e.name === 'TokenExpiredError') {
+            console.warn(`[token] refresh_token vencido para tenant ${tenant.id} — requiere reconexión manual`);
+          } else {
+            console.error(`[token] Error proactivo para tenant ${tenant.id}:`, e.message);
+          }
+        });
+      };
+
+      // Primer refresh: arranca escalonado
+      setTimeout(() => {
+        scheduleRefresh();
+        // Refreshes subsecuentes cada 5.5h
+        setInterval(scheduleRefresh, TENANT_REFRESH_INTERVAL);
+      }, delay);
+    });
+  } catch (e) {
+    console.error('[token] Error cargando tenants para refresh proactivo:', e.message);
+  }
 }
 
 initTokens();
@@ -424,12 +486,22 @@ function today() {
 
 async function mlGet(url, params = {}) {
   const ctx = requestCtx.getStore();
-  const token = ctx?.tenant ? await getTenantToken(ctx.tenant) : await getToken();
-  const r = await axios.get(url, {
-    params,
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return r.data;
+  const isTenant = !!ctx?.tenant;
+  const fetchFreshToken = () => isTenant ? refreshTenantToken(ctx.tenant) : refreshToken();
+
+  const token = isTenant ? await getTenantToken(ctx.tenant) : await getToken();
+  try {
+    const r = await axios.get(url, { params, headers: { Authorization: `Bearer ${token}` } });
+    return r.data;
+  } catch (e) {
+    if (e.response?.status === 401) {
+      // Token expirado según ML → forzar refresh y reintentar una vez
+      const freshToken = await fetchFreshToken();
+      const r = await axios.get(url, { params, headers: { Authorization: `Bearer ${freshToken}` } });
+      return r.data;
+    }
+    throw e;
+  }
 }
 
 async function getReasonLabel(reasonId) {
@@ -448,12 +520,21 @@ async function getReasonLabel(reasonId) {
 
 async function mlGetAds(url, params = {}) {
   const ctx = requestCtx.getStore();
-  const token = ctx?.tenant ? await getTenantToken(ctx.tenant) : await getToken();
-  const r = await axios.get(url, {
-    params,
-    headers: { Authorization: `Bearer ${token}`, 'api-version': '2' }
-  });
-  return r.data;
+  const isTenant = !!ctx?.tenant;
+  const fetchFreshToken = () => isTenant ? refreshTenantToken(ctx.tenant) : refreshToken();
+
+  const token = isTenant ? await getTenantToken(ctx.tenant) : await getToken();
+  try {
+    const r = await axios.get(url, { params, headers: { Authorization: `Bearer ${token}`, 'api-version': '2' } });
+    return r.data;
+  } catch (e) {
+    if (e.response?.status === 401) {
+      const freshToken = await fetchFreshToken();
+      const r = await axios.get(url, { params, headers: { Authorization: `Bearer ${freshToken}`, 'api-version': '2' } });
+      return r.data;
+    }
+    throw e;
+  }
 }
 
 function toRange(dateFrom, dateTo) {
@@ -552,6 +633,7 @@ async function requireAuth(req, res, next) {
     req.tenant = tenant;
     requestCtx.run({ tenant }, next);
   } catch (e) {
+    if (e.name === 'TokenExpiredError') return res.status(401).json({ error: 'TOKEN_EXPIRED' });
     res.status(500).json({ error: e.message });
   }
 }
@@ -769,6 +851,7 @@ app.get('/api/ventas-live', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -935,7 +1018,10 @@ app.get('/api/devoluciones/stats', async (req, res) => {
         avgResolutionHours: resCount > 0 ? Math.round(sumResHours / resCount) : null,
       },
     });
-  } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
+  } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
 });
 
 app.get('/api/devoluciones', async (req, res) => {
@@ -1007,7 +1093,10 @@ app.get('/api/devoluciones', async (req, res) => {
     }
 
     res.json({ total, offset, limit, claims });
-  } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
+  } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
@@ -1102,6 +1191,7 @@ app.get('/api/publicaciones', async (req, res) => {
 
     res.json({ activas, pausadas, total: activas + pausadas, premium, clasica });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     res.status(500).json({ error: msg });
   }
@@ -1143,6 +1233,7 @@ app.get('/api/performance', async (req, res) => {
 
     res.json({ visitas: totalVisitas, ordenes: totalOrdenes, conversion, periodo: '7 días', itemsConsultados: itemIds.length, totalPublicaciones });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     res.status(500).json({ error: msg });
   }
@@ -1315,6 +1406,7 @@ app.get('/api/stock-inteligente', async (req, res) => {
     const data = await computeStockInteligente();
     res.json(data);
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     res.status(500).json({ error: msg });
   }
@@ -1414,6 +1506,7 @@ app.get('/api/envios', async (req, res) => {
       periodoHasta: to
     });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     res.status(500).json({ error: msg });
   }
@@ -1480,6 +1573,7 @@ app.get('/api/tendencia', async (req, res) => {
 
     res.json({ period, dias, periodo_anterior: diasPrev });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     const msg = e.response?.data?.message || e.response?.data?.error || e.message;
     res.status(500).json({ error: msg });
   }
@@ -1574,6 +1668,7 @@ app.get('/api/ventas-resumen', async (req, res) => {
       top
     });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -1646,6 +1741,7 @@ app.get('/api/heatmap', async (req, res) => {
       promedioPorDia: ventaTotal / days
     });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -1685,6 +1781,7 @@ app.get('/api/calendario', async (req, res) => {
 
     res.json({ year, month, days });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -1748,6 +1845,7 @@ app.get('/api/ventas-por-publicacion', async (req, res) => {
 
     res.json({ period, label: range.label, items: result });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -1809,6 +1907,7 @@ app.get('/api/sin-ventas', async (req, res) => {
 
     res.json({ total: result.length, items: result });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -1860,6 +1959,7 @@ app.get('/api/ads', async (req, res) => {
 
     res.json({ from, to, campaigns, ads });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -1895,6 +1995,7 @@ app.get('/api/ads-tendencia', async (req, res) => {
 
     res.json({ from, to, dias });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2054,6 +2155,7 @@ app.get('/api/rentabilidad', async (req, res) => {
     const data = await getFinancialPeriod(from, to);
     res.json({ from, to, ...data });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2076,6 +2178,7 @@ app.get('/api/precio-sugerido', async (req, res) => {
     });
     res.json({ from, to, items: result });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2210,6 +2313,7 @@ app.get('/api/billing-resumen', async (req, res) => {
     const data  = await getBillingResumen(month, year);
     res.json(data);
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2285,6 +2389,7 @@ app.get('/api/estado-resultados', async (req, res) => {
       }
     });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2386,6 +2491,7 @@ app.get('/api/tendencia-financiera', async (req, res) => {
 
     res.json({ months: monthData });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2423,6 +2529,7 @@ app.get('/api/preguntas/metricas', async (req, res) => {
       pct_menos_1h:           total > 0 ? Math.round(menos1h / total * 100) : 0
     });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2465,6 +2572,7 @@ app.get('/api/preguntas', async (req, res) => {
 
     res.json({ total: filtered.length, offset, limit, questions: filtered });
   } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2786,6 +2894,7 @@ app.post('/api/ai-director', async (req, res) => {
     if (e.status === 529 || e.message?.includes('credit') || e.message?.includes('balance')) {
       return res.json({ response: NO_KEY_MSG, data_used });
     }
+    if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -3286,6 +3395,16 @@ app.post('/api/cambiar-password', async (req, res) => {
     console.error('[cambiar-password]', e.message);
     res.status(500).json({ error: 'Error interno' });
   }
+});
+
+// ── Global error handler ────────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({ error: 'TOKEN_EXPIRED' });
+  }
+  const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+  console.error('[server] Error no manejado en:', req.path, msg);
+  if (!res.headersSent) res.status(500).json({ error: msg });
 });
 
 // ── Catch-all: serve index.html para rutas de sección (/ventas, /stock, etc.) ──

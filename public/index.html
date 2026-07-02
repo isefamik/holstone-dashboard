@@ -778,6 +778,19 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
   html.dark #payment-banner span{color:#fbbf24}
 </style>
 
+<!-- ═══════════════ BANNER RECONEXIÓN ML ═══════════════ -->
+<div id="token-expired-banner" style="display:none;position:fixed;top:56px;left:var(--sw);right:0;z-index:91;background:#fef2f2;border-bottom:2px solid #ef4444;padding:10px 24px;align-items:center;gap:12px;flex-wrap:wrap">
+  <span style="font-size:18px">🔌</span>
+  <span style="font-size:13px;color:#991b1b;font-weight:600;flex:1">Tu conexión con MercadoLibre venció. Reconecta tu cuenta para ver datos actualizados.</span>
+  <a href="/auth/ml/connect" style="background:#ef4444;color:#fff;border:none;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:none">🔗 Reconectar cuenta</a>
+  <button onclick="document.getElementById('token-expired-banner').style.display='none'" style="background:none;border:none;font-size:16px;color:#991b1b;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+</div>
+<style>
+  @media(max-width:768px){#token-expired-banner{left:0;top:56px}}
+  html.dark #token-expired-banner{background:#2d0707;border-color:#b91c1c}
+  html.dark #token-expired-banner span{color:#fca5a5}
+</style>
+
 <!-- ═══════════════ PANTALLA DE REACTIVACIÓN ═══════════════ -->
 <div id="reactivar-screen" style="display:none;position:fixed;inset:0;z-index:1002;background:rgba(15,23,42,.72);backdrop-filter:blur(6px);align-items:center;justify-content:center">
   <div style="background:var(--card);border-radius:24px;padding:44px 40px;max-width:460px;width:90%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.35)">
@@ -5659,6 +5672,29 @@ document.addEventListener('visibilitychange', function() {
     if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
   });
 });
+
+// ── Interceptor TOKEN_EXPIRED ────────────────────────────────────────────────
+// Envuelve window.fetch para detectar respuestas {error:'TOKEN_EXPIRED'} de cualquier
+// ruta /api/* y mostrar el banner de reconexión sin romper el dashboard.
+(function() {
+  const _origFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const resp = await _origFetch(...args);
+    // Sólo inspeccionar respuestas 401 de rutas API
+    const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+    if (resp.status === 401 && url.startsWith('/api/')) {
+      const clone = resp.clone();
+      try {
+        const data = await clone.json();
+        if (data.error === 'TOKEN_EXPIRED') {
+          const banner = document.getElementById('token-expired-banner');
+          if (banner) banner.style.display = 'flex';
+        }
+      } catch {}
+    }
+    return resp;
+  };
+})();
 </script>
 <!-- Modal AI Boost -->
 <div id="sus-aiboost-modal" class="sus-modal-overlay" onclick="if(event.target===this)closeAIBoostModal()">
