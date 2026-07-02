@@ -2965,6 +2965,7 @@ app.get('/auth/ml/connect', (req, res) => {
   const url = `https://auth.mercadolibre.com.mx/authorization?response_type=code` +
     `&client_id=${encodeURIComponent(ML_CLIENT_ID)}` +
     `&redirect_uri=${encodeURIComponent(ML_REDIRECT_URI)}` +
+    `&scope=${encodeURIComponent('offline_access read_orders advertising')}` +
     `&state=${req.session.tenantId}`;
   res.redirect(url);
 });
@@ -3007,9 +3008,24 @@ app.get('/auth/ml/callback', async (req, res) => {
       updated_at: new Date().toISOString(),
     });
 
-    // Guardar seller_id y, solo si es la primera conexión, trial_started_at
-    const { data: tenantRow } = await supabase.from('tenants').select('trial_started_at').eq('id', tenantId).single();
+    // Intentar obtener el advertiser_id de ML Ads con el nuevo token
+    let advertiser_id = null;
+    try {
+      const adsRes = await axios.get(
+        `https://api.mercadolibre.com/advertising/MLM/advertisers/${seller_id}`,
+        { headers: { Authorization: `Bearer ${access_token}`, 'api-version': '2' } }
+      );
+      advertiser_id = adsRes.data?.id ?? null;
+      if (advertiser_id) console.log(`[oauth] advertiser_id descubierto para ${seller_id}: ${advertiser_id}`);
+    } catch (e) {
+      // 404 = el seller_id no es el advertiser_id (caso común); se puede configurar manualmente
+      console.log(`[oauth] advertiser_id no auto-descubierto para ${seller_id} (status ${e.response?.status}) — se puede configurar manualmente`);
+    }
+
+    // Guardar seller_id, advertiser_id (si se obtuvo) y, solo si es la primera conexión, trial_started_at
+    const { data: tenantRow } = await supabase.from('tenants').select('trial_started_at, advertiser_id').eq('id', tenantId).single();
     const trialUpdate = { seller_id };
+    if (advertiser_id) trialUpdate.advertiser_id = advertiser_id;
     if (!tenantRow?.trial_started_at) trialUpdate.trial_started_at = new Date().toISOString();
     await supabase.from('tenants').update(trialUpdate).eq('id', tenantId);
 

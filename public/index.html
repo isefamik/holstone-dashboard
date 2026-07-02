@@ -2269,8 +2269,13 @@ function updateAdsDetailChart(){
 function renderAdsUnavailable(){
   const noAdsHtml=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:16px;text-align:center">
     <div style="font-size:48px;line-height:1">📢</div>
-    <div style="font-size:16px;font-weight:600;color:var(--text)">Esta cuenta no tiene campañas de publicidad activas en MercadoLibre</div>
-    <div style="font-size:13px;color:var(--muted);max-width:420px;line-height:1.6">Cuando actives Product Ads en tu cuenta de ML, los datos aparecerán aquí automáticamente</div>
+    <div style="font-size:16px;font-weight:600;color:var(--text)">Módulo de Publicidad no configurado</div>
+    <div style="font-size:13px;color:var(--muted);max-width:480px;line-height:1.7">
+      Para activarlo, necesitamos tu <strong>Advertiser ID</strong> de MercadoLibre Ads.<br>
+      Encuéntralo en la URL de tu panel de publicidad:<br>
+      <span style="font-family:monospace;font-size:11px;background:var(--hover);padding:2px 6px;border-radius:4px">publicidad.mercadolibre.com.mx/campaigns?<strong>advertiserId=XXXXX</strong></span><br><br>
+      Comparte ese número con soporte para activarlo en tu cuenta.
+    </div>
   </div>`;
   const elMetrics=document.getElementById('ads-metrics');
   const campTbody=document.getElementById('ads-camp-tbody');
