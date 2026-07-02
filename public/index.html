@@ -1259,11 +1259,13 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
         <div class="card">
           <div class="card-title">Ventas y ROAS por día</div>
           <div class="metric-checks" id="ads-chart-checks">
-            <label><input type="checkbox" value="ventas" checked onchange="updateAdsChart()"> Ventas por Ads</label>
+            <label><input type="checkbox" value="directAmount" checked onchange="updateAdsChart()"> Ventas atribuidas</label>
+            <label><input type="checkbox" value="indirectAmount" checked onchange="updateAdsChart()"> Otras ventas</label>
             <label><input type="checkbox" value="roas" checked onchange="updateAdsChart()"> ROAS</label>
             <label><input type="checkbox" value="acos" onchange="updateAdsChart()"> ACOS</label>
             <label><input type="checkbox" value="clicks" onchange="updateAdsChart()"> Clicks</label>
             <label><input type="checkbox" value="inversion" onchange="updateAdsChart()"> Inversión</label>
+            <label><input type="checkbox" value="prints" onchange="updateAdsChart()"> Impresiones</label>
           </div>
           <div style="position:relative;height:280px">
             <canvas id="ads-tendencia-chart"></canvas>
@@ -1378,11 +1380,13 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
         <div class="card">
           <div class="card-title">Ventas y ROAS por día</div>
           <div class="metric-checks" id="ads-detail-chart-checks">
-            <label><input type="checkbox" value="ventas" checked onchange="updateAdsDetailChart()"> Ventas por Ads</label>
+            <label><input type="checkbox" value="directAmount" checked onchange="updateAdsDetailChart()"> Ventas atribuidas</label>
+            <label><input type="checkbox" value="indirectAmount" checked onchange="updateAdsDetailChart()"> Otras ventas</label>
             <label><input type="checkbox" value="roas" checked onchange="updateAdsDetailChart()"> ROAS</label>
             <label><input type="checkbox" value="acos" onchange="updateAdsDetailChart()"> ACOS</label>
             <label><input type="checkbox" value="clicks" onchange="updateAdsDetailChart()"> Clicks</label>
             <label><input type="checkbox" value="inversion" onchange="updateAdsDetailChart()"> Inversión</label>
+            <label><input type="checkbox" value="prints" onchange="updateAdsDetailChart()"> Impresiones</label>
           </div>
           <div style="position:relative;height:280px">
             <canvas id="ads-detail-chart"></canvas>
@@ -2172,11 +2176,13 @@ let currentDetailCampId=null;
 let adsDetailDrInited=false;
 
 const ADS_METRIC_CFG={
-  ventas: {label:'Ventas por Ads', type:'bar',  color:'#2563eb', axis:'y',  fmt:fmtMXN},
-  inversion:{label:'Inversión',    type:'bar',  color:'#ef4444', axis:'y',  fmt:fmtMXN},
-  roas:    {label:'ROAS',          type:'line', color:'#8b5cf6', axis:'y1', fmt:fmtX},
-  acos:    {label:'ACOS %',        type:'line', color:'#f59e0b', axis:'y1', fmt:fmtPct},
-  clicks:  {label:'Clicks',        type:'line', color:'#10b981', axis:'y1', fmt:fmt}
+  directAmount:  {label:'Ventas atribuidas', type:'bar',  color:'#1d4ed8', axis:'y',  fmt:fmtMXN, stack:'ventas'},
+  indirectAmount:{label:'Otras ventas',      type:'bar',  color:'#93c5fd', axis:'y',  fmt:fmtMXN, stack:'ventas'},
+  inversion:     {label:'Inversión',         type:'bar',  color:'#ef4444', axis:'y',  fmt:fmtMXN},
+  roas:          {label:'ROAS',              type:'line', color:'#8b5cf6', axis:'y1', fmt:fmtX},
+  acos:          {label:'ACOS %',            type:'line', color:'#f59e0b', axis:'y1', fmt:fmtPct},
+  clicks:        {label:'Clicks',            type:'line', color:'#10b981', axis:'y1', fmt:fmt},
+  prints:        {label:'Impresiones',       type:'line', color:'#6366f1', axis:'y1', fmt:fmt},
 };
 
 function initPublicidadSection(){
@@ -2222,8 +2228,8 @@ function renderAdsChart(canvasEl, existingChart, dias, metrics){
   }
   const datasets=metrics.map((key,i)=>{
     const cfg=ADS_METRIC_CFG[key];
-    if(cfg.type==='bar') return {type:'bar',label:cfg.label,data:dias.map(x=>x[key]),backgroundColor:cfg.color,yAxisID:cfg.axis,order:2+i};
-    return {type:'line',label:cfg.label,data:dias.map(x=>x[key]),borderColor:cfg.color,backgroundColor:cfg.color,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2,yAxisID:cfg.axis,order:1};
+    if(cfg.type==='bar') return {type:'bar',label:cfg.label,data:dias.map(x=>x[key]||0),backgroundColor:cfg.color,yAxisID:cfg.axis,order:2+i,...(cfg.stack?{stack:cfg.stack}:{})};
+    return {type:'line',label:cfg.label,data:dias.map(x=>x[key]||0),borderColor:cfg.color,backgroundColor:cfg.color,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2,yAxisID:cfg.axis,order:1};
   });
   const usesY =metrics.some(k=>ADS_METRIC_CFG[k].axis==='y');
   const usesY1=metrics.some(k=>ADS_METRIC_CFG[k].axis==='y1');
@@ -2311,20 +2317,28 @@ async function loadAds(){
     adsCampaigns=campaigns;
     adsAllData=ads;
 
-    const totInv=campaigns.reduce((s,c)=>s+(c.metrics?.cost||0),0);
-    const totVentas=campaigns.reduce((s,c)=>s+(c.metrics?.total_amount||0),0);
-    const totClicks=campaigns.reduce((s,c)=>s+(c.metrics?.clicks||0),0);
-    const totImp=campaigns.reduce((s,c)=>s+(c.metrics?.prints||0),0);
+    const totInv        = campaigns.reduce((s,c)=>s+(c.metrics?.cost||0),0);
+    const totDirect     = campaigns.reduce((s,c)=>s+(c.metrics?.direct_amount||0),0);
+    const totIndirect   = campaigns.reduce((s,c)=>s+(c.metrics?.indirect_amount||0),0);
+    const totVentas     = totDirect + totIndirect;
+    const totDirectUnits  = campaigns.reduce((s,c)=>s+(c.metrics?.direct_units_quantity||0),0);
+    const totIndirectUnits= campaigns.reduce((s,c)=>s+(c.metrics?.indirect_units_quantity||0),0);
+    const totClicks     = campaigns.reduce((s,c)=>s+(c.metrics?.clicks||0),0);
+    const totImp        = campaigns.reduce((s,c)=>s+(c.metrics?.prints||0),0);
     const roas=totInv>0?totVentas/totInv:0;
     const acos=totVentas>0?totInv/totVentas*100:0;
+    const aporteDir = totVentas>0 ? Math.round(totDirect/totVentas*100) : 0;
 
     elMetrics.innerHTML=`
       <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión total</div><div class="metric-value" style="color:var(--red)">${fmtMXN(totInv)}</div></div>
-      <div class="metric"><div class="mi mi-g">💰</div><div class="metric-label">Ventas por ads</div><div class="metric-value" style="color:var(--green)">${fmtMXN(totVentas)}</div></div>
+      <div class="metric"><div class="mi" style="background:#dbeafe">🎯</div><div class="metric-label">Ventas atribuidas</div><div class="metric-value" style="color:#1d4ed8">${fmtMXN(totDirect)}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px">${fmt(totDirectUnits)} un.</span></div></div>
+      <div class="metric"><div class="mi" style="background:#e0f2fe">📦</div><div class="metric-label">Otras ventas</div><div class="metric-value" style="color:#0284c7">${fmtMXN(totIndirect)}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px">${fmt(totIndirectUnits)} un.</span></div></div>
       <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS promedio</div><div class="metric-value" style="color:var(--accent)">${fmtX(roas)}</div></div>
       <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS promedio</div><div class="metric-value">${fmtPct(acos)}</div></div>
       <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks totales</div><div class="metric-value">${fmt(totClicks)}</div></div>
-      <div class="metric"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>`;
+      <div class="metric"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>
+      ${totVentas>0?`<div style="grid-column:1/-1;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:10px;padding:10px 16px;font-size:13px;color:#1e40af;display:flex;align-items:center;gap:8px"><span style="font-size:16px">📢</span><span>Tus anuncios generaron el <strong>${aporteDir}%</strong> de las ventas de tus publicaciones promocionadas</span></div>`:''}
+      `;
 
     renderAdsAlerts(campaigns,ads);
 
