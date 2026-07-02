@@ -2266,6 +2266,26 @@ function updateAdsDetailChart(){
 }
 
 // ── Main view loaders ─────────────────────────────
+function renderAdsUnavailable(){
+  const noAdsHtml=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:16px;text-align:center">
+    <div style="font-size:48px;line-height:1">📢</div>
+    <div style="font-size:16px;font-weight:600;color:var(--text)">Esta cuenta no tiene campañas de publicidad activas en MercadoLibre</div>
+    <div style="font-size:13px;color:var(--muted);max-width:420px;line-height:1.6">Cuando actives Product Ads en tu cuenta de ML, los datos aparecerán aquí automáticamente</div>
+  </div>`;
+  const elMetrics=document.getElementById('ads-metrics');
+  const campTbody=document.getElementById('ads-camp-tbody');
+  const topTbody=document.getElementById('ads-top-tbody');
+  if(elMetrics)elMetrics.innerHTML=noAdsHtml;
+  if(campTbody)campTbody.innerHTML=`<tr><td colspan="7">${noAdsHtml}</td></tr>`;
+  if(topTbody)topTbody.innerHTML=`<tr><td colspan="8">${noAdsHtml}</td></tr>`;
+  const alertU=document.getElementById('ads-alerts-urgent');
+  const alertO=document.getElementById('ads-alerts-opportunity');
+  if(alertU)alertU.innerHTML='<div class="alerts-empty">Sin datos de publicidad</div>';
+  if(alertO)alertO.innerHTML='<div class="alerts-empty">Sin datos de publicidad</div>';
+  const chartEl=document.getElementById('ads-tendencia-chart');
+  if(chartEl)chartEl.parentElement.innerHTML=noAdsHtml;
+}
+
 async function loadAds(){
   const elMetrics=document.getElementById('ads-metrics');
   const campTbody=document.getElementById('ads-camp-tbody');
@@ -2279,6 +2299,7 @@ async function loadAds(){
     const st=drInstances['ads-dr'];
     const r=await fetch(`/api/ads?from=${st.rangeFrom}&to=${st.rangeTo}`);
     const d=await r.json();
+    if(d.available===false){renderAdsUnavailable();return;}
     if(d.error)throw new Error(errStr(d.error));
     const campaigns=d.campaigns||[];
     const ads=d.ads||[];
@@ -2335,6 +2356,7 @@ async function loadAdsTendencia(){
     const st=drInstances['ads-dr'];
     const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}`);
     const d=await r.json();
+    if(d.available===false)return; // renderAdsUnavailable() ya lo manejó desde loadAds
     if(d.error)throw new Error(errStr(d.error));
     adsTendenciaDias=d.dias||[];
     updateAdsChart();
@@ -2462,6 +2484,7 @@ async function loadAdsDetailData(campId){
   try{
     const r=await fetch(`/api/ads?from=${st.rangeFrom}&to=${st.rangeTo}&campaign_id=${campId}`);
     const d=await r.json();
+    if(d.available===false){renderAdsUnavailable();return;}
     if(d.error)throw new Error(errStr(d.error));
     const c=(d.campaigns||[])[0];
     const ads=d.ads||[];
@@ -2509,6 +2532,7 @@ async function loadAdsDetailData(campId){
   try{
     const r=await fetch(`/api/ads-tendencia?from=${st.rangeFrom}&to=${st.rangeTo}&campaign_id=${campId}`);
     const d=await r.json();
+    if(d.available===false)return;
     if(d.error)throw new Error(errStr(d.error));
     adsDetailDias=d.dias||[];
     updateAdsDetailChart();

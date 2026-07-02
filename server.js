@@ -1919,6 +1919,11 @@ const ADS_METRICS = 'clicks,prints,cost,cpc,acos,roas,total_amount,units_quantit
 
 app.get('/api/ads', async (req, res) => {
   try {
+    const ctx = requestCtx.getStore();
+    if (ctx?.tenant && !ctx.tenant.advertiser_id) {
+      return res.json({ available: false, reason: 'no_ads_account' });
+    }
+
     const from = req.query.from || dateNDaysAgo(6);
     const to = req.query.to || today();
     const campaignId = req.query.campaign_id ? parseInt(req.query.campaign_id) : null;
@@ -1966,6 +1971,11 @@ app.get('/api/ads', async (req, res) => {
 
 app.get('/api/ads-tendencia', async (req, res) => {
   try {
+    const ctx = requestCtx.getStore();
+    if (ctx?.tenant && !ctx.tenant.advertiser_id) {
+      return res.json({ available: false, reason: 'no_ads_account' });
+    }
+
     const from = req.query.from || dateNDaysAgo(6);
     const to = req.query.to || today();
     const campaignId = req.query.campaign_id ? parseInt(req.query.campaign_id) : null;
@@ -2663,34 +2673,40 @@ app.post('/api/ai-director', async (req, res) => {
       // 3. Stock inteligente (3-month analysis)
       computeStockInteligente(),
 
-      // 4. Publicidad del mes
+      // 4. Publicidad del mes (omitido si el tenant no tiene advertiser_id)
       (async () => {
-        const ADS_M = 'clicks,prints,cost,acos,roas,total_amount,units_quantity';
-        const campResp = await mlGetAds(
-          `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`,
-          { date_from: fromMes, date_to: toMes, metrics: ADS_M }
-        );
-        let ads = [], ao = 0, at = 1;
-        while (ao < at) {
-          const d = await mlGetAds(
-            `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/ads/search`,
-            { date_from: fromMes, date_to: toMes, metrics: 'clicks,cost,acos,roas,total_amount', limit: 50, offset: ao }
-          );
-          at = d.paging.total;
-          ads = ads.concat(d.results);
-          ao += 50;
+        const adsCtx = requestCtx.getStore();
+        if (adsCtx?.tenant && !adsCtx.tenant.advertiser_id) {
+          return { available: false, campaignsCount: 0, inversion: 0, ventasAds: 0, roasTotal: 0, acosTotal: 0, acosAlto: [] };
         }
-        const campaigns = campResp.results || [];
-        const inversion  = campaigns.reduce((s, c) => s + (c.metrics?.cost || 0), 0);
-        const ventasAds  = campaigns.reduce((s, c) => s + (c.metrics?.total_amount || 0), 0);
-        const roasTotal  = inversion > 0 ? ventasAds / inversion : 0;
-        const acosTotal  = ventasAds > 0 ? inversion / ventasAds * 100 : 0;
-        const acosAlto   = ads
-          .filter(a => (a.metrics?.acos || 0) > 30 && (a.metrics?.cost || 0) > 50)
-          .sort((a, b) => (b.metrics?.cost || 0) - (a.metrics?.cost || 0))
-          .slice(0, 5)
-          .map(a => ({ title: a.ad_title || a.item_id, acos: a.metrics?.acos, cost: a.metrics?.cost }));
-        return { campaignsCount: campaigns.length, inversion, ventasAds, roasTotal, acosTotal, acosAlto };
+        try {
+          const ADS_M = 'clicks,prints,cost,acos,roas,total_amount,units_quantity';
+          const campResp = await mlGetAds(
+            `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`,
+            { date_from: fromMes, date_to: toMes, metrics: ADS_M }
+          );
+          let ads = [], ao = 0, at = 1;
+          while (ao < at) {
+            const d = await mlGetAds(
+              `https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/ads/search`,
+              { date_from: fromMes, date_to: toMes, metrics: 'clicks,cost,acos,roas,total_amount', limit: 50, offset: ao }
+            );
+            at = d.paging.total;
+            ads = ads.concat(d.results);
+            ao += 50;
+          }
+          const campaigns = campResp.results || [];
+          const inversion  = campaigns.reduce((s, c) => s + (c.metrics?.cost || 0), 0);
+          const ventasAds  = campaigns.reduce((s, c) => s + (c.metrics?.total_amount || 0), 0);
+          const roasTotal  = inversion > 0 ? ventasAds / inversion : 0;
+          const acosTotal  = ventasAds > 0 ? inversion / ventasAds * 100 : 0;
+          const acosAlto   = ads
+            .filter(a => (a.metrics?.acos || 0) > 30 && (a.metrics?.cost || 0) > 50)
+            .sort((a, b) => (b.metrics?.cost || 0) - (a.metrics?.cost || 0))
+            .slice(0, 5)
+            .map(a => ({ title: a.ad_title || a.item_id, acos: a.metrics?.acos, cost: a.metrics?.cost }));
+          return { campaignsCount: campaigns.length, inversion, ventasAds, roasTotal, acosTotal, acosAlto };
+        } catch (e) { return { campaignsCount: 0, inversion: 0, ventasAds: 0, roasTotal: 0, acosTotal: 0, acosAlto: [] }; }
       })(),
 
       // 5. Rentabilidad del mes
