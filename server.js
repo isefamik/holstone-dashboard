@@ -1928,9 +1928,14 @@ app.get('/api/ads', async (req, res) => {
     const to = req.query.to || today();
     const campaignId = req.query.campaign_id ? parseInt(req.query.campaign_id) : null;
 
-    const campaignsResp = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
-      date_from: from, date_to: to, metrics: ADS_METRICS
-    });
+    // Campaigns ML Ads + ventas totales del negocio en el mismo período — en paralelo
+    const [campaignsResp, periodOrders] = await Promise.all([
+      mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
+        date_from: from, date_to: to, metrics: ADS_METRICS
+      }),
+      fetchPaidOrders(`${from}T00:00:00.000-06:00`, `${to}T23:59:59.000-06:00`).catch(() => [])
+    ]);
+    const ventaTotalPeriodo = periodOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
 
     let ads = [];
     let offset = 0, total = 1;
@@ -1962,7 +1967,7 @@ app.get('/api/ads', async (req, res) => {
       ads = ads.filter(a => a.campaign_id === campaignId);
     }
 
-    res.json({ from, to, campaigns, ads });
+    res.json({ from, to, campaigns, ads, ventaTotalPeriodo });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
