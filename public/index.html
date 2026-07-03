@@ -114,8 +114,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:22px}
 
 /* ── METRIC CARDS ── */
-.metric{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:box-shadow .15s}
+.metric{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:box-shadow .15s,opacity .15s}
 .metric:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.metric[data-metric]{cursor:pointer;user-select:none}
+.metric.metric-inactive{opacity:.45;box-shadow:none}
 .mi{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-bottom:14px}
 .mi-y{background:#fef9c3}
 .mi-g{background:#d1fae5}
@@ -2230,8 +2232,8 @@ function renderAdsChart(canvasEl, existingChart, dias, metrics){
   }
   const datasets=metrics.map((key,i)=>{
     const cfg=ADS_METRIC_CFG[key];
-    if(cfg.type==='bar') return {type:'bar',label:cfg.label,data:dias.map(x=>x[key]||0),backgroundColor:cfg.color,yAxisID:cfg.axis,order:2+i,...(cfg.stack?{stack:cfg.stack}:{})};
-    return {type:'line',label:cfg.label,data:dias.map(x=>x[key]||0),borderColor:cfg.color,backgroundColor:cfg.color,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2,yAxisID:cfg.axis,order:1};
+    if(cfg.type==='bar') return {type:'bar',label:cfg.label,data:dias.map(x=>x[key]||0),backgroundColor:cfg.color,yAxisID:cfg.axis,order:2+i,metricKey:key,...(cfg.stack?{stack:cfg.stack}:{})};
+    return {type:'line',label:cfg.label,data:dias.map(x=>x[key]||0),borderColor:cfg.color,backgroundColor:cfg.color,tension:0.4,pointRadius:2,pointHoverRadius:4,borderWidth:2,yAxisID:cfg.axis,order:1,metricKey:key};
   });
   const usesY =metrics.some(k=>ADS_METRIC_CFG[k].axis==='y');
   const usesY1=metrics.some(k=>ADS_METRIC_CFG[k].axis==='y1');
@@ -2245,10 +2247,18 @@ function renderAdsChart(canvasEl, existingChart, dias, metrics){
       maintainAspectRatio:false,
       plugins:{
         legend:{display:true,position:'top',labels:{boxWidth:12,font:{size:11}}},
-        tooltip:{callbacks:{label:ctx=>{
-          const key=metrics[ctx.datasetIndex];
-          return `${ctx.dataset.label}: ${key?ADS_METRIC_CFG[key].fmt(ctx.parsed.y):ctx.parsed.y}`;
-        }}}
+        tooltip:{
+          mode:'index',
+          intersect:false,
+          callbacks:{
+            title:items=>`📅 ${items[0]?.label||''}`,
+            label:ctx=>{
+              const key=ctx.dataset.metricKey;
+              const f=key&&ADS_METRIC_CFG[key]?ADS_METRIC_CFG[key].fmt:v=>String(v);
+              return ` ${ctx.dataset.label}: ${f(ctx.parsed.y)}`;
+            }
+          }
+        }
       },
       scales
     }
@@ -2340,15 +2350,28 @@ async function loadAds(){
       : 'de las ventas de tus publicaciones promocionadas';
 
     elMetrics.innerHTML=`
-      <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión total</div><div class="metric-value" style="color:var(--red)">${fmtMXN(totInv)}</div></div>
-      <div class="metric"><div class="mi" style="background:#dbeafe">🎯</div><div class="metric-label">Atribuidas</div><div class="metric-value" style="color:#1d4ed8">${fmtMXN(totDirect)}</div></div>
-      <div class="metric"><div class="mi" style="background:#e0f2fe">📦</div><div class="metric-label">Otras ventas</div><div class="metric-value" style="color:#0284c7">${fmtMXN(totIndirect)}</div></div>
-      <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS promedio</div><div class="metric-value" style="color:var(--accent)">${fmtX(roas)}</div></div>
-      <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS promedio</div><div class="metric-value">${fmtPct(acos)}</div></div>
-      <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks totales</div><div class="metric-value">${fmt(totClicks)}</div></div>
-      <div class="metric"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>
+      <div class="metric" data-metric="inversion"><div class="mi mi-r">💸</div><div class="metric-label">Inversión total</div><div class="metric-value" style="color:var(--red)">${fmtMXN(totInv)}</div></div>
+      <div class="metric" data-metric="directAmount"><div class="mi" style="background:#dbeafe">🎯</div><div class="metric-label">Atribuidas</div><div class="metric-value" style="color:#1d4ed8">${fmtMXN(totDirect)}</div><div class="metric-sub">${fmt(totDirectUnits)} un.</div></div>
+      <div class="metric" data-metric="indirectAmount"><div class="mi" style="background:#e0f2fe">📦</div><div class="metric-label">Otras ventas</div><div class="metric-value" style="color:#0284c7">${fmtMXN(totIndirect)}</div><div class="metric-sub">${fmt(totIndirectUnits)} un.</div></div>
+      <div class="metric" data-metric="roas"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS promedio</div><div class="metric-value" style="color:var(--accent)">${fmtX(roas)}</div></div>
+      <div class="metric" data-metric="acos"><div class="mi mi-y">📊</div><div class="metric-label">ACOS promedio</div><div class="metric-value">${fmtPct(acos)}</div></div>
+      <div class="metric" data-metric="clicks"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks totales</div><div class="metric-value">${fmt(totClicks)}</div></div>
+      <div class="metric" data-metric="prints"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>
       ${totVentas>0?`<div style="grid-column:1/-1;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:10px;padding:10px 16px;font-size:13px;color:#1e40af;display:flex;align-items:center;gap:8px"><span style="font-size:16px">📢</span><span>Tus anuncios generaron el <strong>${aporteVal}%</strong> ${aporteDesc}</span></div>`:''}
       `;
+
+    elMetrics.addEventListener('click', e=>{
+      const card=e.target.closest('[data-metric]');
+      if(!card) return;
+      const key=card.dataset.metric;
+      const cb=document.querySelector(`#ads-chart-checks input[value="${key}"]`);
+      if(cb){ cb.checked=!cb.checked; updateAdsChart(); }
+      card.classList.toggle('metric-inactive');
+    });
+    elMetrics.querySelectorAll('[data-metric]').forEach(card=>{
+      const cb=document.querySelector(`#ads-chart-checks input[value="${card.dataset.metric}"]`);
+      if(cb&&!cb.checked) card.classList.add('metric-inactive');
+    });
 
     renderAdsAlerts(campaigns,ads);
 
