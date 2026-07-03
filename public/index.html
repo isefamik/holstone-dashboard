@@ -2189,18 +2189,27 @@ const ADS_METRIC_CFG={
   prints:        {label:'Impresiones',       type:'line', color:'#6366f1', axis:'y1', fmt:fmt},
 };
 
+function syncAdCards(){
+  document.querySelectorAll('#ads-metrics [data-metric]').forEach(card=>{
+    const cb=document.querySelector(`#ads-chart-checks input[value="${card.dataset.metric}"]`);
+    card.classList.toggle('metric-inactive', cb ? !cb.checked : false);
+  });
+}
+
 function initPublicidadSection(){
   if(adsInited)return;
   adsInited=true;
   initDateRange('ads-dr',()=>{loadAds();loadAdsTendencia();});
-  const elM=document.getElementById('ads-metrics');
-  elM.addEventListener('click',e=>{
+  document.getElementById('ads-metrics').addEventListener('click',e=>{
     const card=e.target.closest('[data-metric]');
     if(!card) return;
-    const key=card.dataset.metric;
-    const cb=document.querySelector(`#ads-chart-checks input[value="${key}"]`);
-    if(cb){ cb.checked=!cb.checked; updateAdsChart(); }
-    card.classList.toggle('metric-inactive');
+    const cb=document.querySelector(`#ads-chart-checks input[value="${card.dataset.metric}"]`);
+    if(cb) cb.click();
+  });
+  document.getElementById('ads-chart-checks').addEventListener('change',e=>{
+    if(e.target.type!=='checkbox') return;
+    const card=document.querySelector(`#ads-metrics [data-metric="${e.target.value}"]`);
+    if(card) card.classList.toggle('metric-inactive', !e.target.checked);
   });
   loadAds();
   loadAdsTendencia();
@@ -2368,6 +2377,7 @@ async function loadAds(){
       <div class="metric" data-metric="prints" style="--mc:#6366f1"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>
       ${totVentas>0?`<div style="grid-column:1/-1;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:10px;padding:10px 16px;font-size:13px;color:#1e40af;display:flex;align-items:center;gap:8px"><span style="font-size:16px">📢</span><span>Tus anuncios generaron el <strong>${aporteVal}%</strong> ${aporteDesc}</span></div>`:''}
       `;
+    syncAdCards();
 
     renderAdsAlerts(campaigns,ads);
 
