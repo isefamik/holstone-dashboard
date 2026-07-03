@@ -106,7 +106,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ── GRIDS ── */
 .grid-6{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px}
-.grid-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:22px}
+.grid-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:22px;align-items:stretch}
+.grid-auto .metric{height:100%;box-sizing:border-box}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px}
 .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
@@ -2340,8 +2341,8 @@ async function loadAds(){
 
     elMetrics.innerHTML=`
       <div class="metric"><div class="mi mi-r">💸</div><div class="metric-label">Inversión total</div><div class="metric-value" style="color:var(--red)">${fmtMXN(totInv)}</div></div>
-      <div class="metric"><div class="mi" style="background:#dbeafe">🎯</div><div class="metric-label">Ventas atribuidas</div><div class="metric-value" style="color:#1d4ed8">${fmtMXN(totDirect)}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px">${fmt(totDirectUnits)} un.</span></div></div>
-      <div class="metric"><div class="mi" style="background:#e0f2fe">📦</div><div class="metric-label">Otras ventas</div><div class="metric-value" style="color:#0284c7">${fmtMXN(totIndirect)}<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px">${fmt(totIndirectUnits)} un.</span></div></div>
+      <div class="metric"><div class="mi" style="background:#dbeafe">🎯</div><div class="metric-label">Atribuidas</div><div class="metric-value" style="color:#1d4ed8">${fmtMXN(totDirect)} <span style="font-size:11px;font-weight:400;color:var(--muted)">· ${fmt(totDirectUnits)} un.</span></div></div>
+      <div class="metric"><div class="mi" style="background:#e0f2fe">📦</div><div class="metric-label">Otras ventas</div><div class="metric-value" style="color:#0284c7">${fmtMXN(totIndirect)} <span style="font-size:11px;font-weight:400;color:var(--muted)">· ${fmt(totIndirectUnits)} un.</span></div></div>
       <div class="metric"><div class="mi mi-b">🚀</div><div class="metric-label">ROAS promedio</div><div class="metric-value" style="color:var(--accent)">${fmtX(roas)}</div></div>
       <div class="metric"><div class="mi mi-y">📊</div><div class="metric-label">ACOS promedio</div><div class="metric-value">${fmtPct(acos)}</div></div>
       <div class="metric"><div class="mi mi-b">🖱️</div><div class="metric-label">Clicks totales</div><div class="metric-value">${fmt(totClicks)}</div></div>
