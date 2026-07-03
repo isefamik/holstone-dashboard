@@ -2193,6 +2193,15 @@ function initPublicidadSection(){
   if(adsInited)return;
   adsInited=true;
   initDateRange('ads-dr',()=>{loadAds();loadAdsTendencia();});
+  const elM=document.getElementById('ads-metrics');
+  elM.addEventListener('click',e=>{
+    const card=e.target.closest('[data-metric]');
+    if(!card) return;
+    const key=card.dataset.metric;
+    const cb=document.querySelector(`#ads-chart-checks input[value="${key}"]`);
+    if(cb){ cb.checked=!cb.checked; updateAdsChart(); }
+    card.classList.toggle('metric-inactive');
+  });
   loadAds();
   loadAdsTendencia();
 }
@@ -2359,19 +2368,6 @@ async function loadAds(){
       <div class="metric" data-metric="prints"><div class="mi mi-g">👁️</div><div class="metric-label">Impresiones</div><div class="metric-value">${fmt(totImp)}</div></div>
       ${totVentas>0?`<div style="grid-column:1/-1;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:10px;padding:10px 16px;font-size:13px;color:#1e40af;display:flex;align-items:center;gap:8px"><span style="font-size:16px">📢</span><span>Tus anuncios generaron el <strong>${aporteVal}%</strong> ${aporteDesc}</span></div>`:''}
       `;
-
-    elMetrics.addEventListener('click', e=>{
-      const card=e.target.closest('[data-metric]');
-      if(!card) return;
-      const key=card.dataset.metric;
-      const cb=document.querySelector(`#ads-chart-checks input[value="${key}"]`);
-      if(cb){ cb.checked=!cb.checked; updateAdsChart(); }
-      card.classList.toggle('metric-inactive');
-    });
-    elMetrics.querySelectorAll('[data-metric]').forEach(card=>{
-      const cb=document.querySelector(`#ads-chart-checks input[value="${card.dataset.metric}"]`);
-      if(cb&&!cb.checked) card.classList.add('metric-inactive');
-    });
 
     renderAdsAlerts(campaigns,ads);
 
