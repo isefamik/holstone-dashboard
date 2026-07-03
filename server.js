@@ -1928,14 +1928,25 @@ app.get('/api/ads', async (req, res) => {
     const to = req.query.to || today();
     const campaignId = req.query.campaign_id ? parseInt(req.query.campaign_id) : null;
 
-    // Campaigns ML Ads + ventas totales del negocio en el mismo período — en paralelo
-    const [campaignsResp, periodOrders] = await Promise.all([
+    // Campaigns ML Ads (paginadas, incluye eliminadas) + ventas totales del negocio — en paralelo
+    const [rawCampaignsFirst, periodOrders] = await Promise.all([
       mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
-        date_from: from, date_to: to, metrics: ADS_METRICS
+        date_from: from, date_to: to, metrics: ADS_METRICS, limit: 50, offset: 0
       }),
       fetchPaidOrders(`${from}T00:00:00.000-06:00`, `${to}T23:59:59.000-06:00`).catch(() => [])
     ]);
     const ventaTotalPeriodo = periodOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
+
+    let allCampaigns = rawCampaignsFirst.results || [];
+    let campTotal = rawCampaignsFirst.paging?.total ?? allCampaigns.length;
+    let campOffset = 50;
+    while (campOffset < campTotal) {
+      const page = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
+        date_from: from, date_to: to, metrics: ADS_METRICS, limit: 50, offset: campOffset
+      });
+      allCampaigns = allCampaigns.concat(page.results || []);
+      campOffset += 50;
+    }
 
     let ads = [];
     let offset = 0, total = 1;
@@ -1961,7 +1972,7 @@ app.get('/api/ads', async (req, res) => {
       diasStock: stockMap[ad.item_id]?.diasStock ?? null
     }));
 
-    let campaigns = campaignsResp.results;
+    let campaigns = allCampaigns;
     if (campaignId) {
       campaigns = campaigns.filter(c => c.id === campaignId);
       ads = ads.filter(a => a.campaign_id === campaignId);
@@ -1994,7 +2005,7 @@ app.get('/api/ads-tendencia', async (req, res) => {
       const batch = dateList.slice(i, i + CONCURRENCY);
       const results = await Promise.all(batch.map(async fecha => {
         const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
-          date_from: fecha, date_to: fecha, metrics: 'cost,total_amount,clicks,prints,direct_amount,indirect_amount'
+          date_from: fecha, date_to: fecha, metrics: 'cost,total_amount,clicks,prints,direct_amount,indirect_amount', limit: 50
         });
         let results2 = d.results || [];
         if (campaignId) results2 = results2.filter(c => c.id === campaignId);

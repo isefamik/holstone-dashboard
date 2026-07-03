@@ -2351,7 +2351,7 @@ async function loadAds(){
     const totDirect     = campaigns.reduce((s,c)=>s+(c.metrics?.direct_amount||0),0);
     const totIndirect   = campaigns.reduce((s,c)=>s+(c.metrics?.indirect_amount||0),0);
     const totVentas     = totDirect + totIndirect;
-    const totDirectUnits  = campaigns.reduce((s,c)=>s+(c.metrics?.direct_units_quantity||0),0);
+    const totDirectUnits  = campaigns.reduce((s,c)=>s+(c.metrics?.units_quantity||0),0);
     const totIndirectUnits= campaigns.reduce((s,c)=>s+(c.metrics?.indirect_units_quantity||0),0);
     const totClicks     = campaigns.reduce((s,c)=>s+(c.metrics?.clicks||0),0);
     const totImp        = campaigns.reduce((s,c)=>s+(c.metrics?.prints||0),0);
