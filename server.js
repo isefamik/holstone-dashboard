@@ -420,20 +420,41 @@ async function initTokens() {
   const TENANT_STAGGER_MS = 100 * 1000;                  // 100s entre tenants
 
   try {
-    const { data: tenants } = await supabase.from('tenants').select('id, ml_client_id, ml_client_secret, ml_refresh_token').eq('active', true);
+    const { data: tenants } = await supabase.from('tenants').select('id, name, ml_client_id, ml_client_secret, ml_refresh_token').eq('active', true);
     if (!tenants || tenants.length === 0) return;
 
-    console.log(`[token] Programando refresh proactivo para ${tenants.length} tenant(s)`);
+    // Precalentar tenantTokenCache con los tokens guardados en tenant_tokens.
+    // Sin esto, refreshTenantToken usa tenant.ml_refresh_token (que puede ser null)
+    // y falla con TokenExpiredError en el primer intento proactivo post-reinicio.
+    const { data: savedTokens } = await supabase.from('tenant_tokens').select('tenant_id, access_token, refresh_token, expires_at');
+    if (savedTokens) {
+      for (const t of savedTokens) {
+        tenantTokenCache.set(t.tenant_id, {
+          access_token: t.access_token,
+          refresh_token: t.refresh_token,
+          expires_at: Number(t.expires_at),
+        });
+      }
+      console.log(`[token] Cache precalentado con ${savedTokens.length} token(s) de tenant_tokens`);
+    }
+
+    const tenantNames = tenants.map(t => t.name || t.id).join(', ');
+    console.log(`[token] Programando refresh proactivo para ${tenants.length} tenant(s): ${tenantNames}`);
 
     tenants.forEach((tenant, idx) => {
       const delay = idx * TENANT_STAGGER_MS;
+      const hasToken = tenantTokenCache.has(tenant.id) || tenant.ml_refresh_token;
+      if (!hasToken) {
+        console.warn(`[token] ADVERTENCIA: tenant "${tenant.name || tenant.id}" no tiene refresh_token — se omite del refresh proactivo`);
+        return;
+      }
 
       const scheduleRefresh = () => {
         refreshTenantToken(tenant).catch(e => {
           if (e.name === 'TokenExpiredError') {
-            console.warn(`[token] refresh_token vencido para tenant ${tenant.id} — requiere reconexión manual`);
+            console.warn(`[token] refresh_token vencido para tenant "${tenant.name || tenant.id}" — requiere reconexión manual`);
           } else {
-            console.error(`[token] Error proactivo para tenant ${tenant.id}:`, e.message);
+            console.error(`[token] Error proactivo para tenant "${tenant.name || tenant.id}":`, e.message);
           }
         });
       };
