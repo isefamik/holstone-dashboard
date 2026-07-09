@@ -419,35 +419,33 @@ async function initTokens() {
   const TENANT_REFRESH_INTERVAL = 5.5 * 60 * 60 * 1000; // 5.5h
   const TENANT_STAGGER_MS = 100 * 1000;                  // 100s entre tenants
 
+  // La fuente de verdad es tenant_tokens: cualquier tenant con un token guardado
+  // debe renovarse proactivamente, sin importar si tiene stripe_subscription_id o no.
   try {
-    const { data: tenants } = await supabase.from('tenants').select('id, name, ml_client_id, ml_client_secret, ml_refresh_token').eq('active', true);
-    if (!tenants || tenants.length === 0) return;
-
-    // Precalentar tenantTokenCache con los tokens guardados en tenant_tokens.
-    // Sin esto, refreshTenantToken usa tenant.ml_refresh_token (que puede ser null)
-    // y falla con TokenExpiredError en el primer intento proactivo post-reinicio.
-    const { data: savedTokens } = await supabase.from('tenant_tokens').select('tenant_id, access_token, refresh_token, expires_at');
-    if (savedTokens) {
-      for (const t of savedTokens) {
-        tenantTokenCache.set(t.tenant_id, {
-          access_token: t.access_token,
-          refresh_token: t.refresh_token,
-          expires_at: Number(t.expires_at),
-        });
-      }
-      console.log(`[token] Cache precalentado con ${savedTokens.length} token(s) de tenant_tokens`);
+    const { data: tokenRows, error } = await supabase
+      .from('tenant_tokens')
+      .select('tenant_id, access_token, refresh_token, expires_at, tenants(id, name, ml_client_id, ml_client_secret)');
+    if (error) throw error;
+    if (!tokenRows || tokenRows.length === 0) {
+      console.log('[token] No hay tenant_tokens registrados, omitiendo refresh proactivo');
+      return;
     }
 
-    const tenantNames = tenants.map(t => t.name || t.id).join(', ');
-    console.log(`[token] Programando refresh proactivo para ${tenants.length} tenant(s): ${tenantNames}`);
+    // Precalentar tenantTokenCache con los tokens de Supabase
+    for (const row of tokenRows) {
+      tenantTokenCache.set(row.tenant_id, {
+        access_token: row.access_token,
+        refresh_token: row.refresh_token,
+        expires_at: Number(row.expires_at),
+      });
+    }
 
-    tenants.forEach((tenant, idx) => {
+    const tenantNames = tokenRows.map(r => r.tenants?.name || r.tenant_id).join(', ');
+    console.log(`[token] Programando refresh proactivo para ${tokenRows.length} tenant(s): ${tenantNames}`);
+
+    tokenRows.forEach((row, idx) => {
+      const tenant = { ...row.tenants, id: row.tenant_id };
       const delay = idx * TENANT_STAGGER_MS;
-      const hasToken = tenantTokenCache.has(tenant.id) || tenant.ml_refresh_token;
-      if (!hasToken) {
-        console.warn(`[token] ADVERTENCIA: tenant "${tenant.name || tenant.id}" no tiene refresh_token — se omite del refresh proactivo`);
-        return;
-      }
 
       const scheduleRefresh = () => {
         refreshTenantToken(tenant).catch(e => {
@@ -467,7 +465,7 @@ async function initTokens() {
       }, delay);
     });
   } catch (e) {
-    console.error('[token] Error cargando tenants para refresh proactivo:', e.message);
+    console.error('[token] Error cargando tenant_tokens para refresh proactivo:', e.message);
   }
 }
 
