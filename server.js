@@ -233,23 +233,46 @@ async function getTenantConfig(tenantId) {
 
 async function refreshTenantToken(tenant) {
   const cached = tenantTokenCache.get(tenant.id) || {};
-  const params = new URLSearchParams();
-  params.append('grant_type', 'refresh_token');
-  params.append('client_id', tenant.ml_client_id);
-  params.append('client_secret', tenant.ml_client_secret);
-  params.append('refresh_token', cached.refresh_token || tenant.ml_refresh_token);
 
-  let response;
-  try {
-    response = await axios.post('https://api.mercadolibre.com/oauth/token', params, {
+  const attemptRefresh = async (refreshToken) => {
+    const params = new URLSearchParams();
+    params.append('grant_type', 'refresh_token');
+    params.append('client_id', tenant.ml_client_id);
+    params.append('client_secret', tenant.ml_client_secret);
+    params.append('refresh_token', refreshToken);
+    return axios.post('https://api.mercadolibre.com/oauth/token', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
+  };
+
+  let response;
+  const primaryToken = cached.refresh_token || tenant.ml_refresh_token;
+  try {
+    response = await attemptRefresh(primaryToken);
   } catch (e) {
     const status = e.response?.status;
     console.error(`[token] Refresh falló para tenant ${tenant.id}:`, e.response?.data || e.message);
-    // 4xx = refresh_token inválido o vencido → el usuario debe reconectar
-    if (status >= 400 && status < 500) throw new TokenExpiredError(tenant.id);
-    throw e; // 5xx o red → error transitorio, el caller decide
+    if (status >= 400 && status < 500) {
+      // El refresh_token en cache puede estar obsoleto (rotado externamente o por
+      // una instancia paralela). Intenta una vez más con el que esté en Supabase.
+      const { data: fresh } = await supabase.from('tenant_tokens')
+        .select('refresh_token').eq('tenant_id', tenant.id).maybeSingle();
+      if (fresh?.refresh_token && fresh.refresh_token !== primaryToken) {
+        console.log(`[token] Reintentando con refresh_token de Supabase para tenant ${tenant.id}`);
+        try {
+          response = await attemptRefresh(fresh.refresh_token);
+          // Actualizar cache con el token correcto
+          tenantTokenCache.set(tenant.id, { ...cached, refresh_token: fresh.refresh_token });
+        } catch (e2) {
+          if (e2.response?.status >= 400 && e2.response?.status < 500) throw new TokenExpiredError(tenant.id);
+          throw e2;
+        }
+      } else {
+        throw new TokenExpiredError(tenant.id);
+      }
+    } else {
+      throw e; // 5xx o red → error transitorio
+    }
   }
 
   const newToken = {
