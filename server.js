@@ -1723,13 +1723,13 @@ app.get('/api/ventas-producto-detalle', async (req, res) => {
     if (!item_id || !date_from || !date_to) {
       return res.status(400).json({ error: 'item_id, date_from y date_to son requeridos' });
     }
-    const data = await mlGet('https://api.mercadolibre.com/visits/items', {
-      ids: item_id,
+    // /visits/items?ids= ignora date_from/date_to y devuelve el total histórico.
+    // /items/{id}/visits?date_from=&date_to= sí filtra por rango → { total_visits }
+    const data = await mlGet(`https://api.mercadolibre.com/items/${item_id}/visits`, {
       date_from,
       date_to,
     });
-    // La API devuelve [{ item_id, total_visits }]
-    const visits = Array.isArray(data) ? (data[0]?.total_visits ?? 0) : (data?.total_visits ?? 0);
+    const visits = data?.total_visits ?? 0;
     res.json({ item_id, visits });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
