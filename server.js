@@ -197,7 +197,7 @@ app.use(session({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 3 * 60 * 60 * 1000, // 3 horas; rolling: true reinicia el contador con cada request
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días; rolling: true reinicia el contador con cada request
   },
 }));
 

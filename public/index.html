@@ -5078,7 +5078,12 @@ async function handleLogin(e) {
     if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión');
     const me = await fetch('/api/me').then(r => r.json());
     const needsConnect = showDashboard(me.tenant);
-    if (!needsConnect) loadAll();
+    if (!needsConnect) {
+      loadAll();
+      // Recargar la sección activa si no está cubierta por loadAll (ej. Publicidad)
+      const reloader = SECTION_RELOADERS[_activeSection];
+      if (reloader) reloader();
+    }
   } catch (err) {
     errEl.textContent = err.message;
     errEl.classList.add('visible');
