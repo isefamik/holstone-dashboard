@@ -548,6 +548,9 @@ async function mlGetAds(url, params = {}) {
     return r.data;
   } catch (e) {
     if (e.response?.status === 401) {
+      const freshToken = await fetchFreshToken();
+      const r = await axios.get(url, { params, headers: { Authorization: `Bearer ${freshToken}`, 'api-version': '2' } });
+      return r.data;
     }
     throw e;
   }
