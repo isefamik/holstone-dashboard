@@ -2302,17 +2302,32 @@ function updateAdsDetailChart(){
 }
 
 // ── Main view loaders ─────────────────────────────
-function renderAdsUnavailable(){
-  const noAdsHtml=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:16px;text-align:center">
-    <div style="font-size:48px;line-height:1">📢</div>
-    <div style="font-size:16px;font-weight:600;color:var(--text)">Módulo de Publicidad no configurado</div>
-    <div style="font-size:13px;color:var(--muted);max-width:480px;line-height:1.7">
-      Para activarlo, necesitamos tu <strong>Advertiser ID</strong> de MercadoLibre Ads.<br>
-      Encuéntralo en la URL de tu panel de publicidad:<br>
-      <span style="font-family:monospace;font-size:11px;background:var(--hover);padding:2px 6px;border-radius:4px">publicidad.mercadolibre.com.mx/campaigns?<strong>advertiserId=XXXXX</strong></span><br><br>
-      Comparte ese número con soporte para activarlo en tu cuenta.
-    </div>
-  </div>`;
+function renderAdsUnavailable(reason){
+  let noAdsHtml;
+  if(reason==='ads_scope_missing'){
+    noAdsHtml=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:16px;text-align:center">
+      <div style="font-size:48px;line-height:1">🔒</div>
+      <div style="font-size:16px;font-weight:600;color:var(--text)">Tu cuenta necesita permisos adicionales</div>
+      <div style="font-size:13px;color:var(--muted);max-width:480px;line-height:1.7">
+        Para acceder al módulo de Publicidad, tu cuenta de MercadoLibre debe autorizarse con el permiso de <strong>advertising</strong>.<br><br>
+        Reconecta tu cuenta para activar este módulo — el proceso toma menos de un minuto.
+      </div>
+      <a href="/auth/ml/connect" style="display:inline-flex;align-items:center;gap:8px;background:#ffe600;color:#333;font-weight:700;font-size:13px;padding:10px 22px;border-radius:8px;text-decoration:none;margin-top:4px">
+        🔗 Reconectar cuenta de MercadoLibre
+      </a>
+    </div>`;
+  } else {
+    noAdsHtml=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;gap:16px;text-align:center">
+      <div style="font-size:48px;line-height:1">📢</div>
+      <div style="font-size:16px;font-weight:600;color:var(--text)">Módulo de Publicidad no configurado</div>
+      <div style="font-size:13px;color:var(--muted);max-width:480px;line-height:1.7">
+        Para activarlo, necesitamos tu <strong>Advertiser ID</strong> de MercadoLibre Ads.<br>
+        Encuéntralo en la URL de tu panel de publicidad:<br>
+        <span style="font-family:monospace;font-size:11px;background:var(--hover);padding:2px 6px;border-radius:4px">publicidad.mercadolibre.com.mx/campaigns?<strong>advertiserId=XXXXX</strong></span><br><br>
+        Comparte ese número con soporte para activarlo en tu cuenta.
+      </div>
+    </div>`;
+  }
   const elMetrics=document.getElementById('ads-metrics');
   const campTbody=document.getElementById('ads-camp-tbody');
   const topTbody=document.getElementById('ads-top-tbody');
@@ -2340,7 +2355,7 @@ async function loadAds(){
     const st=drInstances['ads-dr'];
     const r=await fetch(`/api/ads?from=${st.rangeFrom}&to=${st.rangeTo}`);
     const d=await r.json();
-    if(d.available===false){renderAdsUnavailable();return;}
+    if(d.available===false){renderAdsUnavailable(d.reason);return;}
     if(d.error)throw new Error(errStr(d.error));
     const campaigns=d.campaigns||[];
     const ads=d.ads||[];
@@ -2542,7 +2557,7 @@ async function loadAdsDetailData(campId){
   try{
     const r=await fetch(`/api/ads?from=${st.rangeFrom}&to=${st.rangeTo}&campaign_id=${campId}`);
     const d=await r.json();
-    if(d.available===false){renderAdsUnavailable();return;}
+    if(d.available===false){renderAdsUnavailable(d.reason);return;}
     if(d.error)throw new Error(errStr(d.error));
     const c=(d.campaigns||[])[0];
     const ads=d.ads||[];

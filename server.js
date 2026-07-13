@@ -2000,6 +2000,10 @@ app.get('/api/ads', async (req, res) => {
     res.json({ from, to, campaigns, ads, ventaTotalPeriodo });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
+    // 401/403 persistente de ML (después del retry) = el token no tiene scope de advertising
+    if (e.response?.status === 401 || e.response?.status === 403) {
+      return res.json({ available: false, reason: 'ads_scope_missing' });
+    }
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
@@ -2044,6 +2048,9 @@ app.get('/api/ads-tendencia', async (req, res) => {
     res.json({ from, to, dias });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
+    if (e.response?.status === 401 || e.response?.status === 403) {
+      return res.json({ available: false, reason: 'ads_scope_missing' });
+    }
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
