@@ -1687,14 +1687,14 @@ app.get('/api/ventas-resumen', async (req, res) => {
     const byProduct = {};
     ordersCur.forEach(o => {
       o.order_items.forEach(i => {
-        const t = i.item.title;
-        if (!byProduct[t]) byProduct[t] = { revenue: 0, units: 0, orders: 0 };
-        byProduct[t].revenue += o.total_amount;
-        byProduct[t].units += i.quantity;
-        byProduct[t].orders += 1;
+        const id = i.item.id;
+        if (!byProduct[id]) byProduct[id] = { item_id: id, title: i.item.title, revenue: 0, units: 0, orders: 0 };
+        byProduct[id].revenue += o.total_amount;
+        byProduct[id].units += i.quantity;
+        byProduct[id].orders += 1;
       });
     });
-    const top = Object.entries(byProduct).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 20).map(([title, v]) => ({ title, ...v }));
+    const top = Object.values(byProduct).sort((a, b) => b.revenue - a.revenue).slice(0, 20);
 
     res.json({
       period, label: range.label, from: range.from, to: range.to,
@@ -1709,6 +1709,28 @@ app.get('/api/ventas-resumen', async (req, res) => {
       ordenes: cs.ordenes, ordenesAnt: as.ordenes,
       top
     });
+  } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── VENTAS — DETALLE DE PRODUCTO (visitas por rango) ─────────────────────────
+
+app.get('/api/ventas-producto-detalle', async (req, res) => {
+  try {
+    const { item_id, date_from, date_to } = req.query;
+    if (!item_id || !date_from || !date_to) {
+      return res.status(400).json({ error: 'item_id, date_from y date_to son requeridos' });
+    }
+    const data = await mlGet('https://api.mercadolibre.com/visits/items', {
+      ids: item_id,
+      date_from,
+      date_to,
+    });
+    // La API devuelve [{ item_id, total_visits }]
+    const visits = Array.isArray(data) ? (data[0]?.total_visits ?? 0) : (data?.total_visits ?? 0);
+    res.json({ item_id, visits });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });

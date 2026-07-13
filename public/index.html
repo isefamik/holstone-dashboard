@@ -145,6 +145,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .item-extra.open{max-height:2000px}
 .btn-toggle{display:block;width:100%;text-align:center;padding:10px;margin-top:4px;background:none;border:none;border-top:1px solid var(--border);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer}
 .btn-toggle:hover{background:var(--bg)}
+.item-wrap{border-bottom:1px solid var(--border)}.item-wrap:last-child{border-bottom:none}
+.item-wrap .item-row{border-bottom:none;cursor:pointer;user-select:none}.item-wrap .item-row:hover{background:var(--hover)}
+.item-arrow{font-size:10px;color:var(--muted);margin-right:8px;transition:transform .25s ease;display:inline-block;flex-shrink:0}
+.item-arrow.open{transform:rotate(90deg)}
+.item-detail{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.item-detail.open{max-height:200px}
+.item-detail-inner{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 0 12px 18px}
+.item-detail-cell{text-align:center;background:var(--hover);border-radius:8px;padding:8px 4px}
+.item-detail-label{font-size:10px;color:var(--muted);margin-bottom:3px}
+.item-detail-val{font-size:14px;font-weight:700;color:var(--text)}
 
 /* ── STOCK TABLE ── */
 .stock-header{display:grid;grid-template-columns:1fr 110px 110px 90px 60px 28px;gap:8px;padding:8px 0;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:.6px;border-bottom:1px solid var(--border);margin-bottom:4px}
@@ -2103,18 +2113,39 @@ function renderTop(id,top,opts={}){
     el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Sin ventas registradas</div>';
     return;
   }
-  const row=p=>`
+  const detail=opts.detail; // { from, to } — activa filas expandibles con visitas
+  const simpleRow=p=>`
     <div class="item-row">
       <span class="item-title">${p.title}</span>
       <span class="item-meta">${p.orders} órdenes · ${p.units} uds</span>
       <span class="item-rev">${fmtMXN(p.revenue)}</span>
     </div>`;
+  const detailRow=(p,idx)=>`
+    <div class="item-wrap">
+      <div class="item-row" onclick="toggleProductDetail('${id}',${idx})">
+        <span class="item-arrow" id="${id}-arrow-${idx}">▶</span>
+        <span class="item-title">${p.title}</span>
+        <span class="item-meta">${p.orders} órdenes · ${p.units} uds</span>
+        <span class="item-rev">${fmtMXN(p.revenue)}</span>
+      </div>
+      <div class="item-detail" id="${id}-detail-${idx}"
+           data-item-id="${p.item_id||''}"
+           data-from="${detail.from}" data-to="${detail.to}"
+           data-orders="${p.orders}" data-units="${p.units}" data-revenue="${p.revenue}">
+        <div class="item-detail-inner" id="${id}-detail-inner-${idx}"></div>
+      </div>
+    </div>`;
+  const row=detail?detailRow:(_p=>simpleRow(_p));
   const limit=opts.expandable?5:top.length;
   const visible=top.slice(0,limit);
   const rest=top.slice(limit);
-  let html=visible.map(row).join('');
+  let html=visible.map((p,i)=>row(p,i)).join('');
   if(opts.expandable&&rest.length>0){
-    html+=`<div class="item-extra" id="${id}-extra">${rest.map(row).join('')}</div>`;
+    const offset=visible.length;
+    const restHtml=detail
+      ? rest.map((p,i)=>detailRow(p,offset+i)).join('')
+      : rest.map(simpleRow).join('');
+    html+=`<div class="item-extra" id="${id}-extra">${restHtml}</div>`;
     html+=`<button class="btn-toggle" id="${id}-toggle" onclick="toggleTop('${id}')">Ver todos (${top.length})</button>`;
   }
   el.innerHTML=html;
@@ -2125,8 +2156,44 @@ function toggleTop(id){
   const btn=document.getElementById(id+'-toggle');
   if(!extra||!btn)return;
   const open=extra.classList.toggle('open');
-  const total=document.querySelectorAll(`#${id} .item-row`).length;
+  const total=document.querySelectorAll(`#${id} .item-wrap, #${id} .item-row`).length;
   btn.textContent=open?'Ver menos':`Ver todos (${total})`;
+}
+
+async function toggleProductDetail(containerId,idx){
+  const panel=document.getElementById(`${containerId}-detail-${idx}`);
+  const arrow=document.getElementById(`${containerId}-arrow-${idx}`);
+  const inner=document.getElementById(`${containerId}-detail-inner-${idx}`);
+  if(!panel||!arrow||!inner)return;
+  const isOpen=panel.classList.toggle('open');
+  arrow.classList.toggle('open',isOpen);
+  if(!isOpen)return; // colapsando — no hay que cargar datos
+  if(panel.dataset.loaded==='1')return; // ya cargado previamente
+  const itemId=panel.dataset.itemId;
+  const from=panel.dataset.from;
+  const to=panel.dataset.to;
+  const orders=Number(panel.dataset.orders);
+  const units=Number(panel.dataset.units);
+  const revenue=Number(panel.dataset.revenue);
+  inner.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:8px">'+spin()+'</div>';
+  let visits=null;
+  try{
+    if(itemId){
+      const r=await fetch(`/api/ventas-producto-detalle?item_id=${encodeURIComponent(itemId)}&date_from=${from}&date_to=${to}`);
+      const d=await r.json();
+      if(!d.error)visits=d.visits;
+    }
+  }catch(_){}
+  const conversion=visits!=null&&visits>0?(orders/visits*100):null;
+  const ticket=orders>0?revenue/orders:null;
+  const udsOrden=orders>0?units/orders:null;
+  const cell=(label,val)=>`<div class="item-detail-cell"><div class="item-detail-label">${label}</div><div class="item-detail-val">${val}</div></div>`;
+  inner.innerHTML=
+    cell('Visitas',visits!=null?fmt(visits):'—')+
+    cell('Conversión',conversion!=null?fmtPct(conversion):'—')+
+    cell('Ticket promedio',ticket!=null?fmtMXN(ticket):'—')+
+    cell('Uds / orden',udsOrden!=null?udsOrden.toFixed(1):'—');
+  panel.dataset.loaded='1';
 }
 
 function toggleVariantes(id){
@@ -3048,7 +3115,7 @@ async function loadVentasResumen(){
         renderDelta(`vrm-${m.key}-delta`,cur,ant,'vs período anterior');
       }
     });
-    renderTop('vr-top',d.top,{expandable:true});
+    renderTop('vr-top',d.top,{expandable:true,detail:{from:st.rangeFrom,to:st.rangeTo}});
   }catch(e){
     elMetrics.innerHTML=`<div class="error">Error: ${e.message}</div>`;
     elTop.innerHTML=`<div class="error">${e.message}</div>`;
