@@ -1707,6 +1707,7 @@ app.get('/api/ventas-resumen', async (req, res) => {
       });
     });
     const top = Object.values(byProduct).sort((a, b) => b.revenue - a.revenue).slice(0, 20);
+    console.log('[debug-top] primeros 3:', JSON.stringify(top.slice(0,3).map(p=>({item_id:p.item_id,title:p.title?.slice(0,30)}))));
 
     res.json({
       period, label: range.label, from: range.from, to: range.to,
