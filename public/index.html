@@ -2171,6 +2171,7 @@ async function toggleProductDetail(containerId,idx,itemId){
   if(panel.dataset.loaded==='1')return; // ya cargado previamente
   const from=panel.dataset.from;
   const to=panel.dataset.to;
+  console.log('[debug-detalle] itemId:', JSON.stringify(itemId), '| from:', from, '| to:', to);
   const orders=Number(panel.dataset.orders);
   const units=Number(panel.dataset.units);
   const revenue=Number(panel.dataset.revenue);

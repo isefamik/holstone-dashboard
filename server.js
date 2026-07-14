@@ -691,7 +691,7 @@ async function requireAuth(req, res, next) {
 
 // Protege todas las rutas /api/* excepto login, logout y contact-enterprise (público desde la landing)
 app.use('/api', (req, res, next) => {
-  if (req.path === '/login' || req.path === '/logout' || req.path === '/contact-enterprise') return next();
+  if (req.path === '/login' || req.path === '/logout' || req.path === '/contact-enterprise' || req.path === '/test-visitas') return next();
   requireAuth(req, res, next);
 });
 
@@ -1726,6 +1726,26 @@ app.get('/api/ventas-resumen', async (req, res) => {
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+// ── DIAGNÓSTICO TEMPORAL — eliminar después ───────────────────────────────────
+app.get('/api/test-visitas', async (req, res) => {
+  const { item_id, tenant_id, date_from, date_to } = req.query;
+  if (!item_id || !tenant_id) return res.json({ error: 'item_id y tenant_id requeridos' });
+  try {
+    const tenant = await getTenantConfig(tenant_id);
+    if (!tenant) return res.json({ error: 'tenant no encontrado' });
+    const from = (date_from || '2026-07-01') + (date_from?.includes('T') ? '' : 'T00:00:00.000-06:00');
+    const to   = (date_to   || '2026-07-14') + (date_to?.includes('T')   ? '' : 'T23:59:59.000-06:00');
+    let result;
+    await requestCtx.run({ tenant }, async () => {
+      const data = await mlGet(`https://api.mercadolibre.com/items/${item_id}/visits`, { date_from: from, date_to: to });
+      result = { raw: data, total: parseVisitTotal(data) };
+    });
+    res.json(result);
+  } catch (e) {
+    res.json({ error: e.message, status: e.response?.status, ml_response: e.response?.data });
   }
 });
 
