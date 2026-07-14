@@ -1739,14 +1739,17 @@ app.get('/api/ventas-producto-detalle', async (req, res) => {
     // sin tiempo como un rango de 0 segundos → 0 visitas. Siempre enviar rango completo.
     const fromTs = date_from.includes('T') ? date_from : `${date_from}T00:00:00.000-06:00`;
     const toTs   = date_to.includes('T')   ? date_to   : `${date_to}T23:59:59.000-06:00`;
+    console.log(`[visitas-detalle] item=${item_id} from=${fromTs} to=${toTs}`);
     const data = await mlGet(`https://api.mercadolibre.com/items/${item_id}/visits`, {
       date_from: fromTs,
       date_to:   toTs,
     });
+    console.log(`[visitas-detalle] RAW:`, JSON.stringify(data));
     const visits = parseVisitTotal(data);
     res.json({ item_id, visits });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
+    console.error(`[visitas-detalle] ERROR item=${item_id}`, e.response?.status, e.response?.data || e.message);
     res.status(500).json({ error: e.response?.data?.message || e.message });
   }
 });
