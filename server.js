@@ -546,6 +546,15 @@ async function mlGet(url, params = {}) {
   }
 }
 
+// ML visits API puede devolver array [{date,total}] o {total_visits, results:[]}
+function parseVisitTotal(data) {
+  if (Array.isArray(data)) return data.reduce((s, r) => s + (r.total || 0), 0);
+  return data?.total_visits ?? 0;
+}
+function parseVisitResults(data) {
+  return Array.isArray(data) ? data : (data?.results || []);
+}
+
 async function getReasonLabel(reasonId) {
   if (!reasonId) return reasonId;
   if (reasonLabelCache.has(reasonId)) return reasonLabelCache.get(reasonId);
@@ -879,8 +888,8 @@ app.get('/api/ventas-live', async (req, res) => {
     let visitas_hoy = null;
     try {
       const vr = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items_visits/time_window`, { last: 1, unit: 'day' });
-      const hoyEntry = (vr.results || []).find(r => r.date && r.date.startsWith(fecha));
-      visitas_hoy = hoyEntry?.total ?? vr.total_visits ?? null;
+      const hoyEntry = parseVisitResults(vr).find(r => r.date && r.date.startsWith(fecha));
+      visitas_hoy = hoyEntry?.total ?? null;
     } catch {}
 
     const conversion = (visitas_hoy && compradores_hoy) ? (compradores_hoy / visitas_hoy * 100) : null;
@@ -1257,7 +1266,7 @@ app.get('/api/performance', async (req, res) => {
       const visitResults = await Promise.all(
         top10.map(id =>
           mlGet(`https://api.mercadolibre.com/items/${id}/visits/time_window?last=7&unit=day`)
-            .then(v => v.total_visits || 0)
+            .then(v => parseVisitTotal(v))
             .catch(() => 0)
         )
       );
@@ -1662,8 +1671,8 @@ app.get('/api/ventas-resumen', async (req, res) => {
     const sellerId = getSellerId();
     try {
       const v = await mlGet(`https://api.mercadolibre.com/users/${sellerId}/items_visits/time_window`, { last: 60, unit: 'day' });
-      (v.results || []).forEach(r => { visitasMap[r.date.split('T')[0]] = r.total; });
-      console.log(`[visitas] seller=${sellerId} results=${(v.results||[]).length} total=${v.total_visits} mapKeys=${Object.keys(visitasMap).length}`);
+      parseVisitResults(v).forEach(r => { visitasMap[r.date.split('T')[0]] = r.total; });
+      console.log(`[visitas] seller=${sellerId} results=${parseVisitResults(v).length} mapKeys=${Object.keys(visitasMap).length}`);
     } catch (e) {
       console.error(`[visitas] ERROR seller=${sellerId} status=${e.response?.status}`, e.response?.data || e.message);
     }
@@ -1732,8 +1741,8 @@ app.get('/api/ventas-producto-detalle', async (req, res) => {
       date_from,
       date_to,
     });
-    const visits = data?.total_visits ?? 0;
-    console.log(`[visitas-detalle] item=${item_id} date_from=${date_from} date_to=${date_to} total_visits=${data?.total_visits} → ${visits}`);
+    const visits = parseVisitTotal(data);
+    console.log(`[visitas-detalle] item=${item_id} date_from=${date_from} date_to=${date_to} raw_type=${Array.isArray(data)?'array':'object'} → ${visits}`);
     res.json({ item_id, visits });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
@@ -1892,7 +1901,7 @@ app.get('/api/ventas-por-publicacion', async (req, res) => {
       const chunk = ids.slice(i, i + BATCH);
       const results = await Promise.all(chunk.map(id =>
         mlGet(`https://api.mercadolibre.com/items/${id}/visits/time_window`, { last: visitDays, unit: 'day' })
-          .then(v => v.total_visits || 0).catch(() => 0)
+          .then(v => parseVisitTotal(v)).catch(() => 0)
       ));
       chunk.forEach((id, idx) => { visitMap[id] = results[idx]; });
     }
@@ -1962,7 +1971,7 @@ app.get('/api/sin-ventas', async (req, res) => {
       const chunk = sinVentas.slice(i, i + BATCH);
       const results = await Promise.all(chunk.map(it =>
         mlGet(`https://api.mercadolibre.com/items/${it.id}/visits/time_window`, { last: 30, unit: 'day' })
-          .then(v => v.total_visits || 0).catch(() => 0)
+          .then(v => parseVisitTotal(v)).catch(() => 0)
       ));
       chunk.forEach((it, idx) => { visitMap[it.id] = results[idx]; });
     }
