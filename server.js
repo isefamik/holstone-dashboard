@@ -1659,11 +1659,13 @@ app.get('/api/ventas-resumen', async (req, res) => {
 
     // Visitas (solo disponibles para los últimos ~60 días)
     let visitasMap = {};
+    const sellerId = getSellerId();
     try {
-      const v = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items_visits/time_window`, { last: 60, unit: 'day' });
+      const v = await mlGet(`https://api.mercadolibre.com/users/${sellerId}/items_visits/time_window`, { last: 60, unit: 'day' });
       (v.results || []).forEach(r => { visitasMap[r.date.split('T')[0]] = r.total; });
+      console.log(`[visitas] seller=${sellerId} results=${(v.results||[]).length} total=${v.total_visits} mapKeys=${Object.keys(visitasMap).length}`);
     } catch (e) {
-      console.error('Error obteniendo visitas:', e.response?.data || e.message);
+      console.error(`[visitas] ERROR seller=${sellerId} status=${e.response?.status}`, e.response?.data || e.message);
     }
 
     function sumVisitas(from, to) {
@@ -1679,6 +1681,7 @@ app.get('/api/ventas-resumen', async (req, res) => {
     }
 
     const visitasCur = daysAgo(range.to) <= 59 ? sumVisitas(range.from, range.to) : null;
+    console.log(`[visitas] range=${range.from}→${range.to} daysAgo=${daysAgo(range.to)} visitasCur=${visitasCur}`);
     const visitasAnt = daysAgo(range.toAnt) <= 59 ? sumVisitas(range.fromAnt, range.toAnt) : null;
     const conversionCur = visitasCur === null ? null : (visitasCur > 0 ? cs.ordenes / visitasCur * 100 : 0);
     const conversionAnt = visitasAnt === null ? null : (visitasAnt > 0 ? as.ordenes / visitasAnt * 100 : 0);
@@ -1730,6 +1733,7 @@ app.get('/api/ventas-producto-detalle', async (req, res) => {
       date_to,
     });
     const visits = data?.total_visits ?? 0;
+    console.log(`[visitas-detalle] item=${item_id} date_from=${date_from} date_to=${date_to} total_visits=${data?.total_visits} → ${visits}`);
     res.json({ item_id, visits });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
