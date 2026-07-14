@@ -1741,8 +1741,8 @@ app.get('/api/ventas-producto-detalle', async (req, res) => {
       date_from,
       date_to,
     });
+    console.log(`[visitas-detalle] RAW item=${item_id}`, JSON.stringify(data));
     const visits = parseVisitTotal(data);
-    console.log(`[visitas-detalle] item=${item_id} date_from=${date_from} date_to=${date_to} raw_type=${Array.isArray(data)?'array':'object'} → ${visits}`);
     res.json({ item_id, visits });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
