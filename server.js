@@ -1735,13 +1735,14 @@ app.get('/api/ventas-producto-detalle', async (req, res) => {
     if (!item_id || !date_from || !date_to) {
       return res.status(400).json({ error: 'item_id, date_from y date_to son requeridos' });
     }
-    // /visits/items?ids= ignora date_from/date_to y devuelve el total histórico.
-    // /items/{id}/visits?date_from=&date_to= sí filtra por rango → { total_visits }
+    // ML interpreta fechas sin hora como T00:00:00 (inicio del día), dejando date_to
+    // sin tiempo como un rango de 0 segundos → 0 visitas. Siempre enviar rango completo.
+    const fromTs = date_from.includes('T') ? date_from : `${date_from}T00:00:00.000-06:00`;
+    const toTs   = date_to.includes('T')   ? date_to   : `${date_to}T23:59:59.000-06:00`;
     const data = await mlGet(`https://api.mercadolibre.com/items/${item_id}/visits`, {
-      date_from,
-      date_to,
+      date_from: fromTs,
+      date_to:   toTs,
     });
-    console.log(`[visitas-detalle] RAW item=${item_id}`, JSON.stringify(data));
     const visits = parseVisitTotal(data);
     res.json({ item_id, visits });
   } catch (e) {
