@@ -2122,7 +2122,7 @@ function renderTop(id,top,opts={}){
     </div>`;
   const detailRow=(p,idx)=>`
     <div class="item-wrap">
-      <div class="item-row" onclick="toggleProductDetail('${id}',${idx})">
+      <div class="item-row" onclick="toggleProductDetail('${id}',${idx},'${p.item_id||''}')">
         <span class="item-arrow" id="${id}-arrow-${idx}">▶</span>
         <span class="item-title">${p.title}</span>
         <span class="item-meta">${p.orders} órdenes · ${p.units} uds</span>
@@ -2160,7 +2160,7 @@ function toggleTop(id){
   btn.textContent=open?'Ver menos':`Ver todos (${total})`;
 }
 
-async function toggleProductDetail(containerId,idx){
+async function toggleProductDetail(containerId,idx,itemId){
   const panel=document.getElementById(`${containerId}-detail-${idx}`);
   const arrow=document.getElementById(`${containerId}-arrow-${idx}`);
   const inner=document.getElementById(`${containerId}-detail-inner-${idx}`);
@@ -2169,10 +2169,8 @@ async function toggleProductDetail(containerId,idx){
   arrow.classList.toggle('open',isOpen);
   if(!isOpen)return; // colapsando — no hay que cargar datos
   if(panel.dataset.loaded==='1')return; // ya cargado previamente
-  const itemId=panel.dataset.itemId;
   const from=panel.dataset.from;
   const to=panel.dataset.to;
-  console.log('[debug-detalle] itemId:', JSON.stringify(itemId), '| from:', from, '| to:', to, '| dataset:', JSON.stringify({...panel.dataset}));
   const orders=Number(panel.dataset.orders);
   const units=Number(panel.dataset.units);
   const revenue=Number(panel.dataset.revenue);

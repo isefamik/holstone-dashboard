@@ -1699,7 +1699,8 @@ app.get('/api/ventas-resumen', async (req, res) => {
     const byProduct = {};
     ordersCur.forEach(o => {
       o.order_items.forEach(i => {
-        const id = i.item.id;
+        const id = i.item?.id;
+        if (!id) return;
         if (!byProduct[id]) byProduct[id] = { item_id: id, title: i.item.title, revenue: 0, units: 0, orders: 0 };
         byProduct[id].revenue += o.total_amount;
         byProduct[id].units += i.quantity;
@@ -2090,20 +2091,27 @@ app.get('/api/ads-tendencia', async (req, res) => {
     for (let i = 0; i < dateList.length; i += CONCURRENCY) {
       const batch = dateList.slice(i, i + CONCURRENCY);
       const results = await Promise.all(batch.map(async fecha => {
-        const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
-          date_from: fecha, date_to: fecha, metrics: 'cost,total_amount,clicks,prints,direct_amount,indirect_amount', limit: 50
-        });
-        let results2 = d.results || [];
-        if (campaignId) results2 = results2.filter(c => c.id === campaignId);
-        const inversion      = results2.reduce((s, c) => s + (c.metrics?.cost            || 0), 0);
-        const ventas         = results2.reduce((s, c) => s + (c.metrics?.total_amount    || 0), 0);
-        const clicks         = results2.reduce((s, c) => s + (c.metrics?.clicks          || 0), 0);
-        const prints         = results2.reduce((s, c) => s + (c.metrics?.prints          || 0), 0);
-        const directAmount   = results2.reduce((s, c) => s + (c.metrics?.direct_amount   || 0), 0);
-        const indirectAmount = results2.reduce((s, c) => s + (c.metrics?.indirect_amount || 0), 0);
-        const roas = inversion > 0 ? ventas / inversion : 0;
-        const acos = ventas > 0 ? (inversion / ventas) * 100 : 0;
-        return { fecha, inversion, ventas, roas, acos, clicks, prints, directAmount, indirectAmount };
+        try {
+          const d = await mlGetAds(`https://api.mercadolibre.com/advertising/MLM/advertisers/${getAdvertiserId()}/product_ads/campaigns/search`, {
+            date_from: fecha, date_to: fecha, metrics: 'cost,total_amount,clicks,prints,direct_amount,indirect_amount', limit: 50
+          });
+          let results2 = d.results || [];
+          if (campaignId) results2 = results2.filter(c => c.id === campaignId);
+          const inversion      = results2.reduce((s, c) => s + (c.metrics?.cost            || 0), 0);
+          const ventas         = results2.reduce((s, c) => s + (c.metrics?.total_amount    || 0), 0);
+          const clicks         = results2.reduce((s, c) => s + (c.metrics?.clicks          || 0), 0);
+          const prints         = results2.reduce((s, c) => s + (c.metrics?.prints          || 0), 0);
+          const directAmount   = results2.reduce((s, c) => s + (c.metrics?.direct_amount   || 0), 0);
+          const indirectAmount = results2.reduce((s, c) => s + (c.metrics?.indirect_amount || 0), 0);
+          const roas = inversion > 0 ? ventas / inversion : 0;
+          const acos = ventas > 0 ? (inversion / ventas) * 100 : 0;
+          return { fecha, inversion, ventas, roas, acos, clicks, prints, directAmount, indirectAmount };
+        } catch (innerErr) {
+          // Propagar errores de autenticación al catch externo
+          if (innerErr.response?.status === 401 || innerErr.response?.status === 403) throw innerErr;
+          console.error(`[ads-tendencia] fecha=${fecha} err=${innerErr.response?.status}`, innerErr.response?.data || innerErr.message);
+          return { fecha, inversion: 0, ventas: 0, roas: 0, acos: 0, clicks: 0, prints: 0, directAmount: 0, indirectAmount: 0 };
+        }
       }));
       dias.push(...results);
     }
