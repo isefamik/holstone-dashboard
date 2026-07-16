@@ -2244,12 +2244,7 @@ async function getFinancialPeriod(from, to) {
   totals.utilidad       = totals.venta_bruta - totals.comision_ml - totals.costo_envio - totals.costo_producto - inversion_publicidad;
   totals.margen_promedio= totals.venta_bruta > 0 ? totals.utilidad / totals.venta_bruta * 100 : 0;
 
-  const sin_costo_items = Object.values(byItem)
-    .filter(it => !it.tiene_costo && it.venta_bruta > 0)
-    .sort((a, b) => b.venta_bruta - a.venta_bruta)
-    .map(it => ({ item_id: it.item_id, title: it.title, unidades: it.unidades, venta_bruta: it.venta_bruta }));
-
-  return { items, totals, total_ordenes: orders.length, costosMap, sin_costo_items };
+  return { items, totals, total_ordenes: orders.length, costosMap };
 }
 
 app.get('/api/rentabilidad', async (req, res) => {
@@ -2263,6 +2258,53 @@ app.get('/api/rentabilidad', async (req, res) => {
     if (!hasCostos) return res.json({ sin_costos: true, from, to });
     const data = await getFinancialPeriod(from, to);
     res.json({ from, to, ...data });
+  } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
+app.get('/api/sin-costo-historico', async (req, res) => {
+  try {
+    const from = `${dateNDaysAgo(90)}T00:00:00.000-06:00`;
+    const to   = `${today()}T23:59:59.000-06:00`;
+
+    // Paginar órdenes de los últimos 90 días (cap 1000)
+    let orders = [], offset = 0, total = 1;
+    while (offset < total && orders.length < 1000) {
+      const r = await mlGet('https://api.mercadolibre.com/orders/search', {
+        seller: getSellerId(), 'order.status': 'paid',
+        'order.date_created.from': from, 'order.date_created.to': to,
+        limit: 50, offset
+      });
+      total = r.paging.total;
+      orders = orders.concat(r.results);
+      offset += 50;
+    }
+
+    // Costos (reutiliza caché si está caliente)
+    if (!costosCache || Date.now() - costosCacheTime > COSTOS_TTL) {
+      const { data } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
+      costosCache = data || [];
+      costosCacheTime = Date.now();
+    }
+    const costosIds = new Set(costosCache.map(c => c.item_id));
+
+    // Agregar por item_id, saltando los que ya tienen costo
+    const byItem = {};
+    orders.forEach(o => {
+      (o.order_items || []).forEach(oi => {
+        const id = oi.item?.id;
+        if (!id || costosIds.has(id)) return;
+        const qty = oi.quantity || 1;
+        if (!byItem[id]) byItem[id] = { item_id: id, title: oi.item?.title || id, venta_bruta: 0, unidades: 0 };
+        byItem[id].venta_bruta += (oi.unit_price || 0) * qty;
+        byItem[id].unidades += qty;
+      });
+    });
+
+    const items = Object.values(byItem).sort((a, b) => b.venta_bruta - a.venta_bruta);
+    res.json({ items });
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
     res.status(500).json({ error: e.response?.data?.message || e.message });

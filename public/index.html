@@ -2683,6 +2683,7 @@ function initFinanzasSection(){
   finInited=true;
   initDateRange('fin-dr',()=>loadRentabilidad());
   drQuick('fin-dr','7days'); // carga automática al entrar por primera vez
+  loadSinCostoHistorico();   // banner independiente del rango de fechas
   const now=new Date();
   const mSel=document.getElementById('fin-pyl-month');
   const ySel=document.getElementById('fin-pyl-year');
@@ -2715,6 +2716,7 @@ async function uploadCostos(input){
     if(d.error)throw new Error(d.error);
     st.textContent=`✅ ${d.saved} productos cargados`;
     st.style.color='var(--green)';
+    loadSinCostoHistorico(); // refrescar banner tras upload
   }catch(e){
     st.textContent=`❌ ${e.message}`;
     st.style.color='var(--red)';
@@ -2724,9 +2726,7 @@ async function uploadCostos(input){
 
 async function loadRentabilidad(){
   const elM=document.getElementById('fin-metrics');
-  const banner=document.getElementById('fin-sin-costo-banner');
   elM.innerHTML='<div class="loading" style="grid-column:1/-1"><div class="spin"></div>Calculando...</div>';
-  if(banner)banner.style.display='none';
   const donaCard=document.getElementById('fin-dona-card');
   if(donaCard)donaCard.style.display='';
   document.getElementById('fin-prod-tbody').innerHTML='<tr><td colspan="9" style="padding:32px;text-align:center"><div class="loading"><div class="spin"></div></div></td></tr>';
@@ -2742,7 +2742,6 @@ async function loadRentabilidad(){
     }
     finData=d.items||[];
     finDataTotals=d.totals||{};
-    if(banner&&d.sin_costo_items?.length>0)renderSinCostoBanner(d.sin_costo_items);
     renderFinResumen(d);
     renderFinProductos();
     renderFinPrecios();
@@ -2775,12 +2774,25 @@ function renderFinEmptyState(){
   document.getElementById('fin-precios-tbody').innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)">Sube tus costos para ver precios sugeridos</td></tr>';
 }
 
+async function loadSinCostoHistorico(){
+  const banner=document.getElementById('fin-sin-costo-banner');
+  if(!banner)return;
+  try{
+    const r=await fetch('/api/sin-costo-historico');
+    const d=await r.json();
+    if(d.error||!d.items)return;
+    if(d.items.length>0) renderSinCostoBanner(d.items);
+    else banner.style.display='none';
+  }catch(_){}
+}
+
 function renderSinCostoBanner(items){
   const banner=document.getElementById('fin-sin-costo-banner');
   if(!banner)return;
   const listRows=items.map(it=>`
     <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid rgba(180,130,0,.15)">
-      <span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.title)}">${esc(it.title||it.item_id)}</span>
+      <span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="${esc(it.title)}">${esc(it.title||it.item_id)}</span>
+      <code style="font-size:11px;color:var(--muted);white-space:nowrap;background:rgba(0,0,0,.04);padding:2px 6px;border-radius:4px">${esc(it.item_id)}</code>
       <span style="font-size:13px;color:var(--muted);white-space:nowrap">${fmtMXN(it.venta_bruta)}</span>
       <button type="button" class="btn-refresh" style="padding:3px 10px;font-size:12px;white-space:nowrap" onclick="document.getElementById('fin-xlsx-input').click()">Agregar costo</button>
     </div>`).join('');
@@ -2788,7 +2800,7 @@ function renderSinCostoBanner(items){
   banner.innerHTML=`
     <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <span style="font-size:14px;font-weight:600;color:#92400e">⚠️ ${items.length} producto${items.length!==1?'s':''} con ventas no tienen costo registrado — tu rentabilidad puede estar incompleta</span>
+        <span style="font-size:14px;font-weight:600;color:#92400e">⚠️ ${items.length} producto${items.length!==1?'s':''} sin costo registrado — tu rentabilidad puede estar incompleta</span>
         <button type="button" style="background:none;border:none;font-size:13px;color:#92400e;cursor:pointer;text-decoration:underline;padding:0" onclick="const l=document.getElementById('fin-banner-list');l.style.display=l.style.display==='none'?'block':'none'">Ver productos</button>
       </div>
       <div id="fin-banner-list" style="display:none;margin-top:10px">${listRows}</div>
