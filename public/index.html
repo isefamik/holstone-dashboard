@@ -1523,6 +1523,9 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
         </div>
       </div>
 
+      <!-- Banner: productos con ventas pero sin costo registrado -->
+      <div id="fin-sin-costo-banner" style="display:none"></div>
+
       <!-- Tabs de navegación -->
       <div class="fin-tabs-nav">
         <button type="button" class="fin-tab active" onclick="showFinTab('resumen',this)">Resumen</button>
@@ -1537,7 +1540,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
         <div id="fin-metrics" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px">
           <div class="loading" style="grid-column:1/-1"><div class="spin"></div></div>
         </div>
-        <div class="card">
+        <div class="card" id="fin-dona-card">
           <div class="card-title">Distribución de costos vs utilidad</div>
           <div style="display:grid;grid-template-columns:260px 1fr;gap:24px;align-items:center">
             <div style="position:relative;height:240px"><canvas id="fin-dona-chart"></canvas></div>
@@ -2679,6 +2682,7 @@ function initFinanzasSection(){
   if(finInited)return;
   finInited=true;
   initDateRange('fin-dr',()=>loadRentabilidad());
+  drQuick('fin-dr','7days'); // carga automática al entrar por primera vez
   const now=new Date();
   const mSel=document.getElementById('fin-pyl-month');
   const ySel=document.getElementById('fin-pyl-year');
@@ -2720,7 +2724,11 @@ async function uploadCostos(input){
 
 async function loadRentabilidad(){
   const elM=document.getElementById('fin-metrics');
+  const banner=document.getElementById('fin-sin-costo-banner');
   elM.innerHTML='<div class="loading" style="grid-column:1/-1"><div class="spin"></div>Calculando...</div>';
+  if(banner)banner.style.display='none';
+  const donaCard=document.getElementById('fin-dona-card');
+  if(donaCard)donaCard.style.display='';
   document.getElementById('fin-prod-tbody').innerHTML='<tr><td colspan="9" style="padding:32px;text-align:center"><div class="loading"><div class="spin"></div></div></td></tr>';
   document.getElementById('fin-precios-tbody').innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center"><div class="loading"><div class="spin"></div></div></td></tr>';
   try{
@@ -2728,14 +2736,63 @@ async function loadRentabilidad(){
     const r=await fetch(`/api/rentabilidad?from=${st.rangeFrom}&to=${st.rangeTo}`);
     const d=await r.json();
     if(d.error)throw new Error(errStr(d.error));
+    if(d.sin_costos){
+      renderFinEmptyState();
+      return;
+    }
     finData=d.items||[];
     finDataTotals=d.totals||{};
+    if(banner&&d.sin_costo_items?.length>0)renderSinCostoBanner(d.sin_costo_items);
     renderFinResumen(d);
     renderFinProductos();
     renderFinPrecios();
   }catch(e){
     elM.innerHTML=`<div class="error" style="grid-column:1/-1">Error: ${e.message}</div>`;
   }
+}
+
+function renderFinEmptyState(){
+  const elM=document.getElementById('fin-metrics');
+  elM.innerHTML=`
+    <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 24px;gap:18px">
+      <div style="font-size:56px">📊</div>
+      <div style="font-size:20px;font-weight:700;color:var(--text)">Configura tus costos para ver tu rentabilidad real</div>
+      <div style="font-size:14px;color:var(--muted);max-width:500px;line-height:1.7">
+        Para calcular tu utilidad, margen y rentabilidad, necesitamos conocer el costo de cada producto.
+        Sube tu archivo de costos en formato Excel con las columnas:
+      </div>
+      <code style="font-size:12px;background:var(--bg);border:1px solid var(--border);padding:8px 16px;border-radius:6px;color:var(--text)">
+        item_id &nbsp;·&nbsp; title &nbsp;·&nbsp; tipo_prenda &nbsp;·&nbsp; pack &nbsp;·&nbsp; costo_base &nbsp;·&nbsp; costo_total
+      </code>
+      <button type="button" class="btn-refresh" style="padding:10px 28px;font-size:15px;margin-top:4px" onclick="document.getElementById('fin-xlsx-input').click()">
+        📂 Subir costos (.xlsx)
+      </button>
+    </div>`;
+  const donaCard=document.getElementById('fin-dona-card');
+  if(donaCard)donaCard.style.display='none';
+  const noData='<tr><td colspan="9" style="padding:32px;text-align:center;color:var(--muted)">Sube tus costos para ver el análisis por producto</td></tr>';
+  document.getElementById('fin-prod-tbody').innerHTML=noData;
+  document.getElementById('fin-precios-tbody').innerHTML='<tr><td colspan="6" style="padding:32px;text-align:center;color:var(--muted)">Sube tus costos para ver precios sugeridos</td></tr>';
+}
+
+function renderSinCostoBanner(items){
+  const banner=document.getElementById('fin-sin-costo-banner');
+  if(!banner)return;
+  const listRows=items.map(it=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid rgba(180,130,0,.15)">
+      <span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(it.title)}">${esc(it.title||it.item_id)}</span>
+      <span style="font-size:13px;color:var(--muted);white-space:nowrap">${fmtMXN(it.venta_bruta)}</span>
+      <button type="button" class="btn-refresh" style="padding:3px 10px;font-size:12px;white-space:nowrap" onclick="document.getElementById('fin-xlsx-input').click()">Agregar costo</button>
+    </div>`).join('');
+  banner.style.display='';
+  banner.innerHTML=`
+    <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <span style="font-size:14px;font-weight:600;color:#92400e">⚠️ ${items.length} producto${items.length!==1?'s':''} con ventas no tienen costo registrado — tu rentabilidad puede estar incompleta</span>
+        <button type="button" style="background:none;border:none;font-size:13px;color:#92400e;cursor:pointer;text-decoration:underline;padding:0" onclick="const l=document.getElementById('fin-banner-list');l.style.display=l.style.display==='none'?'block':'none'">Ver productos</button>
+      </div>
+      <div id="fin-banner-list" style="display:none;margin-top:10px">${listRows}</div>
+    </div>`;
 }
 
 function renderFinResumen(d){

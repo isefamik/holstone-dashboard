@@ -2244,13 +2244,23 @@ async function getFinancialPeriod(from, to) {
   totals.utilidad       = totals.venta_bruta - totals.comision_ml - totals.costo_envio - totals.costo_producto - inversion_publicidad;
   totals.margen_promedio= totals.venta_bruta > 0 ? totals.utilidad / totals.venta_bruta * 100 : 0;
 
-  return { items, totals, total_ordenes: orders.length, costosMap };
+  const sin_costo_items = Object.values(byItem)
+    .filter(it => !it.tiene_costo && it.venta_bruta > 0)
+    .sort((a, b) => b.venta_bruta - a.venta_bruta)
+    .map(it => ({ item_id: it.item_id, title: it.title, unidades: it.unidades, venta_bruta: it.venta_bruta }));
+
+  return { items, totals, total_ordenes: orders.length, costosMap, sin_costo_items };
 }
 
 app.get('/api/rentabilidad', async (req, res) => {
   try {
     const from = req.query.from || dateNDaysAgo(6);
     const to   = req.query.to   || today();
+    // Usar cache si está caliente; si no, hacer count rápido para evitar pipeline costoso
+    const hasCostos = costosCache
+      ? costosCache.length > 0
+      : ((await supabase.from('costos_productos').select('*', { count: 'exact', head: true })).count || 0) > 0;
+    if (!hasCostos) return res.json({ sin_costos: true, from, to });
     const data = await getFinancialPeriod(from, to);
     res.json({ from, to, ...data });
   } catch (e) {
