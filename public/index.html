@@ -2122,15 +2122,13 @@ function renderTop(id,top,opts={}){
     </div>`;
   const detailRow=(p,idx)=>`
     <div class="item-wrap">
-      <div class="item-row" onclick="toggleProductDetail('${id}',${idx},'${p.item_id||''}')">
+      <div class="item-row" onclick="toggleProductDetail('${id}',${idx})">
         <span class="item-arrow" id="${id}-arrow-${idx}">▶</span>
         <span class="item-title">${p.title}</span>
         <span class="item-meta">${p.orders} órdenes · ${p.units} uds</span>
         <span class="item-rev">${fmtMXN(p.revenue)}</span>
       </div>
       <div class="item-detail" id="${id}-detail-${idx}"
-           data-item-id="${p.item_id||''}"
-           data-from="${detail.from}" data-to="${detail.to}"
            data-orders="${p.orders}" data-units="${p.units}" data-revenue="${p.revenue}">
         <div class="item-detail-inner" id="${id}-detail-inner-${idx}"></div>
       </div>
@@ -2160,37 +2158,22 @@ function toggleTop(id){
   btn.textContent=open?'Ver menos':`Ver todos (${total})`;
 }
 
-async function toggleProductDetail(containerId,idx,itemId){
+function toggleProductDetail(containerId,idx){
   const panel=document.getElementById(`${containerId}-detail-${idx}`);
   const arrow=document.getElementById(`${containerId}-arrow-${idx}`);
   const inner=document.getElementById(`${containerId}-detail-inner-${idx}`);
   if(!panel||!arrow||!inner)return;
   const isOpen=panel.classList.toggle('open');
   arrow.classList.toggle('open',isOpen);
-  if(!isOpen)return; // colapsando — no hay que cargar datos
-  if(panel.dataset.loaded==='1')return; // ya cargado previamente
-  const from=panel.dataset.from;
-  const to=panel.dataset.to;
-  console.log('[debug-detalle] itemId:', JSON.stringify(itemId), '| from:', from, '| to:', to);
+  if(!isOpen)return;
+  if(panel.dataset.loaded==='1')return;
   const orders=Number(panel.dataset.orders);
   const units=Number(panel.dataset.units);
   const revenue=Number(panel.dataset.revenue);
-  inner.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:8px">'+spin()+'</div>';
-  let visits=null;
-  try{
-    if(itemId){
-      const r=await fetch(`/api/ventas-producto-detalle?item_id=${encodeURIComponent(itemId)}&date_from=${from}&date_to=${to}`);
-      const d=await r.json();
-      if(!d.error)visits=d.visits;
-    }
-  }catch(_){}
-  const conversion=visits!=null&&visits>0?(orders/visits*100):null;
   const ticket=orders>0?revenue/orders:null;
   const udsOrden=orders>0?units/orders:null;
   const cell=(label,val)=>`<div class="item-detail-cell"><div class="item-detail-label">${label}</div><div class="item-detail-val">${val}</div></div>`;
   inner.innerHTML=
-    cell('Visitas',visits!=null?fmt(visits):'—')+
-    cell('Conversión',conversion!=null?fmtPct(conversion):'—')+
     cell('Ticket promedio',ticket!=null?fmtMXN(ticket):'—')+
     cell('Uds / orden',udsOrden!=null?udsOrden.toFixed(1):'—');
   panel.dataset.loaded='1';
@@ -3115,7 +3098,7 @@ async function loadVentasResumen(){
         renderDelta(`vrm-${m.key}-delta`,cur,ant,'vs período anterior');
       }
     });
-    renderTop('vr-top',d.top,{expandable:true,detail:{from:st.rangeFrom,to:st.rangeTo}});
+    renderTop('vr-top',d.top,{expandable:true,detail:true});
   }catch(e){
     elMetrics.innerHTML=`<div class="error">Error: ${e.message}</div>`;
     elTop.innerHTML=`<div class="error">${e.message}</div>`;
