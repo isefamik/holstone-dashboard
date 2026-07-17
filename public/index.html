@@ -2791,21 +2791,32 @@ function renderSinCostoBanner(items){
   if(!banner)return;
   const listRows=items.map(it=>`
     <div id="sin-costo-row-${it.item_id}" class="sin-costo-row" data-title="${esc(it.title)}"
-         style="display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid rgba(180,130,0,.15);overflow:hidden">
-      <span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="${esc(it.title)}">${esc(it.title||it.item_id)}</span>
-      <code style="font-size:11px;color:var(--muted);white-space:nowrap;background:rgba(0,0,0,.04);padding:2px 6px;border-radius:4px">${esc(it.item_id)}</code>
-      <span style="font-size:13px;color:var(--muted);white-space:nowrap">${fmtMXN(it.venta_bruta)}</span>
-      <button type="button" class="btn-refresh sin-costo-add-btn" style="padding:3px 10px;font-size:12px;white-space:nowrap" onclick="sinCostoAbrirInput('${it.item_id}')">Agregar costo</button>
+         style="display:grid;grid-template-columns:1fr 120px 80px 160px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid rgba(180,130,0,.15);overflow:hidden;min-width:0">
+      <span style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="${esc(it.title)}">${esc(it.title||it.item_id)}</span>
+      <code style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(0,0,0,.04);padding:2px 6px;border-radius:4px">${esc(it.item_id)}</code>
+      <span style="font-size:13px;color:var(--muted);text-align:right">${fmtMXN(it.venta_bruta)}</span>
+      <button type="button" class="btn-refresh sin-costo-add-btn" style="padding:3px 8px;font-size:12px;justify-self:start" onclick="sinCostoAbrirInput('${it.item_id}')">Agregar costo</button>
     </div>`).join('');
   banner.style.display='';
   banner.innerHTML=`
     <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <span id="fin-banner-msg" style="font-size:14px;font-weight:600;color:#92400e">⚠️ ${items.length} producto${items.length!==1?'s':''} sin costo registrado — tu rentabilidad puede estar incompleta</span>
-        <button type="button" style="background:none;border:none;font-size:13px;color:#92400e;cursor:pointer;text-decoration:underline;padding:0" onclick="const l=document.getElementById('fin-banner-list');l.style.display=l.style.display==='none'?'block':'none'">Ver productos</button>
+        <button type="button" style="background:none;border:none;font-size:13px;color:#92400e;cursor:pointer;text-decoration:underline;padding:0;flex-shrink:0" onclick="toggleSinCostoBanner()">Ver productos</button>
       </div>
-      <div id="fin-banner-list" style="display:none;margin-top:10px">${listRows}</div>
+      <div id="fin-banner-subheader" style="display:none;font-size:12px;color:#92400e;opacity:.8;margin-top:8px">
+        Mostrando ${items.length} producto${items.length!==1?'s':''} sin costo, ordenados por ventas
+      </div>
+      <div id="fin-banner-list" style="display:none;margin-top:6px;max-height:400px;overflow-y:auto;overflow-x:hidden">${listRows}</div>
     </div>`;
+}
+
+function toggleSinCostoBanner(){
+  const l=document.getElementById('fin-banner-list');
+  const h=document.getElementById('fin-banner-subheader');
+  const open=l.style.display==='none';
+  l.style.display=open?'block':'none';
+  if(h)h.style.display=open?'block':'none';
 }
 
 function sinCostoAbrirInput(itemId){
@@ -2813,11 +2824,11 @@ function sinCostoAbrirInput(itemId){
   if(!row)return;
   const btn=row.querySelector('.sin-costo-add-btn');
   if(!btn)return;
-  btn.outerHTML=`<div style="display:flex;gap:6px;align-items:center">
+  btn.outerHTML=`<div style="display:flex;gap:5px;align-items:center">
     <input type="number" id="sin-costo-input-${itemId}" min="0.01" step="0.01" placeholder="$0.00"
-      style="width:88px;padding:3px 7px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text)"
+      style="width:72px;padding:3px 6px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text)"
       onkeydown="if(event.key==='Enter')sinCostoGuardar('${itemId}')">
-    <button type="button" class="btn-refresh" style="padding:3px 10px;font-size:12px" onclick="sinCostoGuardar('${itemId}')">Guardar</button>
+    <button type="button" class="btn-refresh" style="padding:3px 8px;font-size:12px" onclick="sinCostoGuardar('${itemId}')">Guardar</button>
   </div>`;
   setTimeout(()=>document.getElementById('sin-costo-input-'+itemId)?.focus(),0);
 }
@@ -2852,8 +2863,11 @@ async function sinCostoGuardar(itemId){
           if(remaining===0){
             document.getElementById('fin-sin-costo-banner').style.display='none';
           }else{
+            const s=remaining!==1?'s':'';
             const msg=document.getElementById('fin-banner-msg');
-            if(msg)msg.textContent=`⚠️ ${remaining} producto${remaining!==1?'s':''} sin costo registrado — tu rentabilidad puede estar incompleta`;
+            if(msg)msg.textContent=`⚠️ ${remaining} producto${s} sin costo registrado — tu rentabilidad puede estar incompleta`;
+            const sub=document.getElementById('fin-banner-subheader');
+            if(sub)sub.textContent=`Mostrando ${remaining} producto${s} sin costo, ordenados por ventas`;
           }
         },370);
       });
