@@ -2132,6 +2132,30 @@ app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+app.post('/api/agregar-costo-producto', async (req, res) => {
+  try {
+    const { item_id, title, costo_total } = req.body;
+    if (!item_id) return res.status(400).json({ error: 'item_id requerido' });
+    const costo = parseFloat(costo_total);
+    if (!costo || costo <= 0) return res.status(400).json({ error: 'costo_total debe ser mayor a 0' });
+    const record = {
+      item_id:     String(item_id).trim(),
+      title:       String(title || '').trim(),
+      tipo_prenda: 'General',
+      pack:        1,
+      costo_base:  costo,
+      costo_total: costo,
+      updated_at:  new Date().toISOString()
+    };
+    const { error } = await supabase.from('costos_productos').upsert(record, { onConflict: 'item_id' });
+    if (error) throw new Error(error.message);
+    costosCache = null;
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── FINANZAS: helper compartido ──────────────────────────────────────────────
 
 async function getFinancialPeriod(from, to) {

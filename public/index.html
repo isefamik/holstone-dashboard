@@ -2790,21 +2790,77 @@ function renderSinCostoBanner(items){
   const banner=document.getElementById('fin-sin-costo-banner');
   if(!banner)return;
   const listRows=items.map(it=>`
-    <div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid rgba(180,130,0,.15)">
+    <div id="sin-costo-row-${it.item_id}" class="sin-costo-row" data-title="${esc(it.title)}"
+         style="display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid rgba(180,130,0,.15);overflow:hidden">
       <span style="flex:1;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="${esc(it.title)}">${esc(it.title||it.item_id)}</span>
       <code style="font-size:11px;color:var(--muted);white-space:nowrap;background:rgba(0,0,0,.04);padding:2px 6px;border-radius:4px">${esc(it.item_id)}</code>
       <span style="font-size:13px;color:var(--muted);white-space:nowrap">${fmtMXN(it.venta_bruta)}</span>
-      <button type="button" class="btn-refresh" style="padding:3px 10px;font-size:12px;white-space:nowrap" onclick="document.getElementById('fin-xlsx-input').click()">Agregar costo</button>
+      <button type="button" class="btn-refresh sin-costo-add-btn" style="padding:3px 10px;font-size:12px;white-space:nowrap" onclick="sinCostoAbrirInput('${it.item_id}')">Agregar costo</button>
     </div>`).join('');
   banner.style.display='';
   banner.innerHTML=`
     <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-bottom:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <span style="font-size:14px;font-weight:600;color:#92400e">⚠️ ${items.length} producto${items.length!==1?'s':''} sin costo registrado — tu rentabilidad puede estar incompleta</span>
+        <span id="fin-banner-msg" style="font-size:14px;font-weight:600;color:#92400e">⚠️ ${items.length} producto${items.length!==1?'s':''} sin costo registrado — tu rentabilidad puede estar incompleta</span>
         <button type="button" style="background:none;border:none;font-size:13px;color:#92400e;cursor:pointer;text-decoration:underline;padding:0" onclick="const l=document.getElementById('fin-banner-list');l.style.display=l.style.display==='none'?'block':'none'">Ver productos</button>
       </div>
       <div id="fin-banner-list" style="display:none;margin-top:10px">${listRows}</div>
     </div>`;
+}
+
+function sinCostoAbrirInput(itemId){
+  const row=document.getElementById('sin-costo-row-'+itemId);
+  if(!row)return;
+  const btn=row.querySelector('.sin-costo-add-btn');
+  if(!btn)return;
+  btn.outerHTML=`<div style="display:flex;gap:6px;align-items:center">
+    <input type="number" id="sin-costo-input-${itemId}" min="0.01" step="0.01" placeholder="$0.00"
+      style="width:88px;padding:3px 7px;font-size:12px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text)"
+      onkeydown="if(event.key==='Enter')sinCostoGuardar('${itemId}')">
+    <button type="button" class="btn-refresh" style="padding:3px 10px;font-size:12px" onclick="sinCostoGuardar('${itemId}')">Guardar</button>
+  </div>`;
+  setTimeout(()=>document.getElementById('sin-costo-input-'+itemId)?.focus(),0);
+}
+
+async function sinCostoGuardar(itemId){
+  const input=document.getElementById('sin-costo-input-'+itemId);
+  if(!input)return;
+  const val=parseFloat(input.value);
+  if(!val||val<=0){input.style.borderColor='var(--red)';return;}
+  input.style.borderColor='';
+  const row=document.getElementById('sin-costo-row-'+itemId);
+  const title=row?.dataset.title||'';
+  try{
+    const r=await fetch('/api/agregar-costo-producto',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({item_id:itemId,title,costo_total:val})
+    });
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    if(row){
+      row.style.transition='opacity .3s, max-height .35s, padding .35s';
+      row.style.maxHeight=row.offsetHeight+'px';
+      requestAnimationFrame(()=>{
+        row.style.opacity='0';
+        row.style.maxHeight='0';
+        row.style.paddingTop='0';
+        row.style.paddingBottom='0';
+        setTimeout(()=>{
+          row.remove();
+          const remaining=document.querySelectorAll('#fin-banner-list .sin-costo-row').length;
+          if(remaining===0){
+            document.getElementById('fin-sin-costo-banner').style.display='none';
+          }else{
+            const msg=document.getElementById('fin-banner-msg');
+            if(msg)msg.textContent=`⚠️ ${remaining} producto${remaining!==1?'s':''} sin costo registrado — tu rentabilidad puede estar incompleta`;
+          }
+        },370);
+      });
+    }
+  }catch(e){
+    if(input)input.style.borderColor='var(--red)';
+  }
 }
 
 function renderFinResumen(d){
