@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
 const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 const session = require('express-session');
@@ -2199,8 +2200,7 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
       });
     });
 
-    // Construir filas del Excel ordenadas por ventas desc
-    const rows = Object.values(byItem)
+    const dataRows = Object.values(byItem)
       .sort((a, b) => b.venta_bruta - a.venta_bruta)
       .map(it => {
         const c = costosMap[it.item_id];
@@ -2214,11 +2214,134 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
         };
       });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Costos');
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    // ── Generar Excel con ExcelJS ─────────────────────────────────────────────
+    const AZUL  = '2563EB';
+    const AZUL_TEXT = 'FFFFFF';
+    const AMARILLO = 'FEF9C3';
+    const GRIS  = '6B7280';
 
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Rocky Dashboard';
+
+    // ── Pestaña 1: Instrucciones ──────────────────────────────────────────────
+    const wsI = wb.addWorksheet('Instrucciones');
+    wsI.columns = [
+      { width: 4 }, { width: 22 }, { width: 55 }
+    ];
+
+    // Título
+    wsI.mergeCells('A1:C1');
+    const titleCell = wsI.getCell('A1');
+    titleCell.value = 'Plantilla de Costos — Rocky';
+    titleCell.font  = { bold: true, size: 18, color: { argb: 'FF' + AZUL } };
+    titleCell.alignment = { vertical: 'middle' };
+    wsI.getRow(1).height = 32;
+
+    // Bienvenida
+    wsI.mergeCells('A3:C3');
+    const bienCell = wsI.getCell('A3');
+    bienCell.value = 'Usa este archivo para registrar los costos de tus productos. Rocky los utilizará para calcular tu rentabilidad real, margen y utilidad neta.';
+    bienCell.font  = { size: 11, color: { argb: 'FF' + GRIS } };
+    bienCell.alignment = { wrapText: true };
+    wsI.getRow(3).height = 30;
+
+    // Header "Cómo usar"
+    wsI.mergeCells('A5:C5');
+    const h2 = wsI.getCell('A5');
+    h2.value = 'Cómo usar esta plantilla:';
+    h2.font  = { bold: true, size: 12 };
+
+    // Pasos
+    const pasos = [
+      'Ve a la pestaña "Costos" (la segunda pestaña de este archivo).',
+      'Llena la columna costo_total con el costo de cada producto (lo que te cuesta comprarlo o producirlo). Es la única columna obligatoria.',
+      'Opcionalmente llena costo_base, tipo_prenda y ajusta pack si vendes en paquetes (ej. pack=3 si vendes de 3 en 3).',
+      'NO modifiques la columna item_id — es el identificador único de ML y Rocky lo usa para emparejar costos con ventas.',
+      'Guarda el archivo y súbelo desde Rocky con el botón "📤 Subir costos".'
+    ];
+    pasos.forEach((paso, i) => {
+      const rowNum = 6 + i;
+      wsI.mergeCells(`B${rowNum}:C${rowNum}`);
+      wsI.getCell(`A${rowNum}`).value = `${i + 1}.`;
+      wsI.getCell(`A${rowNum}`).font  = { bold: true, color: { argb: 'FF' + AZUL } };
+      wsI.getCell(`A${rowNum}`).alignment = { horizontal: 'right' };
+      const cell = wsI.getCell(`B${rowNum}`);
+      cell.value = paso;
+      cell.font  = { size: 11 };
+      cell.alignment = { wrapText: true };
+      wsI.getRow(rowNum).height = paso.length > 80 ? 30 : 18;
+    });
+
+    // Header "Columnas"
+    wsI.mergeCells('A12:C12');
+    const h3 = wsI.getCell('A12');
+    h3.value = 'Descripción de columnas:';
+    h3.font  = { bold: true, size: 12 };
+    wsI.getRow(12).height = 22;
+
+    // Header tabla
+    ['', 'Columna', 'Descripción'].forEach((v, ci) => {
+      const cell = wsI.getRow(13).getCell(ci + 1);
+      cell.value = v;
+      cell.font  = { bold: true, color: { argb: 'FF' + AZUL_TEXT } };
+      cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + AZUL } };
+      cell.alignment = { vertical: 'middle' };
+    });
+    wsI.getRow(13).height = 20;
+
+    const colDesc = [
+      ['item_id',     'Identificador único del producto en MercadoLibre. NO modificar.'],
+      ['title',       'Nombre del producto (solo referencia, puedes editarlo si quieres).'],
+      ['tipo_prenda', 'Categoría opcional: pantalón, blazer, playera, etc.'],
+      ['pack',        'Unidades por paquete. Usa 1 si vendes de forma individual (default).'],
+      ['costo_base',  'Costo unitario antes de extras (opcional, puede ser igual a costo_total).'],
+      ['costo_total', '✔ OBLIGATORIO — costo total del producto tal como lo adquieres o produces.'],
+    ];
+    colDesc.forEach(([col, desc], i) => {
+      const rowNum = 14 + i;
+      wsI.getRow(rowNum).getCell(2).value = col;
+      wsI.getRow(rowNum).getCell(2).font  = { bold: col === 'costo_total', color: col === 'costo_total' ? { argb: 'FF92400E' } : undefined };
+      wsI.getRow(rowNum).getCell(3).value = desc;
+      wsI.getRow(rowNum).getCell(3).alignment = { wrapText: true };
+      wsI.getRow(rowNum).height = 18;
+      if (col === 'costo_total') {
+        [2, 3].forEach(ci => {
+          wsI.getRow(rowNum).getCell(ci).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + AMARILLO } };
+        });
+      }
+    });
+
+    // ── Pestaña 2: Costos ─────────────────────────────────────────────────────
+    const wsC = wb.addWorksheet('Costos');
+    wsC.columns = [
+      { header: 'item_id',     key: 'item_id',     width: 18 },
+      { header: 'title',       key: 'title',        width: 52 },
+      { header: 'tipo_prenda', key: 'tipo_prenda',  width: 15 },
+      { header: 'pack',        key: 'pack',         width: 7  },
+      { header: 'costo_base',  key: 'costo_base',   width: 13 },
+      { header: 'costo_total', key: 'costo_total',  width: 13 },
+    ];
+
+    // Estilo del header
+    wsC.getRow(1).eachCell(cell => {
+      cell.font  = { bold: true, color: { argb: 'FF' + AZUL_TEXT } };
+      cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + AZUL } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+    wsC.getRow(1).height = 20;
+
+    // Datos
+    dataRows.forEach(row => {
+      const r = wsC.addRow(row);
+      // Columna F (costo_total) con fondo amarillo
+      const cell = r.getCell(6);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + AMARILLO } };
+    });
+
+    // Freeze header row
+    wsC.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="plantilla-costos-rocky.xlsx"');
     res.send(buf);

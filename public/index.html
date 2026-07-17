@@ -1514,13 +1514,13 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:12px;color:var(--muted)">¿Primera vez? Descarga la plantilla, llénala y súbela.</span>
           <div style="display:flex;align-items:center;gap:10px">
-            <button type="button" class="btn-refresh" onclick="document.getElementById('fin-xlsx-input').click()">📂 Subir costos (.xlsx)</button>
-            <input type="file" id="fin-xlsx-input" accept=".xlsx" style="display:none" onchange="uploadCostos(this)">
             <button type="button" class="btn-refresh" onclick="window.location='/api/descargar-plantilla-costos'">⬇️ Descargar plantilla</button>
+            <button type="button" class="btn-refresh" onclick="document.getElementById('fin-xlsx-input').click()">📤 Subir costos</button>
+            <input type="file" id="fin-xlsx-input" accept=".xlsx" style="display:none" onchange="uploadCostos(this)">
             <span id="fin-upload-status" style="font-size:12px;color:var(--muted)"></span>
           </div>
-          <span style="font-size:11px;color:var(--muted)">Columnas: item_id · title · tipo_prenda · pack · costo_base · costo_total</span>
         </div>
       </div>
 
