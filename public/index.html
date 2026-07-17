@@ -2798,10 +2798,9 @@ function renderSinCostoBanner(items){
   if(!banner)return;
   const listRows=items.map(it=>`
     <div id="sin-costo-row-${it.item_id}" class="sin-costo-row" data-title="${esc(it.title)}"
-         style="display:grid;grid-template-columns:1fr 120px 80px 160px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid rgba(180,130,0,.15);overflow:hidden;min-width:0">
+         style="display:grid;grid-template-columns:1fr 140px 160px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid rgba(180,130,0,.15);overflow:hidden;min-width:0">
       <span style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0" title="${esc(it.title)}">${esc(it.title||it.item_id)}</span>
       <code style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(0,0,0,.04);padding:2px 6px;border-radius:4px">${esc(it.item_id)}</code>
-      <span style="font-size:13px;color:var(--muted);text-align:right">${fmtMXN(it.venta_bruta)}</span>
       <button type="button" class="btn-refresh sin-costo-add-btn" style="padding:3px 8px;font-size:12px;justify-self:start" onclick="sinCostoAbrirInput('${it.item_id}')">Agregar costo</button>
     </div>`).join('');
   banner.style.display='';
