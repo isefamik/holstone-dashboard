@@ -2215,130 +2215,235 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
       });
 
     // ── Generar Excel con ExcelJS ─────────────────────────────────────────────
-    const AZUL  = '2563EB';
-    const AZUL_TEXT = 'FFFFFF';
-    const AMARILLO = 'FEF9C3';
-    const GRIS  = '6B7280';
+    const C = {
+      azul:      'FF2563EB',
+      azulDark:  'FF1D4ED8',
+      azulLight: 'FFDBEAFE',
+      blanco:    'FFFFFFFF',
+      grisTxt:   'FF6B7280',
+      grisLight: 'FFF9FAFB',
+      grisBorde: 'FFE5E7EB',
+      amarillo:  'FFFEF9C3',
+      zebra:     'FFF8FAFC',
+      oscuro:    'FF111827',
+      ambar:     'FF92400E',
+    };
 
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Rocky Dashboard';
 
-    // ── Pestaña 1: Instrucciones ──────────────────────────────────────────────
-    const wsI = wb.addWorksheet('Instrucciones');
-    wsI.columns = [
-      { width: 4 }, { width: 22 }, { width: 55 }
+    // ── Pestaña "Ayuda" ───────────────────────────────────────────────────────
+    const wsA = wb.addWorksheet('Ayuda');
+    // A=margen, B=contenido izq, C=gutter/número, D=contenido der
+    wsA.columns = [
+      { width: 2  },
+      { width: 40 },
+      { width: 3  },
+      { width: 40 },
     ];
 
-    // Título
-    wsI.mergeCells('A1:C1');
-    const titleCell = wsI.getCell('A1');
-    titleCell.value = 'Plantilla de Costos — Rocky';
-    titleCell.font  = { bold: true, size: 18, color: { argb: 'FF' + AZUL } };
-    titleCell.alignment = { vertical: 'middle' };
-    wsI.getRow(1).height = 32;
+    // Banner
+    wsA.mergeCells('A1:D1');
+    const bannerCell = wsA.getCell('A1');
+    bannerCell.value = '🚀  Rocky';
+    bannerCell.font  = { bold: true, size: 26, color: { argb: C.blanco }, name: 'Calibri' };
+    bannerCell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.azul } };
+    bannerCell.alignment = { vertical: 'middle', indent: 1 };
+    wsA.getRow(1).height = 52;
 
-    // Bienvenida
-    wsI.mergeCells('A3:C3');
-    const bienCell = wsI.getCell('A3');
-    bienCell.value = 'Usa este archivo para registrar los costos de tus productos. Rocky los utilizará para calcular tu rentabilidad real, margen y utilidad neta.';
-    bienCell.font  = { size: 11, color: { argb: 'FF' + GRIS } };
-    bienCell.alignment = { wrapText: true };
-    wsI.getRow(3).height = 30;
+    wsA.mergeCells('A2:D2');
+    const bannerSub = wsA.getCell('A2');
+    bannerSub.value = 'Dashboard de rentabilidad para vendedores de MercadoLibre';
+    bannerSub.font  = { size: 10, color: { argb: C.blanco }, italic: true };
+    bannerSub.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.azulDark } };
+    bannerSub.alignment = { vertical: 'middle', indent: 2 };
+    wsA.getRow(2).height = 18;
 
-    // Header "Cómo usar"
-    wsI.mergeCells('A5:C5');
-    const h2 = wsI.getCell('A5');
-    h2.value = 'Cómo usar esta plantilla:';
-    h2.font  = { bold: true, size: 12 };
+    wsA.getRow(3).height = 10;
 
-    // Pasos
-    const pasos = [
+    // Título y subtítulo
+    wsA.mergeCells('A4:D4');
+    const tituloCell = wsA.getCell('A4');
+    tituloCell.value = 'Plantilla de Costos';
+    tituloCell.font  = { bold: true, size: 16, color: { argb: C.oscuro } };
+    tituloCell.alignment = { vertical: 'middle', indent: 1 };
+    wsA.getRow(4).height = 28;
+
+    wsA.mergeCells('A5:D5');
+    const subtitCell = wsA.getCell('A5');
+    subtitCell.value = 'Completa la planilla agregando el costo de cada uno de tus productos para calcular tu rentabilidad real.';
+    subtitCell.font  = { size: 11, color: { argb: C.grisTxt } };
+    subtitCell.alignment = { wrapText: true, indent: 1 };
+    wsA.getRow(5).height = 24;
+
+    // Separador azul
+    wsA.getRow(6).height = 6;
+    ['A','B','C','D'].forEach(col => {
+      wsA.getCell(`${col}6`).border = { bottom: { style: 'medium', color: { argb: C.azul } } };
+    });
+
+    wsA.getRow(7).height = 8;
+
+    // Headers de las dos columnas (fila 8)
+    const styleColHdr = (cell, text) => {
+      cell.value = text;
+      cell.font  = { bold: true, size: 12, color: { argb: C.azul } };
+      cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.azulLight } };
+      cell.alignment = { vertical: 'middle', indent: 1 };
+    };
+    styleColHdr(wsA.getCell('B8'), '¿Qué costos debo registrar?');
+    styleColHdr(wsA.getCell('D8'), '¿Cómo lleno la plantilla?');
+    wsA.getRow(8).height = 24;
+
+    // Columna izquierda (filas 9-19)
+    const leftLines = [
+      { text: 'Registra el costo real que te cuesta cada producto — lo que pagas para comprarlo o producirlo.' },
+      { text: '' },
+      { text: '✅  Incluye en el costo:', bold: true, color: 'FF166534' },
+      { text: '•  Precio de compra al proveedor', indent: 2 },
+      { text: '•  Costo de producción o manufactura', indent: 2 },
+      { text: '•  Empaque si va incluido en el costo unitario', indent: 2 },
+      { text: '' },
+      { text: '🚫  NO incluyas (Rocky los calcula por ti):', bold: true, color: 'FFDC2626' },
+      { text: '•  Comisión de MercadoLibre', indent: 2 },
+      { text: '•  Costo de envío', indent: 2 },
+      { text: '•  Publicidad / Ads', indent: 2 },
+    ];
+    leftLines.forEach((line, i) => {
+      const cell = wsA.getCell(`B${9 + i}`);
+      cell.value = line.text || '';
+      cell.font  = { size: 10, bold: !!line.bold, color: { argb: line.color || C.grisTxt } };
+      cell.alignment = { wrapText: true, indent: line.indent || 1 };
+      wsA.getRow(9 + i).height = (line.text || '').length > 60 ? 24 : 16;
+    });
+
+    // Columna derecha (pasos, filas 9-14)
+    const rightSteps = [
+      'Descarga esta plantilla desde Rocky y ábrela en Excel o Google Sheets.',
       'Ve a la pestaña "Costos" (la segunda pestaña de este archivo).',
-      'Llena la columna costo_total con el costo de cada producto (lo que te cuesta comprarlo o producirlo). Es la única columna obligatoria.',
-      'Opcionalmente llena costo_base, tipo_prenda y ajusta pack si vendes en paquetes (ej. pack=3 si vendes de 3 en 3).',
-      'NO modifiques la columna item_id — es el identificador único de ML y Rocky lo usa para emparejar costos con ventas.',
-      'Guarda el archivo y súbelo desde Rocky con el botón "📤 Subir costos".'
+      'En la columna costo_total escribe el costo de cada producto. Es la única columna obligatoria.',
+      'Opcionalmente llena costo_base, tipo_prenda y ajusta pack si vendes en paquetes (ej. pack=3).',
+      'MUY IMPORTANTE: No modifiques la columna item_id — es el código único que Rocky usa para cruzar costos con ventas.',
+      'Guarda el archivo y súbelo en Rocky con el botón "📤 Subir costos".',
     ];
-    pasos.forEach((paso, i) => {
-      const rowNum = 6 + i;
-      wsI.mergeCells(`B${rowNum}:C${rowNum}`);
-      wsI.getCell(`A${rowNum}`).value = `${i + 1}.`;
-      wsI.getCell(`A${rowNum}`).font  = { bold: true, color: { argb: 'FF' + AZUL } };
-      wsI.getCell(`A${rowNum}`).alignment = { horizontal: 'right' };
-      const cell = wsI.getCell(`B${rowNum}`);
-      cell.value = paso;
-      cell.font  = { size: 11 };
-      cell.alignment = { wrapText: true };
-      wsI.getRow(rowNum).height = paso.length > 80 ? 30 : 18;
+    rightSteps.forEach((step, i) => {
+      const rn = 9 + i;
+      wsA.getCell(`C${rn}`).value = `${i + 1}.`;
+      wsA.getCell(`C${rn}`).font  = { bold: true, size: 10, color: { argb: C.azul } };
+      wsA.getCell(`C${rn}`).alignment = { horizontal: 'center', vertical: 'top' };
+      wsA.getCell(`D${rn}`).value = step;
+      wsA.getCell(`D${rn}`).font  = { size: 10, color: { argb: C.grisTxt } };
+      wsA.getCell(`D${rn}`).alignment = { wrapText: true, vertical: 'top' };
+      const needed = step.length > 80 ? 28 : 18;
+      const current = wsA.getRow(rn).height || 16;
+      wsA.getRow(rn).height = Math.max(current, needed);
     });
 
-    // Header "Columnas"
-    wsI.mergeCells('A12:C12');
-    const h3 = wsI.getCell('A12');
-    h3.value = 'Descripción de columnas:';
-    h3.font  = { bold: true, size: 12 };
-    wsI.getRow(12).height = 22;
+    // Tabla de descripción de columnas (fila 21+)
+    wsA.getRow(20).height = 10;
 
-    // Header tabla
-    ['', 'Columna', 'Descripción'].forEach((v, ci) => {
-      const cell = wsI.getRow(13).getCell(ci + 1);
-      cell.value = v;
-      cell.font  = { bold: true, color: { argb: 'FF' + AZUL_TEXT } };
-      cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + AZUL } };
-      cell.alignment = { vertical: 'middle' };
+    wsA.mergeCells('A21:D21');
+    const tblTitleCell = wsA.getCell('A21');
+    tblTitleCell.value = 'Descripción de columnas';
+    tblTitleCell.font  = { bold: true, size: 12, color: { argb: C.oscuro } };
+    tblTitleCell.alignment = { indent: 1 };
+    wsA.getRow(21).height = 24;
+
+    [['B', 'Columna'], ['D', 'Descripción']].forEach(([col, val]) => {
+      const cell = wsA.getCell(`${col}22`);
+      cell.value = val;
+      cell.font  = { bold: true, color: { argb: C.blanco } };
+      cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.azul } };
+      cell.alignment = { indent: 1, vertical: 'middle' };
     });
-    wsI.getRow(13).height = 20;
+    wsA.getRow(22).height = 20;
 
-    const colDesc = [
-      ['item_id',     'Identificador único del producto en MercadoLibre. NO modificar.'],
-      ['title',       'Nombre del producto (solo referencia, puedes editarlo si quieres).'],
-      ['tipo_prenda', 'Categoría opcional: pantalón, blazer, playera, etc.'],
-      ['pack',        'Unidades por paquete. Usa 1 si vendes de forma individual (default).'],
-      ['costo_base',  'Costo unitario antes de extras (opcional, puede ser igual a costo_total).'],
-      ['costo_total', '✔ OBLIGATORIO — costo total del producto tal como lo adquieres o produces.'],
+    const colDescs = [
+      ['item_id',     'Identificador único del producto en MercadoLibre. NO modificar nunca.', false],
+      ['title',       'Nombre del producto. Solo referencia visual, no afecta los cálculos.', false],
+      ['tipo_prenda', 'Categoría del producto (ej. pantalón, blazer, playera). Opcional.', false],
+      ['pack',        'Unidades por paquete. Usa 1 si vendes de forma individual.', false],
+      ['costo_base',  'Costo unitario antes de extras. Opcional, puede ser igual a costo_total.', false],
+      ['costo_total', 'OBLIGATORIO — Costo total del producto tal como lo adquieres o produces.', true],
     ];
-    colDesc.forEach(([col, desc], i) => {
-      const rowNum = 14 + i;
-      wsI.getRow(rowNum).getCell(2).value = col;
-      wsI.getRow(rowNum).getCell(2).font  = { bold: col === 'costo_total', color: col === 'costo_total' ? { argb: 'FF92400E' } : undefined };
-      wsI.getRow(rowNum).getCell(3).value = desc;
-      wsI.getRow(rowNum).getCell(3).alignment = { wrapText: true };
-      wsI.getRow(rowNum).height = 18;
-      if (col === 'costo_total') {
-        [2, 3].forEach(ci => {
-          wsI.getRow(rowNum).getCell(ci).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + AMARILLO } };
-        });
-      }
+    colDescs.forEach(([col, desc, isOblig], i) => {
+      const rn = 23 + i;
+      const bgFill = isOblig
+        ? { type: 'pattern', pattern: 'solid', fgColor: { argb: C.amarillo } }
+        : { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? C.grisLight : C.blanco } };
+      const bdr = { bottom: { style: 'thin', color: { argb: C.grisBorde } } };
+
+      const colCell = wsA.getCell(`B${rn}`);
+      colCell.value  = col;
+      colCell.font   = { size: 10, bold: isOblig, color: { argb: isOblig ? C.ambar : C.oscuro } };
+      colCell.fill   = bgFill;
+      colCell.border = bdr;
+      colCell.alignment = { indent: 1 };
+
+      const descCell = wsA.getCell(`D${rn}`);
+      descCell.value  = desc;
+      descCell.font   = { size: 10, color: { argb: isOblig ? C.ambar : C.grisTxt } };
+      descCell.fill   = bgFill;
+      descCell.border = bdr;
+      descCell.alignment = { wrapText: true };
+
+      wsA.getRow(rn).height = 18;
     });
 
-    // ── Pestaña 2: Costos ─────────────────────────────────────────────────────
+    // ── Pestaña "Costos" ──────────────────────────────────────────────────────
     const wsC = wb.addWorksheet('Costos');
     wsC.columns = [
-      { header: 'item_id',     key: 'item_id',     width: 18 },
-      { header: 'title',       key: 'title',        width: 52 },
-      { header: 'tipo_prenda', key: 'tipo_prenda',  width: 15 },
-      { header: 'pack',        key: 'pack',         width: 7  },
-      { header: 'costo_base',  key: 'costo_base',   width: 13 },
-      { header: 'costo_total', key: 'costo_total',  width: 13 },
+      { key: 'item_id',     width: 20 },
+      { key: 'title',       width: 54 },
+      { key: 'tipo_prenda', width: 15 },
+      { key: 'pack',        width: 7  },
+      { key: 'costo_base',  width: 14 },
+      { key: 'costo_total', width: 14 },
     ];
 
-    // Estilo del header
-    wsC.getRow(1).eachCell(cell => {
-      cell.font  = { bold: true, color: { argb: 'FF' + AZUL_TEXT } };
-      cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + AZUL } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
-    });
-    wsC.getRow(1).height = 20;
+    // Headers con richText: nombre en negrita + ejemplo en gris pequeño
+    const hdrDefs = [
+      { name: 'item_id',     ex: 'Ej: MLM123456789 (no modificar)' },
+      { name: 'title',       ex: 'Nombre del producto (referencia)' },
+      { name: 'tipo_prenda', ex: 'Ej: pantalón, blazer, playera' },
+      { name: 'pack',        ex: 'Ej: 1  (unidades por paquete)' },
+      { name: 'costo_base',  ex: 'Ej: 200.00  (opcional)' },
+      { name: 'costo_total', ex: 'Ej: 250.00  ★ OBLIGATORIO' },
+    ];
 
-    // Datos
-    dataRows.forEach(row => {
-      const r = wsC.addRow(row);
-      // Columna F (costo_total) con fondo amarillo
-      const cell = r.getCell(6);
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + AMARILLO } };
+    const hRow = wsC.getRow(1);
+    hRow.height = 36;
+    hdrDefs.forEach((hd, ci) => {
+      const cell = hRow.getCell(ci + 1);
+      cell.value = {
+        richText: [
+          { text: hd.name + '\n', font: { bold: true, size: 11, color: { argb: C.blanco }, name: 'Calibri' } },
+          { text: hd.ex,          font: { size: 8, italic: true, color: { argb: 'FFBFDBFE' }, name: 'Calibri' } },
+        ]
+      };
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.azul } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border    = { right: { style: 'thin', color: { argb: C.azulDark } } };
     });
 
-    // Freeze header row
+    // Filas de datos: zebra striping + amarillo en costo_total
+    dataRows.forEach((row, idx) => {
+      const r = wsC.addRow([
+        row.item_id, row.title, row.tipo_prenda, row.pack, row.costo_base, row.costo_total
+      ]);
+      const zebraFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? C.zebra : C.blanco } };
+      const amarFill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.amarillo } };
+      for (let ci = 1; ci <= 6; ci++) {
+        const cell = r.getCell(ci);
+        cell.fill      = ci === 6 ? amarFill : zebraFill;
+        cell.font      = { size: 10, color: { argb: C.oscuro } };
+        cell.alignment = { vertical: 'middle' };
+        cell.border    = { bottom: { style: 'thin', color: { argb: C.grisBorde } } };
+      }
+      r.height = 18;
+    });
+
+    // Freeze header
     wsC.views = [{ state: 'frozen', ySplit: 1 }];
 
     const buf = await wb.xlsx.writeBuffer();
