@@ -1513,11 +1513,17 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
             </div>
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <span style="font-size:12px;color:var(--muted)">¿Primera vez? Descarga la plantilla, llénala y súbela.</span>
-          <div style="display:flex;align-items:center;gap:10px">
-            <button type="button" class="btn-refresh" onclick="window.location='/api/descargar-plantilla-costos'">⬇️ Descargar plantilla</button>
-            <button type="button" class="btn-refresh" onclick="document.getElementById('fin-xlsx-input').click()">📤 Subir costos</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;background:var(--surface,#F8FAFC);border:1px solid var(--border,#E5E7EB);border-radius:12px;padding:14px 20px;margin-top:2px">
+          <div style="display:flex;align-items:flex-start;gap:12px">
+            <span style="font-size:22px;line-height:1">📊</span>
+            <div>
+              <div style="font-weight:600;font-size:14px;color:var(--text)">Configura tus costos</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px">Descarga la plantilla con tus productos, escribe el costo de cada uno y súbela de vuelta.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <button type="button" onclick="window.location='/api/descargar-plantilla-costos'" style="padding:7px 16px;font-size:13px;font-weight:500;border:1px solid var(--border,#E5E7EB);border-radius:8px;background:#fff;color:var(--text);cursor:pointer;white-space:nowrap">⬇️ Descargar plantilla</button>
+            <button type="button" onclick="document.getElementById('fin-xlsx-input').click()" style="padding:7px 16px;font-size:13px;font-weight:500;border:none;border-radius:8px;background:#2563EB;color:#fff;cursor:pointer;white-space:nowrap">📤 Subir costos</button>
             <input type="file" id="fin-xlsx-input" accept=".xlsx" style="display:none" onchange="uploadCostos(this)">
             <span id="fin-upload-status" style="font-size:12px;color:var(--muted)"></span>
           </div>
