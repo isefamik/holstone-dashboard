@@ -2110,15 +2110,19 @@ app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws);
 
-    const records = rows.map(r => ({
-      item_id:     String(r.item_id    || '').trim(),
-      title:       String(r.title      || '').trim(),
-      tipo_prenda: String(r.tipo_prenda|| '').trim(),
-      pack:        parseInt(r.pack)    || 1,
-      costo_base:  parseFloat(r.costo_base)  || 0,
-      costo_total: parseFloat(r.costo_total) || 0,
-      updated_at:  new Date().toISOString()
-    })).filter(r => r.item_id);
+    const records = rows.map(r => {
+      const costoTotal = parseFloat(r.costo_total);
+      const costoBase  = parseFloat(r.costo_base);
+      return {
+        item_id:     String(r.item_id    || '').trim(),
+        title:       String(r.title      || '').trim(),
+        tipo_prenda: String(r.tipo_prenda|| '').trim(),
+        pack:        parseInt(r.pack)    || 1,
+        costo_base:  isNaN(costoBase)  ? 0 : costoBase,
+        costo_total: isNaN(costoTotal) ? 0 : costoTotal,
+        updated_at:  new Date().toISOString()
+      };
+    }).filter(r => r.item_id && r.costo_total > 0); // ignorar filas sin costo_total
 
     if (!records.length) return res.status(400).json({ error: 'Sin registros válidos en el Excel' });
 
