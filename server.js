@@ -2113,13 +2113,12 @@ app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
 
     const records = rows.map(r => {
       const costoTotal = parseFloat(r.costo_total);
-      const costoBase  = parseFloat(r.costo_base);
       return {
-        item_id:     String(r.item_id    || '').trim(),
-        title:       String(r.title      || '').trim(),
-        tipo_prenda: String(r.tipo_prenda|| '').trim(),
-        pack:        parseInt(r.pack)    || 1,
-        costo_base:  isNaN(costoBase)  ? 0 : costoBase,
+        item_id:     String(r.item_id || '').trim(),
+        title:       String(r.title   || '').trim(),
+        tipo_prenda: null,
+        pack:        1,
+        costo_base:  isNaN(costoTotal) ? 0 : costoTotal,
         costo_total: isNaN(costoTotal) ? 0 : costoTotal,
         updated_at:  new Date().toISOString()
       };
@@ -2202,17 +2201,11 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
 
     const dataRows = Object.values(byItem)
       .sort((a, b) => b.venta_bruta - a.venta_bruta)
-      .map(it => {
-        const c = costosMap[it.item_id];
-        return {
-          item_id:     it.item_id,
-          title:       it.title,
-          tipo_prenda: c?.tipo_prenda || '',
-          pack:        c?.pack        ?? 1,
-          costo_base:  c?.costo_base  ?? '',
-          costo_total: c?.costo_total ?? ''
-        };
-      });
+      .map(it => ({
+        item_id:     it.item_id,
+        title:       it.title,
+        costo_total: costosMap[it.item_id]?.costo_total ?? ''
+      }));
 
     // ── Generar Excel con ExcelJS ─────────────────────────────────────────────
     const C = {
@@ -2321,8 +2314,7 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
     const rightSteps = [
       'Descarga esta plantilla desde Rocky y ábrela en Excel o Google Sheets.',
       'Ve a la pestaña "Costos" (la segunda pestaña de este archivo).',
-      'En la columna costo_total escribe el costo de cada producto. Es la única columna obligatoria.',
-      'Opcionalmente llena costo_base, tipo_prenda y ajusta pack si vendes en paquetes (ej. pack=3).',
+      'En la columna costo_total escribe el costo de cada producto. Es la única columna que debes llenar.',
       'MUY IMPORTANTE: No modifiques la columna item_id — es el código único que Rocky usa para cruzar costos con ventas.',
       'Guarda el archivo y súbelo en Rocky con el botón "📤 Subir costos".',
     ];
@@ -2361,9 +2353,6 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
     const colDescs = [
       ['item_id',     'Identificador único del producto en MercadoLibre. NO modificar nunca.', false],
       ['title',       'Nombre del producto. Solo referencia visual, no afecta los cálculos.', false],
-      ['tipo_prenda', 'Categoría del producto (ej. pantalón, blazer, playera). Opcional.', false],
-      ['pack',        'Unidades por paquete. Usa 1 si vendes de forma individual.', false],
-      ['costo_base',  'Costo unitario antes de extras. Opcional, puede ser igual a costo_total.', false],
       ['costo_total', 'OBLIGATORIO — Costo total del producto tal como lo adquieres o produces.', true],
     ];
     colDescs.forEach(([col, desc, isOblig], i) => {
@@ -2393,21 +2382,15 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
     // ── Pestaña "Costos" ──────────────────────────────────────────────────────
     const wsC = wb.addWorksheet('Costos');
     wsC.columns = [
-      { key: 'item_id',     width: 20 },
-      { key: 'title',       width: 54 },
-      { key: 'tipo_prenda', width: 15 },
-      { key: 'pack',        width: 7  },
-      { key: 'costo_base',  width: 14 },
-      { key: 'costo_total', width: 14 },
+      { key: 'item_id',     width: 22 },
+      { key: 'title',       width: 56 },
+      { key: 'costo_total', width: 16 },
     ];
 
     // Headers con richText: nombre en negrita + ejemplo en gris pequeño
     const hdrDefs = [
       { name: 'item_id',     ex: 'Ej: MLM123456789 (no modificar)' },
       { name: 'title',       ex: 'Nombre del producto (referencia)' },
-      { name: 'tipo_prenda', ex: 'Ej: pantalón, blazer, playera' },
-      { name: 'pack',        ex: 'Ej: 1  (unidades por paquete)' },
-      { name: 'costo_base',  ex: 'Ej: 200.00  (opcional)' },
       { name: 'costo_total', ex: 'Ej: 250.00  ★ OBLIGATORIO' },
     ];
 
@@ -2428,14 +2411,12 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
 
     // Filas de datos: zebra striping + amarillo en costo_total
     dataRows.forEach((row, idx) => {
-      const r = wsC.addRow([
-        row.item_id, row.title, row.tipo_prenda, row.pack, row.costo_base, row.costo_total
-      ]);
+      const r = wsC.addRow([row.item_id, row.title, row.costo_total]);
       const zebraFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? C.zebra : C.blanco } };
       const amarFill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.amarillo } };
-      for (let ci = 1; ci <= 6; ci++) {
+      for (let ci = 1; ci <= 3; ci++) {
         const cell = r.getCell(ci);
-        cell.fill      = ci === 6 ? amarFill : zebraFill;
+        cell.fill      = ci === 3 ? amarFill : zebraFill;
         cell.font      = { size: 10, color: { argb: C.oscuro } };
         cell.alignment = { vertical: 'middle' };
         cell.border    = { bottom: { style: 'thin', color: { argb: C.grisBorde } } };
