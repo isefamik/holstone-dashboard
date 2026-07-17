@@ -2156,6 +2156,74 @@ app.post('/api/agregar-costo-producto', async (req, res) => {
   }
 });
 
+app.get('/api/descargar-plantilla-costos', async (req, res) => {
+  try {
+    const from = `${dateNDaysAgo(90)}T00:00:00.000-06:00`;
+    const to   = `${today()}T23:59:59.000-06:00`;
+
+    // Órdenes últimos 90 días (cap 1000)
+    let orders = [], offset = 0, total = 1;
+    while (offset < total && orders.length < 1000) {
+      const r = await mlGet('https://api.mercadolibre.com/orders/search', {
+        seller: getSellerId(), 'order.status': 'paid',
+        'order.date_created.from': from, 'order.date_created.to': to,
+        limit: 50, offset
+      });
+      total = r.paging.total;
+      orders = orders.concat(r.results);
+      offset += 50;
+    }
+
+    // Costos existentes
+    if (!costosCache || Date.now() - costosCacheTime > COSTOS_TTL) {
+      const { data } = await supabase.from('costos_productos').select('item_id,costo_total,costo_base,pack,tipo_prenda');
+      costosCache = data || [];
+      costosCacheTime = Date.now();
+    }
+    const costosMap = {};
+    costosCache.forEach(c => { costosMap[c.item_id] = c; });
+
+    // Agregar ventas por item
+    const byItem = {};
+    orders.forEach(o => {
+      (o.order_items || []).forEach(oi => {
+        const id = oi.item?.id;
+        if (!id) return;
+        const qty = oi.quantity || 1;
+        if (!byItem[id]) byItem[id] = { item_id: id, title: oi.item?.title || id, venta_bruta: 0 };
+        byItem[id].venta_bruta += (oi.unit_price || 0) * qty;
+      });
+    });
+
+    // Construir filas del Excel ordenadas por ventas desc
+    const rows = Object.values(byItem)
+      .sort((a, b) => b.venta_bruta - a.venta_bruta)
+      .map(it => {
+        const c = costosMap[it.item_id];
+        return {
+          item_id:     it.item_id,
+          title:       it.title,
+          tipo_prenda: c?.tipo_prenda || '',
+          pack:        c?.pack        ?? 1,
+          costo_base:  c?.costo_base  ?? '',
+          costo_total: c?.costo_total ?? ''
+        };
+      });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Costos');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-costos-rocky.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
 // ── FINANZAS: helper compartido ──────────────────────────────────────────────
 
 async function getFinancialPeriod(from, to) {
