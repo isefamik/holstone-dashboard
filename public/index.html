@@ -4118,7 +4118,7 @@ async function loadStockInteligente(force){
   try{
     alertasEl.innerHTML='<div style="grid-column:1/-1"><div class="loading"><div class="spin"></div>Calculando ventas de los últimos 3 meses... (puede tardar 20-40s)</div></div>';
     tbodyEl.innerHTML='<tr><td colspan="8"><div class="loading"><div class="spin"></div></div></td></tr>';
-    const r=await fetch('/api/stock-inteligente');
+    const r=await fetch('/api/stock-inteligente'+(force?'?force=1':''));
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     siData=d;
@@ -4216,6 +4216,22 @@ function siRender(items){
   }
   const LDEF={fulfillment:{lbl:'Full',bg:'#d1fae5',c:'#065f46'},cross_docking:{lbl:'Cross Dock',bg:'#ede9fe',c:'#6d28d9'},self_service:{lbl:'Flex',bg:'#ccfbf1',c:'#0f766e'},drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},xd_drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},default:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'},me1:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'}};
   const logisticBadge=lt=>{const d=LDEF[lt];return d?'<span class="si-logistic-badge" style="background:'+d.bg+';color:'+d.c+'">'+d.lbl+'</span>':''};
+  const NOT_AVAIL_LBL={damaged:'Dañado',in_transit:'En tránsito',not_supported:'No apto',reserved:'Retenido'};
+  const varFullInfo=v=>{
+    if(!v.inventoryId)return'';
+    if(v.fullAvailable===null||v.fullAvailable===undefined)return'<div style="font-size:10px;color:var(--muted);margin-top:2px">Full: —</div>';
+    let h='<div style="font-size:10px;color:#065f46;font-weight:700;margin-top:2px">Full: '+v.fullAvailable+' disp.</div>';
+    if(v.fullNotAvailableDetail&&v.fullNotAvailableDetail.length>0)
+      h+=v.fullNotAvailableDetail.map(d=>'<div style="font-size:10px;color:#b45309;font-weight:600">'+(NOT_AVAIL_LBL[d.status]||d.status)+': '+d.quantity+'</div>').join('');
+    return h;
+  };
+  const itemFullInfo=item=>{
+    if(item.logisticType!=='fulfillment'||item.fullAvailable===undefined)return'';
+    if(item.fullAvailable===null)return'<div style="font-size:10px;color:var(--muted);margin-top:3px">Full: —</div>';
+    let h='<div style="font-size:10px;color:#065f46;font-weight:700;margin-top:3px">Full: '+item.fullAvailable+' disp.</div>';
+    if(item.fullNotAvailable>0)h+='<span style="display:inline-block;font-size:10px;background:#fff7ed;color:#b45309;border-radius:3px;padding:1px 5px;margin-top:1px;font-weight:700">⚠ '+item.fullNotAvailable+' no disp.</span>';
+    return h;
+  };
   const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d'})[lv]||'#6b7280');
   const bc=lv=>(({out:'#ef4444',critical:'#f97316',low:'#f59e0b',ok:'#10b981'})[lv]||'#d1d5db');
   const bp=days=>days===null?0:Math.min(Math.round(days/90*100),100);
@@ -4235,7 +4251,7 @@ function siRender(items){
         return'<tr>'+
           '<td style="padding:7px 10px 7px 36px;font-size:12px;color:var(--muted)">'+lbl+'</td>'+
           '<td style="padding:7px 10px;text-align:right;font-size:12px">'+v.monthlyAvg+'</td>'+
-          '<td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:600;color:'+(v.stock===0?'var(--red)':'var(--text)')+'">'+fmt(v.stock)+'</td>'+
+          '<td style="padding:7px 10px;text-align:right;font-size:12px;font-weight:600;color:'+(v.stock===0?'var(--red)':'var(--text)')+'">'+fmt(v.stock)+varFullInfo(v)+'</td>'+
           '<td style="padding:7px 10px">'+bar(v.alertLevel,v.daysRemaining)+'</td>'+
           '<td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--muted)">'+nd(v.needed30)+'</td>'+
           '<td style="padding:7px 10px;text-align:right;font-size:12px;color:var(--muted)">'+nd(v.needed60)+'</td>'+
@@ -4269,7 +4285,7 @@ function siRender(items){
         '<span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.title+'</span>'+
       '</div></td>'+
       '<td style="text-align:right">'+item.monthlyAvg+'</td>'+
-      '<td style="text-align:right;font-weight:700;color:'+(item.totalStock===0?'var(--red)':'var(--text)')+'">'+fmt(item.totalStock)+(agotadasCount>0?'<br><span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-weight:600">'+agotadasCount+' var.'+(agotadasCount>1?' agotadas':' agotada')+'</span>':'')+
+      '<td style="text-align:right;font-weight:700;color:'+(item.totalStock===0?'var(--red)':'var(--text)')+'">'+fmt(item.totalStock)+(agotadasCount>0?'<br><span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-weight:600">'+agotadasCount+' var.'+(agotadasCount>1?' agotadas':' agotada')+'</span>':'')+itemFullInfo(item)+
       '</td>'+
       '<td>'+bar(item.alertLevel,item.daysRemaining)+'</td>'+
       '<td style="text-align:right;color:var(--muted)">'+nd(item.needed30)+'</td>'+

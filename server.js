@@ -320,6 +320,8 @@ let costosCacheTime = 0;
 const COSTOS_TTL = 30 * 60 * 1000;           // 30 minutos
 const billingCache = new Map();               // "YYYY-M" → { data, ts }; meses pasados: indefinido, mes actual: 1h
 const reasonLabelCache = new Map();           // reason_id → detail label del endpoint ML
+const stockInteligenteCache = new Map();      // tenantId|'__holstone__' → { data, ts }
+const STOCK_INTELIGENTE_TTL = 60 * 60 * 1000; // 1 hora
 
 async function loadTokenFromSupabase() {
   try {
@@ -567,6 +569,38 @@ async function getReasonLabel(reasonId) {
   } catch {
     reasonLabelCache.set(reasonId, reasonId);
     return reasonId;
+  }
+}
+
+async function runPool(tasks, limit) {
+  const results = new Array(tasks.length);
+  let idx = 0;
+  async function worker() {
+    while (idx < tasks.length) {
+      const i = idx++;
+      results[i] = await tasks[i]();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return results;
+}
+
+async function fetchFulfillmentStock(inventoryId) {
+  const ctx = requestCtx.getStore();
+  const isTenant = !!ctx?.tenant;
+  const fetchFreshToken = () => isTenant ? refreshTenantToken(ctx.tenant) : refreshToken();
+  const token = isTenant ? await getTenantToken(ctx.tenant) : await getToken();
+  const url = `https://api.mercadolibre.com/inventories/${inventoryId}/stock/fulfillment`;
+  try {
+    const r = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
+    return r.data;
+  } catch (e) {
+    if (e.response?.status === 401) {
+      const freshToken = await fetchFreshToken();
+      const r = await axios.get(url, { headers: { Authorization: `Bearer ${freshToken}` } });
+      return r.data;
+    }
+    throw e;
   }
 }
 
@@ -1291,7 +1325,13 @@ app.get('/api/performance', async (req, res) => {
   }
 });
 
-async function computeStockInteligente() {
+async function computeStockInteligente(force = false) {
+  const ctx = requestCtx.getStore();
+  const cacheKey = ctx?.tenant?.id || '__holstone__';
+  if (!force) {
+    const cached = stockInteligenteCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < STOCK_INTELIGENTE_TTL) return cached.data;
+  }
   {
     // 1. Get all active item IDs (paginated)
     let allIds = [];
@@ -1403,6 +1443,7 @@ async function computeStockInteligente() {
           color: attrs['Color'] || attrs['color'] || '',
           talla: attrs['Talla'] || attrs['talla'] || attrs['Size'] || '',
           stock: vs, piezas: vs * pack,
+          inventoryId: v.inventory_id || null,
           sales3m: sales.byVariant[v.id] || 0,
           monthlyAvg: Math.round(vd * 30 * 10) / 10,
           daysRemaining: vDays,
@@ -1431,6 +1472,66 @@ async function computeStockInteligente() {
       };
     });
 
+    // 7. Fetch fulfillment stock for Full items (concurrent pool, max 6)
+    const inventoryTasks = [];
+    result.forEach(item => {
+      if (item.logisticType !== 'fulfillment') return;
+      item.variations.forEach(v => {
+        if (v.inventoryId) inventoryTasks.push({ itemId: item.id, varId: v.id, invId: v.inventoryId });
+      });
+    });
+    if (inventoryTasks.length > 0) {
+      const invResults = await runPool(
+        inventoryTasks.map(t => async () => {
+          try {
+            const data = await fetchFulfillmentStock(t.invId);
+            return { ...t, data, error: false };
+          } catch (e) {
+            console.error(`[fulfillment] Error para ${t.invId}:`, e.response?.data || e.message);
+            return { ...t, data: null, error: true };
+          }
+        }),
+        6
+      );
+      const itemMap = Object.fromEntries(result.map(i => [i.id, i]));
+      const itemFullSums = {};
+      invResults.forEach(r => {
+        const item = itemMap[r.itemId];
+        const variant = item.variations.find(v => v.id === r.varId);
+        if (r.data) {
+          variant.fullAvailable = r.data.available_quantity ?? 0;
+          variant.fullNotAvailable = r.data.not_available_quantity ?? 0;
+          variant.fullNotAvailableDetail = r.data.not_available_detail || [];
+          variant.fullTotal = r.data.total ?? 0;
+          if (!itemFullSums[r.itemId]) itemFullSums[r.itemId] = { available: 0, notAvailable: 0, total: 0 };
+          itemFullSums[r.itemId].available += variant.fullAvailable;
+          itemFullSums[r.itemId].notAvailable += variant.fullNotAvailable;
+          itemFullSums[r.itemId].total += variant.fullTotal;
+        } else {
+          variant.fullAvailable = null;
+          variant.fullNotAvailable = null;
+          variant.fullNotAvailableDetail = [];
+          variant.fullTotal = null;
+          variant.fullError = true;
+        }
+      });
+      result.forEach(item => {
+        if (item.logisticType !== 'fulfillment') return;
+        const sums = itemFullSums[item.id];
+        item.fullAvailable = sums ? sums.available : null;
+        item.fullNotAvailable = sums ? sums.notAvailable : null;
+        item.fullTotal = sums ? sums.total : null;
+      });
+    }
+    // Edge case: Full items with no variations that have inventory_id
+    result.forEach(item => {
+      if (item.logisticType === 'fulfillment' && item.fullAvailable === undefined) {
+        item.fullAvailable = null;
+        item.fullNotAvailable = null;
+        item.fullTotal = null;
+      }
+    });
+
     result.sort((a, b) => {
       if (a.catalogListing !== b.catalogListing) return (b.catalogListing ? 1 : 0) - (a.catalogListing ? 1 : 0);
       return b.sales3m - a.sales3m;
@@ -1446,17 +1547,20 @@ async function computeStockInteligente() {
       valorInventario: Math.round(result.reduce((s, i) => s + i.valorInventario, 0))
     };
 
-    return {
+    const payload = {
       items: result, summary, totalDays,
       periodoDesde: startDate.toISOString().split('T')[0],
       periodoHasta: now.toISOString().split('T')[0]
     };
+    stockInteligenteCache.set(cacheKey, { data: payload, ts: Date.now() });
+    return payload;
   }
 }
 
 app.get('/api/stock-inteligente', async (req, res) => {
   try {
-    const data = await computeStockInteligente();
+    const force = req.query.force === '1';
+    const data = await computeStockInteligente(force);
     res.json(data);
   } catch (e) {
     if (e.name === 'TokenExpiredError') throw e;
