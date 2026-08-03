@@ -216,6 +216,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .badge-red{background:#fee2e2;color:var(--red)}
 .badge-yellow{background:#fef9c3;color:#ca8a04}
 .badge-gray{background:#f3f4f6;color:var(--muted)}
+.si-logistic-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;white-space:nowrap;flex-shrink:0}
 
 /* ── INSIGHTS ── */
 .insight-card{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
@@ -1205,6 +1206,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
           <button type="button" class="si-filter-btn" onclick="siFilter('low',this)">Bajos <span class="si-filter-count" id="fc-low">—</span></button>
           <button type="button" class="si-filter-btn" onclick="siFilter('no_sales',this)">Sin ventas <span class="si-filter-count" id="fc-no_sales">—</span></button>
           <button type="button" class="si-filter-btn" onclick="siFilter('ok',this)">Saludables <span class="si-filter-count" id="fc-ok">—</span></button>
+          <span id="si-logistic-chips" style="display:contents"></span>
           <div class="si-search-wrap">
             <input class="si-search" id="si-search" type="text" placeholder="Buscar producto..." oninput="siSearch(this.value)">
           </div>
@@ -4106,7 +4108,7 @@ async function loadPerformance(){
 }
 
 // ── Stock Inteligente ─────────────────────────────
-let siLoaded=false,siData=null,siActiveFilter='all',siSearchTerm='';
+let siLoaded=false,siData=null,siActiveFilter='all',siSearchTerm='',siLogisticFilter=null;
 
 async function loadStockInteligente(force){
   if(siLoaded&&!force)return;
@@ -4148,7 +4150,15 @@ async function loadStockInteligente(force){
     document.getElementById('fc-ok').textContent=d.summary.ok;
     document.getElementById('si-periodo').textContent=d.totalDays+'d · '+d.periodoDesde+' → '+d.periodoHasta;
 
-    siActiveFilter='all'; siSearchTerm='';
+    // ── Logistic chips: solo tipos que existen en la cuenta ──
+    const LOGISTIC_DEF={fulfillment:{lbl:'Full',bg:'#dbeafe',c:'#1d4ed8'},cross_docking:{lbl:'Cross Dock',bg:'#ede9fe',c:'#6d28d9'},self_service:{lbl:'Flex',bg:'#d1fae5',c:'#065f46'},drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},xd_drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},default:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'},me1:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'}};
+    const existingTypes=[...new Set(d.items.map(i=>i.logisticType).filter(Boolean))].filter(t=>LOGISTIC_DEF[t]);
+    document.getElementById('si-logistic-chips').innerHTML=existingTypes.map(t=>{
+      const def=LOGISTIC_DEF[t];
+      return'<button type="button" class="si-filter-btn si-logistic-btn" data-logistic="'+t+'" onclick="siFilterLogistic(\''+t+'\',this)">'+def.lbl+'</button>';
+    }).join('');
+
+    siActiveFilter='all'; siSearchTerm=''; siLogisticFilter=null;
     document.getElementById('si-search').value='';
     document.querySelectorAll('.si-filter-btn').forEach(b=>b.classList.remove('active'));
     document.querySelector('.si-filter-btn').classList.add('active');
@@ -4168,14 +4178,21 @@ function siGetFiltered(){
   else if(siActiveFilter==='low') items=items.filter(i=>i.alertLevel==='low');
   else if(siActiveFilter==='no_sales') items=items.filter(i=>i.daysRemaining===null&&i.totalStock>0);
   else if(siActiveFilter==='ok') items=items.filter(i=>i.alertLevel==='ok'&&i.daysRemaining!==null);
+  if(siLogisticFilter) items=items.filter(i=>i.logisticType===siLogisticFilter);
   if(siSearchTerm){const s=siSearchTerm.toLowerCase();items=items.filter(i=>i.title.toLowerCase().includes(s));}
   return items;
 }
 
 function siFilter(level,btn){
   siActiveFilter=level;
-  document.querySelectorAll('.si-filter-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.si-filter-btn:not(.si-logistic-btn)').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
+  siRender(siGetFiltered());
+}
+
+function siFilterLogistic(type,btn){
+  if(siLogisticFilter===type){siLogisticFilter=null;btn.classList.remove('active');}
+  else{siLogisticFilter=type;document.querySelectorAll('.si-logistic-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
   siRender(siGetFiltered());
 }
 
@@ -4197,6 +4214,8 @@ function siRender(items){
     tbodyEl.innerHTML='<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Sin productos para mostrar</td></tr>';
     return;
   }
+  const LDEF={fulfillment:{lbl:'Full',bg:'#dbeafe',c:'#1d4ed8'},cross_docking:{lbl:'Cross Dock',bg:'#ede9fe',c:'#6d28d9'},self_service:{lbl:'Flex',bg:'#d1fae5',c:'#065f46'},drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},xd_drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},default:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'},me1:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'}};
+  const logisticBadge=lt=>{const d=LDEF[lt];return d?'<span class="si-logistic-badge" style="background:'+d.bg+';color:'+d.c+'">'+d.lbl+'</span>':''};
   const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d'})[lv]||'#6b7280');
   const bc=lv=>(({out:'#ef4444',critical:'#f97316',low:'#f59e0b',ok:'#10b981'})[lv]||'#d1d5db');
   const bp=days=>days===null?0:Math.min(Math.round(days/90*100),100);
@@ -4246,6 +4265,7 @@ function siRender(items){
         '<span id="si-ch-'+item.id+'" class="si-chevron">'+(hasV?'▶':'')+'</span>'+
         (item.pack>1?'<span class="badge badge-pack">'+item.pack+'P</span>':'')+
         (item.catalogListing?'<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:4px;font-weight:700;white-space:nowrap;flex-shrink:0">Catálogo ML</span>':'')+
+        logisticBadge(item.logisticType)+
         '<span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.title+'</span>'+
       '</div></td>'+
       '<td style="text-align:right">'+item.monthlyAvg+'</td>'+
