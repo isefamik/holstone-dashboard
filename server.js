@@ -1333,18 +1333,21 @@ async function computeStockInteligente(force = false) {
     if (cached && Date.now() - cached.ts < STOCK_INTELIGENTE_TTL) return cached.data;
   }
   {
-    // 1. Get all active item IDs (paginated)
-    let allIds = [];
-    let offset = 0;
-    let total = 1;
-    while (offset < total) {
-      const r = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items/search`, {
-        status: 'active', limit: 50, offset
-      });
-      total = r.paging.total;
-      allIds = allIds.concat(r.results);
-      offset += 50;
+    // 1. Get all active AND paused item IDs (paginated separately — ML no acepta múltiples status)
+    const activeSet = new Set();
+    const pausedSet = new Set();
+    for (const [status, set] of [['active', activeSet], ['paused', pausedSet]]) {
+      let offset = 0, total = 1;
+      while (offset < total) {
+        const r = await mlGet(`https://api.mercadolibre.com/users/${getSellerId()}/items/search`, {
+          status, limit: 50, offset
+        });
+        total = r.paging.total;
+        r.results.forEach(id => set.add(id));
+        offset += 50;
+      }
     }
+    const allIds = [...activeSet, ...pausedSet];
 
     // 2. Get item details in batches of 20
     let items = [];
@@ -1412,6 +1415,12 @@ async function computeStockInteligente(force = false) {
       });
     });
 
+    // 5b. Drop paused items with zero sales in the period (no aportan info útil)
+    items = items.filter(item =>
+      activeSet.has(item.id) ||
+      (pausedSet.has(item.id) && (salesMap[item.id]?.total || 0) > 0)
+    );
+
     // 6. Compute per-item and per-variant metrics
     const getPack = t => { const m = t.match(/(\d+)\s*pack/i); return m ? parseInt(m[1]) : 1; };
     const calcAlert = (days, stock) => {
@@ -1428,16 +1437,17 @@ async function computeStockInteligente(force = false) {
 
     const result = items.map(item => {
       const pack = getPack(item.title);
+      const isPaused = item.status === 'paused';
       const totalStock = item.available_quantity || 0;
       const sales = salesMap[item.id] || { total: 0, byVariant: {} };
       const dailyAvg = sales.total / totalDays;
-      const daysRemaining = dailyAvg > 0 ? Math.round(totalStock / dailyAvg) : null;
+      const daysRemaining = (!isPaused && dailyAvg > 0) ? Math.round(totalStock / dailyAvg) : null;
       const variations = (item.variations || []).map(v => {
         const attrs = {};
         (v.attribute_combinations || []).forEach(a => { attrs[a.name] = a.value_name; });
         const vs = v.available_quantity || 0;
         const vd = (sales.byVariant[v.id] || 0) / totalDays;
-        const vDays = vd > 0 ? Math.round(vs / vd) : null;
+        const vDays = (!isPaused && vd > 0) ? Math.round(vs / vd) : null;
         return {
           id: v.id,
           color: attrs['Color'] || attrs['color'] || '',
@@ -1447,25 +1457,26 @@ async function computeStockInteligente(force = false) {
           sales3m: sales.byVariant[v.id] || 0,
           monthlyAvg: Math.round(vd * 30 * 10) / 10,
           daysRemaining: vDays,
-          depletionDate: calcDate(vDays),
-          needed30: Math.ceil(vd * 30),
-          needed60: Math.ceil(vd * 60),
-          needed90: Math.ceil(vd * 90),
-          alertLevel: calcAlert(vDays, vs)
+          depletionDate: isPaused ? null : calcDate(vDays),
+          needed30: isPaused ? null : Math.ceil(vd * 30),
+          needed60: isPaused ? null : Math.ceil(vd * 60),
+          needed90: isPaused ? null : Math.ceil(vd * 90),
+          alertLevel: isPaused ? 'paused' : calcAlert(vDays, vs)
         };
       });
       return {
         id: item.id, title: item.title, price: item.price || 0, pack,
+        itemStatus: item.status,
         totalStock, totalPiezas: totalStock * pack,
         valorInventario: Math.round(totalStock * (item.price || 0)),
         sales3m: sales.total,
         monthlyAvg: Math.round(dailyAvg * 30 * 10) / 10,
         daysRemaining,
-        depletionDate: calcDate(daysRemaining),
-        needed30: Math.ceil(dailyAvg * 30),
-        needed60: Math.ceil(dailyAvg * 60),
-        needed90: Math.ceil(dailyAvg * 90),
-        alertLevel: calcAlert(daysRemaining, totalStock),
+        depletionDate: isPaused ? null : calcDate(daysRemaining),
+        needed30: isPaused ? null : Math.ceil(dailyAvg * 30),
+        needed60: isPaused ? null : Math.ceil(dailyAvg * 60),
+        needed90: isPaused ? null : Math.ceil(dailyAvg * 90),
+        alertLevel: isPaused ? 'paused' : calcAlert(daysRemaining, totalStock),
         variations,
         catalogListing: item.catalog_listing || false,
         logisticType: item.shipping?.logistic_type || null,
@@ -1555,17 +1566,21 @@ async function computeStockInteligente(force = false) {
     });
 
     result.sort((a, b) => {
+      const aPaused = a.itemStatus === 'paused' ? 1 : 0;
+      const bPaused = b.itemStatus === 'paused' ? 1 : 0;
+      if (aPaused !== bPaused) return aPaused - bPaused;
       if (a.catalogListing !== b.catalogListing) return (b.catalogListing ? 1 : 0) - (a.catalogListing ? 1 : 0);
       return b.sales3m - a.sales3m;
     });
 
+    const activeItems = result.filter(i => i.itemStatus !== 'paused');
     const summary = {
-      total: result.length,
-      agotados: result.filter(i => i.totalStock === 0 || (i.variations && i.variations.some(v => v.stock === 0))).length,
-      criticos: result.filter(i => i.alertLevel === 'critical').length,
-      bajos: result.filter(i => i.alertLevel === 'low').length,
-      sinVentas: result.filter(i => i.daysRemaining === null && i.totalStock > 0).length,
-      ok: result.filter(i => i.alertLevel === 'ok' && i.daysRemaining !== null).length,
+      total: activeItems.length,
+      agotados: activeItems.filter(i => i.totalStock === 0 || (i.variations && i.variations.some(v => v.stock === 0))).length,
+      criticos: activeItems.filter(i => i.alertLevel === 'critical').length,
+      bajos: activeItems.filter(i => i.alertLevel === 'low').length,
+      sinVentas: activeItems.filter(i => i.daysRemaining === null && i.totalStock > 0).length,
+      ok: activeItems.filter(i => i.alertLevel === 'ok' && i.daysRemaining !== null).length,
       valorInventario: Math.round(result.reduce((s, i) => s + i.valorInventario, 0))
     };
 

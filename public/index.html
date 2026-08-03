@@ -4173,10 +4173,10 @@ async function loadStockInteligente(force){
 function siGetFiltered(){
   if(!siData)return[];
   let items=siData.items;
-  if(siActiveFilter==='out') items=items.filter(i=>i.totalStock===0||(i.variations&&i.variations.some(v=>v.stock===0)));
+  if(siActiveFilter==='out') items=items.filter(i=>i.itemStatus!=='paused'&&(i.totalStock===0||(i.variations&&i.variations.some(v=>v.stock===0))));
   else if(siActiveFilter==='critical') items=items.filter(i=>i.alertLevel==='critical');
   else if(siActiveFilter==='low') items=items.filter(i=>i.alertLevel==='low');
-  else if(siActiveFilter==='no_sales') items=items.filter(i=>i.daysRemaining===null&&i.totalStock>0);
+  else if(siActiveFilter==='no_sales') items=items.filter(i=>i.itemStatus!=='paused'&&i.daysRemaining===null&&i.totalStock>0);
   else if(siActiveFilter==='ok') items=items.filter(i=>i.alertLevel==='ok'&&i.daysRemaining!==null);
   if(siLogisticFilter) items=items.filter(i=>i.logisticType===siLogisticFilter);
   if(siSearchTerm){const s=siSearchTerm.toLowerCase();items=items.filter(i=>i.title.toLowerCase().includes(s));}
@@ -4239,10 +4239,10 @@ function siRender(items){
     if(item.fullBadNotAvail>0)h+='<span style="display:inline-block;font-size:10px;background:#fff7ed;color:#b45309;border-radius:3px;padding:1px 5px;margin-top:1px;font-weight:700">⚠ '+item.fullBadNotAvail+' no disp.</span>';
     return h;
   };
-  const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d'})[lv]||'#6b7280');
-  const bc=lv=>(({out:'#ef4444',critical:'#f97316',low:'#f59e0b',ok:'#10b981'})[lv]||'#d1d5db');
+  const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d',paused:'#9ca3af'})[lv]||'#6b7280');
+  const bc=lv=>(({out:'#ef4444',critical:'#f97316',low:'#f59e0b',ok:'#10b981',paused:'#d1d5db'})[lv]||'#d1d5db');
   const bp=days=>days===null?0:Math.min(Math.round(days/90*100),100);
-  const sl=(lv,days)=>{if(lv==='out')return'Agotado';if(lv==='critical')return days+'d ⚠';if(lv==='low')return days+'d';return days===null?'Sin ventas':days+'d ✓';};
+  const sl=(lv,days)=>{if(lv==='out')return'Agotado';if(lv==='paused')return'Pausado';if(lv==='critical')return days+'d ⚠';if(lv==='low')return days+'d';return days===null?'Sin ventas':days+'d ✓';};
   const fd=s=>{if(!s)return'—';const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('es-MX',{month:'short',day:'numeric'});};
   const bar=(lv,days)=>'<div style="display:flex;align-items:center;gap:6px"><div class="days-bar-outer"><div class="days-bar-inner" style="width:'+bp(days)+'%;background:'+bc(lv)+'"></div></div><span style="font-size:12px;color:'+ac(lv)+';white-space:nowrap">'+sl(lv,days)+'</span></div>';
   const nd=v=>v>0?fmt(v):'—';
@@ -4283,10 +4283,12 @@ function siRender(items){
         '<tbody>'+vRows+'</tbody>'+
         '</table></div></td></tr>';
     }
-    return'<tr class="si-prod-row" onclick="siToggle(\''+item.id+'\')">'+
+    const isPaused=item.itemStatus==='paused';
+    return'<tr class="si-prod-row" onclick="siToggle(\''+item.id+'\')" style="'+(isPaused?'opacity:0.55':'')+'">'+
       '<td style="max-width:260px"><div style="display:flex;align-items:center;gap:6px">'+
         '<span id="si-ch-'+item.id+'" class="si-chevron">'+(hasV?'▶':'')+'</span>'+
         (item.pack>1?'<span class="badge badge-pack">'+item.pack+'P</span>':'')+
+        (isPaused?'<span style="font-size:9px;background:#f3f4f6;color:#9ca3af;padding:1px 5px;border-radius:4px;font-weight:700;white-space:nowrap;flex-shrink:0">Pausado</span>':'')+
         (item.catalogListing?'<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:4px;font-weight:700;white-space:nowrap;flex-shrink:0">Catálogo ML</span>':'')+
         logisticBadge(item.logisticType)+
         '<span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.title+'</span>'+
@@ -4294,12 +4296,12 @@ function siRender(items){
       '<td style="text-align:right">'+item.monthlyAvg+'</td>'+
       '<td style="text-align:right;font-weight:700;color:'+(item.totalStock===0?'var(--red)':'var(--text)')+'">'+fmt(item.totalStock)+(agotadasCount>0?'<br><span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:4px;font-weight:600">'+agotadasCount+' var.'+(agotadasCount>1?' agotadas':' agotada')+'</span>':'')+itemFullInfo(item)+
       '</td>'+
-      '<td>'+bar(item.alertLevel,item.daysRemaining)+'</td>'+
+      '<td>'+(isPaused?'<span style="font-size:12px;color:var(--muted)">—</span>':bar(item.alertLevel,item.daysRemaining))+'</td>'+
       '<td style="text-align:right;color:var(--muted)">'+nd(item.needed30)+'</td>'+
       '<td style="text-align:right;color:var(--muted)">'+nd(item.needed60)+'</td>'+
       '<td style="text-align:right;color:var(--muted)">'+nd(item.needed90)+'</td>'+
       '<td style="text-align:right;font-size:12px;color:var(--muted)">'+fd(item.depletionDate)+'</td>'+
-    '</tr>'+varHtml;
+    '</tr>'+(isPaused&&varHtml?varHtml.replace('<div style="background:#f8fafc">','<div style="background:#f8fafc;opacity:0.65">'):varHtml);
   }).join('');
 }
 
