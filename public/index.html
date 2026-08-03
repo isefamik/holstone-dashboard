@@ -4151,7 +4151,7 @@ async function loadStockInteligente(force){
     document.getElementById('si-periodo').textContent=d.totalDays+'d · '+d.periodoDesde+' → '+d.periodoHasta;
 
     // ── Logistic chips: solo tipos que existen en la cuenta ──
-    const LOGISTIC_DEF={fulfillment:{lbl:'Full',bg:'#dbeafe',c:'#1d4ed8'},cross_docking:{lbl:'Cross Dock',bg:'#ede9fe',c:'#6d28d9'},self_service:{lbl:'Flex',bg:'#d1fae5',c:'#065f46'},drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},xd_drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},default:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'},me1:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'}};
+    const LOGISTIC_DEF={fulfillment:{lbl:'Full',bg:'#d1fae5',c:'#065f46'},cross_docking:{lbl:'Cross Dock',bg:'#ede9fe',c:'#6d28d9'},self_service:{lbl:'Flex',bg:'#ccfbf1',c:'#0f766e'},drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},xd_drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},default:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'},me1:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'}};
     const existingTypes=[...new Set(d.items.map(i=>i.logisticType).filter(Boolean))].filter(t=>LOGISTIC_DEF[t]);
     document.getElementById('si-logistic-chips').innerHTML=existingTypes.map(t=>{
       const def=LOGISTIC_DEF[t];
@@ -4214,7 +4214,7 @@ function siRender(items){
     tbodyEl.innerHTML='<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Sin productos para mostrar</td></tr>';
     return;
   }
-  const LDEF={fulfillment:{lbl:'Full',bg:'#dbeafe',c:'#1d4ed8'},cross_docking:{lbl:'Cross Dock',bg:'#ede9fe',c:'#6d28d9'},self_service:{lbl:'Flex',bg:'#d1fae5',c:'#065f46'},drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},xd_drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},default:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'},me1:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'}};
+  const LDEF={fulfillment:{lbl:'Full',bg:'#d1fae5',c:'#065f46'},cross_docking:{lbl:'Cross Dock',bg:'#ede9fe',c:'#6d28d9'},self_service:{lbl:'Flex',bg:'#ccfbf1',c:'#0f766e'},drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},xd_drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},default:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'},me1:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'}};
   const logisticBadge=lt=>{const d=LDEF[lt];return d?'<span class="si-logistic-badge" style="background:'+d.bg+';color:'+d.c+'">'+d.lbl+'</span>':''};
   const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d'})[lv]||'#6b7280');
   const bc=lv=>(({out:'#ef4444',critical:'#f97316',low:'#f59e0b',ok:'#10b981'})[lv]||'#d1d5db');
