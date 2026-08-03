@@ -3036,17 +3036,30 @@ app.get('/api/preguntas', async (req, res) => {
 // POST /api/preguntas/:id/responder  body: { text }
 app.post('/api/preguntas/:id/responder', async (req, res) => {
   try {
-    const token = await getToken();
+    const ctx = requestCtx.getStore();
+    const isTenant = !!ctx?.tenant;
+    const fetchFreshToken = () => isTenant ? refreshTenantToken(ctx.tenant) : refreshToken();
     const { text } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: 'text requerido' });
-    const r = await axios.post(
-      'https://api.mercadolibre.com/answers',
-      { question_id: parseInt(req.params.id), text: text.trim() },
-      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-    );
-    res.json(r.data);
+    const token = isTenant ? await getTenantToken(ctx.tenant) : await getToken();
+    const body = { question_id: parseInt(req.params.id), text: text.trim() };
+    const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+    try {
+      const r = await axios.post('https://api.mercadolibre.com/answers', body, { headers });
+      return res.json(r.data);
+    } catch (e) {
+      if (e.response?.status === 401) {
+        const freshToken = await fetchFreshToken();
+        const r = await axios.post('https://api.mercadolibre.com/answers', body, {
+          headers: { ...headers, Authorization: `Bearer ${freshToken}` },
+        });
+        return res.json(r.data);
+      }
+      throw e;
+    }
   } catch (e) {
-    res.status(e.response?.status || 500).json({ error: e.response?.data?.message || e.message });
+    console.error('[preguntas/responder] Error ML:', e.response?.data || e.message);
+    res.status(e.response?.status || 500).json({ error: e.response?.data || e.message });
   }
 });
 
