@@ -1351,7 +1351,7 @@ async function computeStockInteligente(force = false) {
     for (let i = 0; i < allIds.length; i += 20) {
       const ids = allIds.slice(i, i + 20).join(',');
       const details = await mlGet(
-        `https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status,variations,catalog_listing,shipping`
+        `https://api.mercadolibre.com/items?ids=${ids}&attributes=id,title,available_quantity,price,status,variations,catalog_listing,shipping,inventory_id`
       );
       items = items.concat(details.filter(d => d.code === 200).map(d => d.body));
     }
@@ -1468,7 +1468,8 @@ async function computeStockInteligente(force = false) {
         alertLevel: calcAlert(daysRemaining, totalStock),
         variations,
         catalogListing: item.catalog_listing || false,
-        logisticType: item.shipping?.logistic_type || null
+        logisticType: item.shipping?.logistic_type || null,
+        inventoryId: item.inventory_id || null
       };
     });
 
@@ -1476,9 +1477,14 @@ async function computeStockInteligente(force = false) {
     const inventoryTasks = [];
     result.forEach(item => {
       if (item.logisticType !== 'fulfillment') return;
-      item.variations.forEach(v => {
-        if (v.inventoryId) inventoryTasks.push({ itemId: item.id, varId: v.id, invId: v.inventoryId });
-      });
+      if (item.variations.length > 0) {
+        item.variations.forEach(v => {
+          if (v.inventoryId) inventoryTasks.push({ itemId: item.id, varId: v.id, invId: v.inventoryId });
+        });
+      } else if (item.inventoryId) {
+        // Producto sin variantes: inventory_id a nivel raíz
+        inventoryTasks.push({ itemId: item.id, varId: null, invId: item.inventoryId });
+      }
     });
     if (inventoryTasks.length > 0) {
       const invResults = await runPool(
@@ -1497,22 +1503,30 @@ async function computeStockInteligente(force = false) {
       const itemFullSums = {};
       invResults.forEach(r => {
         const item = itemMap[r.itemId];
-        const variant = item.variations.find(v => v.id === r.varId);
         if (r.data) {
-          variant.fullAvailable = r.data.available_quantity ?? 0;
-          variant.fullNotAvailable = r.data.not_available_quantity ?? 0;
-          variant.fullNotAvailableDetail = r.data.not_available_detail || [];
-          variant.fullTotal = r.data.total ?? 0;
+          const avail    = r.data.available_quantity ?? 0;
+          const notAvail = r.data.not_available_quantity ?? 0;
+          const tot      = r.data.total ?? 0;
+          if (r.varId !== null) {
+            const variant = item.variations.find(v => v.id === r.varId);
+            variant.fullAvailable          = avail;
+            variant.fullNotAvailable       = notAvail;
+            variant.fullNotAvailableDetail = r.data.not_available_detail || [];
+            variant.fullTotal              = tot;
+          }
           if (!itemFullSums[r.itemId]) itemFullSums[r.itemId] = { available: 0, notAvailable: 0, total: 0 };
-          itemFullSums[r.itemId].available += variant.fullAvailable;
-          itemFullSums[r.itemId].notAvailable += variant.fullNotAvailable;
-          itemFullSums[r.itemId].total += variant.fullTotal;
+          itemFullSums[r.itemId].available   += avail;
+          itemFullSums[r.itemId].notAvailable += notAvail;
+          itemFullSums[r.itemId].total       += tot;
         } else {
-          variant.fullAvailable = null;
-          variant.fullNotAvailable = null;
-          variant.fullNotAvailableDetail = [];
-          variant.fullTotal = null;
-          variant.fullError = true;
+          if (r.varId !== null) {
+            const variant = item.variations.find(v => v.id === r.varId);
+            variant.fullAvailable          = null;
+            variant.fullNotAvailable       = null;
+            variant.fullNotAvailableDetail = [];
+            variant.fullTotal              = null;
+            variant.fullError              = true;
+          }
         }
       });
       result.forEach(item => {

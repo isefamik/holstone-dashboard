@@ -4216,13 +4216,14 @@ function siRender(items){
   }
   const LDEF={fulfillment:{lbl:'Full',bg:'#d1fae5',c:'#065f46'},cross_docking:{lbl:'Cross Dock',bg:'#ede9fe',c:'#6d28d9'},self_service:{lbl:'Flex',bg:'#ccfbf1',c:'#0f766e'},drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},xd_drop_off:{lbl:'Colecta',bg:'#ffedd5',c:'#9a3412'},default:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'},me1:{lbl:'A convenir',bg:'#f3f4f6',c:'#6b7280'}};
   const logisticBadge=lt=>{const d=LDEF[lt];return d?'<span class="si-logistic-badge" style="background:'+d.bg+';color:'+d.c+'">'+d.lbl+'</span>':''};
-  const NOT_AVAIL_LBL={damaged:'Dañado',in_transit:'En tránsito',not_supported:'No apto',reserved:'Retenido'};
+  const NOT_AVAIL_LBL={damaged:'Dañado',in_transit:'En tránsito',not_supported:'No apto',reserved:'Retenido',withdrawal:'Retiro',lost:'Perdido'};
+  const notAvailLabel=s=>NOT_AVAIL_LBL[s]||(s.charAt(0).toUpperCase()+s.slice(1).replace(/_/g,' '));
   const varFullInfo=v=>{
     if(!v.inventoryId)return'';
     if(v.fullAvailable===null||v.fullAvailable===undefined)return'<div style="font-size:10px;color:var(--muted);margin-top:2px">Full: —</div>';
     let h='<div style="font-size:10px;color:#065f46;font-weight:700;margin-top:2px">Full: '+v.fullAvailable+' disp.</div>';
     if(v.fullNotAvailableDetail&&v.fullNotAvailableDetail.length>0)
-      h+=v.fullNotAvailableDetail.map(d=>'<div style="font-size:10px;color:#b45309;font-weight:600">'+(NOT_AVAIL_LBL[d.status]||d.status)+': '+d.quantity+'</div>').join('');
+      h+=v.fullNotAvailableDetail.map(d=>'<div style="font-size:10px;color:#b45309;font-weight:600">'+notAvailLabel(d.status)+': '+d.quantity+'</div>').join('');
     return h;
   };
   const itemFullInfo=item=>{
