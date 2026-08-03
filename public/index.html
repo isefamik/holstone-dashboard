@@ -4284,11 +4284,12 @@ function siRender(items){
         '</table></div></td></tr>';
     }
     const isPaused=item.itemStatus==='paused';
-    return'<tr class="si-prod-row" onclick="siToggle(\''+item.id+'\')" style="'+(isPaused?'opacity:0.55':'')+'">'+
+    const pausedRowStyle=isPaused?'background:#fffbeb;border-left:3px solid #f59e0b':'border-left:3px solid transparent';
+    return'<tr class="si-prod-row" onclick="siToggle(\''+item.id+'\')" style="'+pausedRowStyle+'">'+
       '<td style="max-width:260px"><div style="display:flex;align-items:center;gap:6px">'+
         '<span id="si-ch-'+item.id+'" class="si-chevron">'+(hasV?'▶':'')+'</span>'+
         (item.pack>1?'<span class="badge badge-pack">'+item.pack+'P</span>':'')+
-        (isPaused?'<span style="font-size:9px;background:#f3f4f6;color:#9ca3af;padding:1px 5px;border-radius:4px;font-weight:700;white-space:nowrap;flex-shrink:0">Pausado</span>':'')+
+        (isPaused?'<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:4px;font-weight:700;white-space:nowrap;flex-shrink:0;border:1px solid #fcd34d">Pausado</span>':'')+
         (item.catalogListing?'<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:4px;font-weight:700;white-space:nowrap;flex-shrink:0">Catálogo ML</span>':'')+
         logisticBadge(item.logisticType)+
         '<span style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.title+'</span>'+
