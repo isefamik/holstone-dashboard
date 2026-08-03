@@ -4218,19 +4218,25 @@ function siRender(items){
   const logisticBadge=lt=>{const d=LDEF[lt];return d?'<span class="si-logistic-badge" style="background:'+d.bg+';color:'+d.c+'">'+d.lbl+'</span>':''};
   const NOT_AVAIL_LBL={damaged:'Dañado',in_transit:'En tránsito',not_supported:'No apto',reserved:'Retenido',withdrawal:'Retiro',lost:'Perdido'};
   const notAvailLabel=s=>NOT_AVAIL_LBL[s]||(s.charAt(0).toUpperCase()+s.slice(1).replace(/_/g,' '));
+  const FULL_TRANSIT_FE=new Set(['transfer','in_transit']);
   const varFullInfo=v=>{
     if(!v.inventoryId)return'';
     if(v.fullAvailable===null||v.fullAvailable===undefined)return'<div style="font-size:10px;color:var(--muted);margin-top:2px">Full: —</div>';
     let h='<div style="font-size:10px;color:#065f46;font-weight:700;margin-top:2px">Full: '+v.fullAvailable+' disp.</div>';
-    if(v.fullNotAvailableDetail&&v.fullNotAvailableDetail.length>0)
-      h+=v.fullNotAvailableDetail.map(d=>'<div style="font-size:10px;color:#b45309;font-weight:600">'+notAvailLabel(d.status)+': '+d.quantity+'</div>').join('');
+    if(v.fullNotAvailableDetail&&v.fullNotAvailableDetail.length>0){
+      const transit=v.fullNotAvailableDetail.filter(d=>FULL_TRANSIT_FE.has(d.status));
+      const bad=v.fullNotAvailableDetail.filter(d=>!FULL_TRANSIT_FE.has(d.status));
+      if(transit.length>0){const n=transit.reduce((s,d)=>s+d.quantity,0);h+='<div style="font-size:10px;color:#0891b2;font-weight:600">En camino: '+n+'</div>';}
+      if(bad.length>0)h+=bad.map(d=>'<div style="font-size:10px;color:#b45309;font-weight:600">'+notAvailLabel(d.status)+': '+d.quantity+'</div>').join('');
+    }
     return h;
   };
   const itemFullInfo=item=>{
     if(item.logisticType!=='fulfillment'||item.fullAvailable===undefined)return'';
     if(item.fullAvailable===null)return'<div style="font-size:10px;color:var(--muted);margin-top:3px">Full: —</div>';
     let h='<div style="font-size:10px;color:#065f46;font-weight:700;margin-top:3px">Full: '+item.fullAvailable+' disp.</div>';
-    if(item.fullNotAvailable>0)h+='<span style="display:inline-block;font-size:10px;background:#fff7ed;color:#b45309;border-radius:3px;padding:1px 5px;margin-top:1px;font-weight:700">⚠ '+item.fullNotAvailable+' no disp.</span>';
+    if(item.fullInTransit>0)h+='<div style="font-size:10px;color:#0891b2;font-weight:600;margin-top:1px">En camino: '+item.fullInTransit+'</div>';
+    if(item.fullBadNotAvail>0)h+='<span style="display:inline-block;font-size:10px;background:#fff7ed;color:#b45309;border-radius:3px;padding:1px 5px;margin-top:1px;font-weight:700">⚠ '+item.fullBadNotAvail+' no disp.</span>';
     return h;
   };
   const ac=lv=>(({out:'#dc2626',critical:'#ea580c',low:'#d97706',ok:'#15803d'})[lv]||'#6b7280');

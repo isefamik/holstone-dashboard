@@ -1499,25 +1499,29 @@ async function computeStockInteligente(force = false) {
         }),
         6
       );
+      const FULL_TRANSIT = new Set(['transfer', 'in_transit']);
       const itemMap = Object.fromEntries(result.map(i => [i.id, i]));
       const itemFullSums = {};
       invResults.forEach(r => {
         const item = itemMap[r.itemId];
         if (r.data) {
-          const avail    = r.data.available_quantity ?? 0;
-          const notAvail = r.data.not_available_quantity ?? 0;
-          const tot      = r.data.total ?? 0;
+          const avail     = r.data.available_quantity ?? 0;
+          const notAvail  = r.data.not_available_quantity ?? 0;
+          const tot       = r.data.total ?? 0;
+          const detail    = r.data.not_available_detail || [];
+          const inTransit = detail.filter(d => FULL_TRANSIT.has(d.status)).reduce((s, d) => s + d.quantity, 0);
           if (r.varId !== null) {
             const variant = item.variations.find(v => v.id === r.varId);
             variant.fullAvailable          = avail;
             variant.fullNotAvailable       = notAvail;
-            variant.fullNotAvailableDetail = r.data.not_available_detail || [];
+            variant.fullNotAvailableDetail = detail;
             variant.fullTotal              = tot;
           }
-          if (!itemFullSums[r.itemId]) itemFullSums[r.itemId] = { available: 0, notAvailable: 0, total: 0 };
-          itemFullSums[r.itemId].available   += avail;
+          if (!itemFullSums[r.itemId]) itemFullSums[r.itemId] = { available: 0, notAvailable: 0, total: 0, inTransit: 0 };
+          itemFullSums[r.itemId].available    += avail;
           itemFullSums[r.itemId].notAvailable += notAvail;
-          itemFullSums[r.itemId].total       += tot;
+          itemFullSums[r.itemId].total        += tot;
+          itemFullSums[r.itemId].inTransit    += inTransit;
         } else {
           if (r.varId !== null) {
             const variant = item.variations.find(v => v.id === r.varId);
@@ -1532,17 +1536,21 @@ async function computeStockInteligente(force = false) {
       result.forEach(item => {
         if (item.logisticType !== 'fulfillment') return;
         const sums = itemFullSums[item.id];
-        item.fullAvailable = sums ? sums.available : null;
+        item.fullAvailable    = sums ? sums.available : null;
         item.fullNotAvailable = sums ? sums.notAvailable : null;
-        item.fullTotal = sums ? sums.total : null;
+        item.fullInTransit    = sums ? sums.inTransit : null;
+        item.fullBadNotAvail  = sums ? sums.notAvailable - sums.inTransit : null;
+        item.fullTotal        = sums ? sums.total : null;
       });
     }
     // Edge case: Full items with no variations that have inventory_id
     result.forEach(item => {
       if (item.logisticType === 'fulfillment' && item.fullAvailable === undefined) {
-        item.fullAvailable = null;
+        item.fullAvailable    = null;
         item.fullNotAvailable = null;
-        item.fullTotal = null;
+        item.fullInTransit    = null;
+        item.fullBadNotAvail  = null;
+        item.fullTotal        = null;
       }
     });
 
