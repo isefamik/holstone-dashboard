@@ -1542,6 +1542,7 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
         <button type="button" class="fin-tab" onclick="showFinTab('precios',this)">Precio sugerido</button>
         <button type="button" class="fin-tab" onclick="showFinTab('pyl',this)">Estado de resultados</button>
         <button type="button" class="fin-tab" onclick="showFinTab('tendencia',this)">Tendencia 6M</button>
+        <button type="button" class="fin-tab" onclick="showFinTab('costos',this)">Costos</button>
       </div>
 
       <!-- Tab 1: Resumen financiero -->
@@ -1664,6 +1665,41 @@ html.dark .login-error{background:#2d1b1b;border-color:#7f1d1d;color:#f87171}
         <div class="card">
           <div class="card-title">Ventas, utilidad y margen mensual</div>
           <div style="position:relative;height:300px"><canvas id="fin-tend-chart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tab 6: Costos con historial -->
+      <div id="fin-tab-costos" class="fin-tab-pane" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <div class="envios-tabs" style="margin:0;flex-wrap:wrap">
+            <button type="button" class="envios-tab active" onclick="setCostosFilter('todos',this)">Todos</button>
+            <button type="button" class="envios-tab" onclick="setCostosFilter('con_costo',this)">Con costo</button>
+            <button type="button" class="envios-tab" onclick="setCostosFilter('sin_costo',this)">Sin costo</button>
+          </div>
+          <div class="si-search-wrap">
+            <input class="si-search" id="costos-search" type="text" placeholder="Buscar producto o MLM..." oninput="renderCostosTable()">
+          </div>
+          <span id="costos-count" style="font-size:12px;color:var(--muted)"></span>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button type="button" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .14s" onclick="openCostoModal({mode:'add'})">+ Agregar</button>
+            <button type="button" class="btn-refresh" onclick="loadCostosTab(true)">Actualizar</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="si-table">
+            <thead>
+              <tr>
+                <th class="sort-th" id="costos-th-title" onclick="sortCostosBy('title')">Producto<span class="arrow"></span></th>
+                <th class="si-r sort-th" id="costos-th-ventas" onclick="sortCostosBy('ventas')">Ventas (período)<span class="arrow">▼</span></th>
+                <th class="si-r sort-th" id="costos-th-costo" onclick="sortCostosBy('costo')">Costo vigente<span class="arrow"></span></th>
+                <th class="si-r sort-th" id="costos-th-desde" onclick="sortCostosBy('desde')">Vigente desde<span class="arrow"></span></th>
+                <th style="text-align:right;min-width:160px">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="costos-tbody">
+              <tr><td colspan="5" style="padding:40px;text-align:center;color:var(--muted)"><div class="spin" style="margin:0 auto 8px"></div></td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -2709,6 +2745,7 @@ function showFinTab(tab,el){
   document.getElementById('fin-controls').style.display=showControls?'flex':'none';
   if(tab==='precios'&&finData.length)renderFinPrecios();
   if(tab==='tendencia'&&!finTendChart)loadTendenciaFin();
+  if(tab==='costos')loadCostosTab();
 }
 
 async function uploadCostos(input){
@@ -6041,6 +6078,291 @@ document.addEventListener('visibilitychange', function() {
     return resp;
   };
 })();
+
+// ── COSTOS TAB ────────────────────────────────────────────────────────────────
+let costosData=[];
+let costosSinData=[];
+let costosFilter='todos';
+let costosSort={key:'ventas',asc:false};
+let costosExpanded=new Set();
+let costosLoaded=false;
+let costosModalCtx=null;
+let costosPeriodReg={};  // periodId/key → ctx para onclicks seguros
+
+async function loadCostosTab(force=false){
+  if(costosLoaded&&!force)return;
+  costosLoaded=true;
+  const tbody=document.getElementById('costos-tbody');
+  if(tbody)tbody.innerHTML=`<tr><td colspan="5" style="padding:40px;text-align:center;color:var(--muted)"><div class="spin" style="margin:0 auto 8px"></div>Cargando...</td></tr>`;
+  try{
+    const[r1,r2]=await Promise.all([
+      fetch('/api/costos-historial').then(r=>r.json()),
+      fetch('/api/sin-costo-historico').then(r=>r.json()).catch(()=>({items:[]}))
+    ]);
+    costosData=r1.items||[];
+    const cosIds=new Set(costosData.map(it=>it.item_id));
+    costosSinData=(r2.items||[]).filter(it=>!cosIds.has(it.item_id));
+    renderCostosTable();
+  }catch(e){
+    if(tbody)tbody.innerHTML=`<tr><td colspan="5" style="padding:32px;text-align:center;color:var(--red)">${esc(e.message)}</td></tr>`;
+  }
+}
+
+const _cmeses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function _cFmtDate(s){if(!s)return'—';const[y,m,d]=s.split('-');return`${parseInt(d)} ${_cmeses[parseInt(m)-1]} ${y}`;}
+function _cFmtMoney(n){if(n===null||n===undefined)return'—';return'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function _cFmtK(n){if(n===null||n===undefined)return'<span style="color:var(--muted)">—</span>';if(n>=1000000)return'$'+(n/1000000).toFixed(1)+'M';if(n>=1000)return'$'+(n/1000).toFixed(0)+'K';return'$'+Math.round(n).toLocaleString('es-MX');}
+
+function renderCostosTable(){
+  const tbody=document.getElementById('costos-tbody');
+  if(!tbody)return;
+  const q=(document.getElementById('costos-search')?.value||'').toLowerCase();
+  costosPeriodReg={};
+
+  let rows=[];
+  if(costosFilter!=='sin_costo'){
+    rows=costosData.map(it=>({
+      item_id:it.item_id,title:it.title||it.item_id,
+      costo:it.activo?.costo_total??null,desde:it.activo?.vigente_desde??null,
+      periodos:it.periodos||[],activo:it.activo,hasCosto:true
+    }));
+  }
+  if(costosFilter!=='con_costo'){
+    const sinRows=costosSinData.map(it=>({
+      item_id:it.item_id,title:it.title||it.item_id,
+      costo:null,desde:null,periodos:[],activo:null,hasCosto:false,
+      venta_bruta:it.venta_bruta
+    }));
+    rows=costosFilter==='sin_costo'?sinRows:[...rows,...sinRows];
+  }
+
+  if(q)rows=rows.filter(r=>r.title.toLowerCase().includes(q)||r.item_id.toLowerCase().includes(q));
+
+  // Enriquecer con ventas del período actualmente cargado en finanzas
+  const ventaMap={};
+  (finData||[]).forEach(it=>{if(it.item_id)ventaMap[it.item_id]=it.venta_bruta||0;});
+  rows.forEach(r=>{r.ventas=ventaMap[r.item_id]??null;});
+
+  // Ordenar
+  rows.sort((a,b)=>{
+    const k=costosSort.key;
+    if(k==='title'){const va=a.title||'',vb=b.title||'';return costosSort.asc?va.localeCompare(vb,'es'):vb.localeCompare(va,'es');}
+    let va=a[k],vb=b[k];
+    const nv=costosSort.asc?Infinity:-Infinity;
+    if(va===null||va===undefined)va=nv;
+    if(vb===null||vb===undefined)vb=nv;
+    return costosSort.asc?va-vb:vb-va;
+  });
+
+  // Actualizar flechas de encabezados
+  ['title','ventas','costo','desde'].forEach(k=>{
+    const th=document.getElementById('costos-th-'+k);
+    if(!th)return;
+    th.classList.toggle('sort-active',costosSort.key===k);
+    th.querySelector('.arrow').textContent=costosSort.key===k?(costosSort.asc?'▲':'▼'):'';
+  });
+
+  const countEl=document.getElementById('costos-count');
+  if(countEl)countEl.textContent=`${rows.length} producto${rows.length!==1?'s':''}`;
+
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="5" style="padding:40px;text-align:center;color:var(--muted)">Sin resultados</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML=rows.map(r=>{
+    const isExp=costosExpanded.has(r.item_id);
+    const nP=r.periodos.length;
+
+    // Registrar ctx para el botón de editar/agregar de la fila principal
+    const newKey='new_'+r.item_id;
+    costosPeriodReg[newKey]={mode:'new',item_id:r.item_id,title:r.title,costo:r.costo,hasCosto:r.hasCosto};
+
+    const costoCell=r.costo!==null
+      ?`<span style="font-weight:700">${_cFmtMoney(r.costo)}</span>`
+      :`<span class="badge badge-gray" style="font-size:11px">Sin costo</span>`;
+
+    const editBtn=`<button type="button" class="qr-btn" onclick="openCostoModal(costosPeriodReg['${newKey}'])">${r.hasCosto?'Editar':'Agregar'}</button>`;
+    const histBtn=nP>0?`<button type="button" class="qr-btn" onclick="toggleCostoHistorial('${r.item_id}')">${isExp?'Cerrar ▲':'Historial'+(nP>1?' ('+nP+')':'')+'  ▾'}</button>`:'';
+
+    let histRow='';
+    if(isExp&&nP){
+      const pRows=r.periodos.map((p,i)=>{
+        const activo=p.vigente_hasta===null;
+        costosPeriodReg[p.id]={mode:'patch',id:p.id,item_id:r.item_id,title:r.title,costo:p.costo_total,desde:p.vigente_desde,hasta:p.vigente_hasta,notas:p.notas||''};
+        const rango=activo
+          ?`<span class="badge badge-green" style="font-size:9px;padding:1px 6px;margin-right:4px">VIGENTE</span>desde ${_cFmtDate(p.vigente_desde)}`
+          :`${_cFmtDate(p.vigente_desde)} → ${_cFmtDate(p.vigente_hasta)}`;
+        return`<tr style="background:${i%2===0?'var(--card)':'rgba(0,0,0,.02)'}">
+          <td style="padding:8px 12px 8px 44px;font-size:12px;color:var(--muted)">${rango}</td>
+          <td style="padding:8px 12px;font-size:12px;font-weight:600;text-align:right">${_cFmtMoney(p.costo_total)}</td>
+          <td style="padding:8px 12px;font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.notas||'')}">${esc(p.notas||'')}</td>
+          <td style="padding:8px 12px;text-align:right;white-space:nowrap">
+            <button type="button" class="qr-btn" onclick="openCostoModal(costosPeriodReg['${p.id}'])">Editar</button>
+            <button type="button" class="qr-btn" style="color:var(--red)" onclick="deleteCostoPeriodo('${p.id}','${r.item_id}',${activo})">Borrar</button>
+          </td>
+        </tr>`;
+      }).join('');
+      histRow=`<tr><td colspan="5" style="padding:0;border-bottom:2px solid var(--border)">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--bg)">
+            <th style="padding:5px 12px 5px 44px;text-align:left;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border)">Período</th>
+            <th style="padding:5px 12px;text-align:right;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border)">Costo</th>
+            <th style="padding:5px 12px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border)">Notas</th>
+            <th style="border-bottom:1px solid var(--border);width:130px"></th>
+          </tr></thead>
+          <tbody>${pRows}</tbody>
+        </table>
+      </td></tr>`;
+    }
+
+    return`<tr class="si-row">
+      <td>
+        <div style="font-size:13px;font-weight:500">${esc(r.title)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:1px">${r.item_id}</div>
+      </td>
+      <td class="si-r" style="font-size:13px">${_cFmtK(r.ventas)}</td>
+      <td class="si-r">${costoCell}</td>
+      <td class="si-r" style="font-size:12px;color:var(--muted)">${_cFmtDate(r.desde)}</td>
+      <td style="text-align:right;white-space:nowrap">${editBtn} ${histBtn}</td>
+    </tr>${histRow}`;
+  }).join('');
+}
+
+function setCostosFilter(f,el){
+  costosFilter=f;
+  document.querySelectorAll('#fin-tab-costos .envios-tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  renderCostosTable();
+}
+
+function sortCostosBy(key){
+  if(costosSort.key===key)costosSort.asc=!costosSort.asc;
+  else{costosSort.key=key;costosSort.asc=key==='title';}
+  renderCostosTable();
+}
+
+function toggleCostoHistorial(itemId){
+  if(costosExpanded.has(itemId))costosExpanded.delete(itemId);
+  else costosExpanded.add(itemId);
+  renderCostosTable();
+}
+
+function openCostoModal(ctx){
+  costosModalCtx=ctx;
+  const overlay=document.getElementById('costos-modal');
+  if(!overlay)return;
+  const isPatch=ctx.mode==='patch';
+  const isManual=ctx.mode==='add'||!ctx.item_id;
+
+  document.getElementById('costos-modal-h').textContent=
+    isPatch?'Editar período de costo':(ctx.hasCosto?'Actualizar costo':'Agregar costo');
+
+  const infoDiv=document.getElementById('costos-modal-info');
+  const fItem=document.getElementById('costos-modal-f-item');
+  const fTitleInp=document.getElementById('costos-modal-f-title-inp');
+
+  if(isManual){
+    infoDiv.style.display='none';
+    fItem.style.display='';
+    fTitleInp.style.display='';
+    document.getElementById('costos-modal-item-inp').value='';
+    document.getElementById('costos-modal-title-inp').value='';
+  }else{
+    infoDiv.style.display='';
+    fItem.style.display='none';
+    fTitleInp.style.display='none';
+    document.getElementById('costos-modal-info-title').textContent=ctx.title||'';
+    document.getElementById('costos-modal-info-mlm').textContent=ctx.item_id||'';
+  }
+
+  document.getElementById('costos-modal-costo-inp').value=ctx.costo||'';
+  const hoy=new Date().toISOString().slice(0,10);
+  document.getElementById('costos-modal-desde-inp').value=isPatch?(ctx.desde||hoy):hoy;
+  document.getElementById('costos-modal-notas-inp').value=ctx.notas||'';
+
+  const errDiv=document.getElementById('costos-modal-err');
+  errDiv.style.display='none';errDiv.textContent='';
+
+  const btn=document.getElementById('costos-modal-btn');
+  btn.disabled=false;
+  btn.textContent=isPatch?'Actualizar período':'Guardar costo';
+
+  overlay.classList.add('open');
+  setTimeout(()=>document.getElementById('costos-modal-costo-inp')?.focus(),80);
+}
+
+function closeCostoModal(){
+  const o=document.getElementById('costos-modal');
+  if(o)o.classList.remove('open');
+  costosModalCtx=null;
+}
+
+async function saveCostoModal(){
+  const btn=document.getElementById('costos-modal-btn');
+  const errDiv=document.getElementById('costos-modal-err');
+  const ctx=costosModalCtx;
+  if(!ctx)return;
+
+  const costo=parseFloat(document.getElementById('costos-modal-costo-inp').value);
+  const desde=document.getElementById('costos-modal-desde-inp').value;
+  const notas=document.getElementById('costos-modal-notas-inp').value.trim();
+
+  errDiv.style.display='none';
+  if(!costo||costo<=0){errDiv.textContent='El costo debe ser mayor a 0.';errDiv.style.display='';return;}
+  if(!desde){errDiv.textContent='La fecha "vigente desde" es requerida.';errDiv.style.display='';return;}
+
+  btn.disabled=true;btn.textContent='Guardando...';
+
+  try{
+    if(ctx.mode==='patch'){
+      const r=await fetch(`/api/costos-historial/${ctx.id}`,{
+        method:'PATCH',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({costo_total:costo,vigente_desde:desde,notas})
+      });
+      const d=await r.json();
+      if(d.error)throw new Error(d.error);
+      costosExpanded.add(ctx.item_id);
+    }else{
+      let item_id=ctx.item_id;
+      let title=ctx.title||'';
+      if(!item_id){
+        item_id=(document.getElementById('costos-modal-item-inp').value||'').trim().toUpperCase();
+        title=(document.getElementById('costos-modal-title-inp').value||'').trim();
+        if(!item_id){errDiv.textContent='El Item ID (MLM) es requerido.';errDiv.style.display='';btn.disabled=false;btn.textContent='Guardar costo';return;}
+      }
+      const r=await fetch('/api/costos-historial',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({item_id,title,costo_total:costo,vigente_desde:desde,notas})
+      });
+      const d=await r.json();
+      if(d.error)throw new Error(d.error);
+      costosExpanded.add(item_id);
+    }
+    closeCostoModal();
+    await loadCostosTab(true);
+    loadSinCostoHistorico();
+  }catch(e){
+    errDiv.textContent=e.message;errDiv.style.display='';
+    btn.disabled=false;
+    btn.textContent=ctx.mode==='patch'?'Actualizar período':'Guardar costo';
+  }
+}
+
+async function deleteCostoPeriodo(id,itemId,isActivo){
+  const msg=isActivo
+    ?'¿Eliminar el costo vigente? Si existe un período anterior, quedará activo.'
+    :'¿Eliminar este período de costo?';
+  if(!confirm(msg))return;
+  try{
+    const r=await fetch(`/api/costos-historial/${id}`,{method:'DELETE'});
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    costosExpanded.add(itemId);
+    await loadCostosTab(true);
+    loadSinCostoHistorico();
+  }catch(e){alert('Error al eliminar: '+e.message);}
+}
 </script>
 <!-- Modal AI Boost -->
 <div id="sus-aiboost-modal" class="sus-modal-overlay" onclick="if(event.target===this)closeAIBoostModal()">
@@ -6064,6 +6386,39 @@ document.addEventListener('visibilitychange', function() {
       <p style="font-size:15px;font-weight:700;color:var(--text);margin:0 0 6px">¡Gracias!</p>
       <p style="font-size:13px;color:var(--muted);margin:0">Te contactaremos pronto.</p>
     </div>
+  </div>
+</div>
+<!-- Modal Costos Historial -->
+<div class="sus-modal-overlay" id="costos-modal" onclick="if(event.target===this)closeCostoModal()">
+  <div class="sus-modal" style="max-width:440px">
+    <button class="sus-modal-close" onclick="closeCostoModal()">×</button>
+    <h3 id="costos-modal-h" style="margin:0 0 20px;font-size:16px;font-weight:700">Agregar costo</h3>
+    <div id="costos-modal-info" style="background:var(--bg);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:none">
+      <div id="costos-modal-info-title" style="font-size:13px;font-weight:600;margin-bottom:2px"></div>
+      <div id="costos-modal-info-mlm" style="font-size:11px;color:var(--muted)"></div>
+    </div>
+    <div class="sus-modal-field" id="costos-modal-f-item" style="display:none">
+      <label>Item ID (MLM)</label>
+      <input type="text" id="costos-modal-item-inp" placeholder="MLM1234567890">
+    </div>
+    <div class="sus-modal-field" id="costos-modal-f-title-inp" style="display:none">
+      <label>Nombre del producto</label>
+      <input type="text" id="costos-modal-title-inp" placeholder="Nombre del producto (opcional)">
+    </div>
+    <div class="sus-modal-field">
+      <label>Costo total ($)</label>
+      <input type="number" id="costos-modal-costo-inp" min="0.01" step="0.01" placeholder="0.00">
+    </div>
+    <div class="sus-modal-field">
+      <label>Vigente desde</label>
+      <input type="date" id="costos-modal-desde-inp">
+    </div>
+    <div class="sus-modal-field">
+      <label>Notas (opcional)</label>
+      <textarea id="costos-modal-notas-inp" placeholder="Ej: ajuste por inflación, cambio de proveedor..."></textarea>
+    </div>
+    <div id="costos-modal-err" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none"></div>
+    <button class="sus-modal-submit" id="costos-modal-btn" onclick="saveCostoModal()">Guardar costo</button>
   </div>
 </div>
 </body>
