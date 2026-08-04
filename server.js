@@ -316,8 +316,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const TOKEN_ROW_ID = 'ml_token';
 
 const shipmentCache = new Map();              // id → objeto shipment completo; nunca expira (shipments son inmutables)
-let costosCache = null;                       // Array de costos_productos (respaldo / USE_COST_HISTORY=false)
-let costosCacheTime = 0;
+const costosFlatCache = new Map();            // tenantId → { rows, ts } para costos_productos filtrado por tenant
 const COSTOS_TTL = 30 * 60 * 1000;           // 30 minutos
 const costosHistorialCache = new Map();       // tenantId → { rows, ts } para USE_COST_HISTORY=true
 const billingCache = new Map();               // "YYYY-M" → { data, ts }; meses pasados: indefinido, mes actual: 1h
@@ -2255,6 +2254,9 @@ app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws);
 
+    const ctxU = requestCtx.getStore();
+    const tIdU = ctxU?.tenant?.id || '498f9e3b-bc90-4941-aad8-305e93a240c9';
+
     const records = rows.map(r => {
       const costoTotal = parseFloat(r.costo_total);
       return {
@@ -2264,7 +2266,8 @@ app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
         pack:        1,
         costo_base:  isNaN(costoTotal) ? 0 : costoTotal,
         costo_total: isNaN(costoTotal) ? 0 : costoTotal,
-        updated_at:  new Date().toISOString()
+        updated_at:  new Date().toISOString(),
+        tenant_id:   tIdU
       };
     }).filter(r => r.item_id && r.costo_total > 0); // ignorar filas sin costo_total
 
@@ -2272,12 +2275,10 @@ app.post('/api/costos/upload', upload.single('file'), async (req, res) => {
 
     const { error } = await supabase.from('costos_productos').upsert(records, { onConflict: 'item_id' });
     if (error) throw new Error(error.message);
-    costosCache = null;
+    costosFlatCache.delete(tIdU);
 
     if (USE_COST_HISTORY) {
-      const ctxU = requestCtx.getStore();
-      const tIdU = ctxU?.tenant?.id || '498f9e3b-bc90-4941-aad8-305e93a240c9';
-      const hoy  = new Date().toISOString().slice(0, 10);
+      const hoy = new Date().toISOString().slice(0, 10);
       await upsertCostoHistorial(tIdU, records.map(r => ({ item_id: r.item_id, title: r.title, costo_total: r.costo_total })), hoy);
       costosHistorialCache.delete(tIdU);
     }
@@ -2294,6 +2295,8 @@ app.post('/api/agregar-costo-producto', async (req, res) => {
     if (!item_id) return res.status(400).json({ error: 'item_id requerido' });
     const costo = parseFloat(costo_total);
     if (!costo || costo <= 0) return res.status(400).json({ error: 'costo_total debe ser mayor a 0' });
+    const ctxA = requestCtx.getStore();
+    const tIdA = ctxA?.tenant?.id || '498f9e3b-bc90-4941-aad8-305e93a240c9';
     const record = {
       item_id:     String(item_id).trim(),
       title:       String(title || '').trim(),
@@ -2301,16 +2304,15 @@ app.post('/api/agregar-costo-producto', async (req, res) => {
       pack:        1,
       costo_base:  costo,
       costo_total: costo,
-      updated_at:  new Date().toISOString()
+      updated_at:  new Date().toISOString(),
+      tenant_id:   tIdA
     };
     const { error } = await supabase.from('costos_productos').upsert(record, { onConflict: 'item_id' });
     if (error) throw new Error(error.message);
-    costosCache = null;
+    costosFlatCache.delete(tIdA);
 
     if (USE_COST_HISTORY) {
-      const ctxA = requestCtx.getStore();
-      const tIdA = ctxA?.tenant?.id || '498f9e3b-bc90-4941-aad8-305e93a240c9';
-      const hoy  = new Date().toISOString().slice(0, 10);
+      const hoy = new Date().toISOString().slice(0, 10);
       await upsertCostoHistorial(tIdA, [{ item_id: record.item_id, title: record.title, costo_total: record.costo_total }], hoy);
       costosHistorialCache.delete(tIdA);
     }
@@ -2339,14 +2341,12 @@ app.get('/api/descargar-plantilla-costos', async (req, res) => {
       offset += 50;
     }
 
-    // Costos existentes
-    if (!costosCache || Date.now() - costosCacheTime > COSTOS_TTL) {
-      const { data } = await supabase.from('costos_productos').select('item_id,costo_total,costo_base,pack,tipo_prenda');
-      costosCache = data || [];
-      costosCacheTime = Date.now();
-    }
+    // Costos existentes (filtrados por tenant)
+    const ctxDL = requestCtx.getStore();
+    const tIdDL = ctxDL?.tenant?.id || '498f9e3b-bc90-4941-aad8-305e93a240c9';
+    const costosRowsDL = await getCostosFlat(tIdDL);
     const costosMap = {};
-    costosCache.forEach(c => { costosMap[c.item_id] = c; });
+    costosRowsDL.forEach(c => { costosMap[c.item_id] = c; });
 
     // Agregar ventas por item
     const byItem = {};
@@ -2683,27 +2683,29 @@ async function upsertCostoHistorial(tenantId, items, vigente_desde) {
   }
 }
 
+async function getCostosFlat(tenantId) {
+  const cached = costosFlatCache.get(tenantId);
+  if (cached && Date.now() - cached.ts < COSTOS_TTL) return cached.rows;
+  const { data } = await supabase.from('costos_productos')
+    .select('item_id,costo_total,costo_base,pack,tipo_prenda')
+    .eq('tenant_id', tenantId);
+  const rows = data || [];
+  costosFlatCache.set(tenantId, { rows, ts: Date.now() });
+  return rows;
+}
+
 async function getCostosResolver(tenantId) {
   if (USE_COST_HISTORY) {
     const histRows = await loadCostosHistorial(tenantId);
-    // Cargar flat como fallback (en caché ya está si se usó antes)
-    if (!costosCache || Date.now() - costosCacheTime > COSTOS_TTL) {
-      const { data } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
-      costosCache = data || [];
-      costosCacheTime = Date.now();
-    }
+    const flatRows = await getCostosFlat(tenantId);
     const flatFallback = {};
-    costosCache.forEach(c => { flatFallback[c.item_id] = c; });
+    flatRows.forEach(c => { flatFallback[c.item_id] = c; });
     return buildCostosResolver(histRows, flatFallback);
   }
   // Flag apagado: comportamiento idéntico al original
-  if (!costosCache || Date.now() - costosCacheTime > COSTOS_TTL) {
-    const { data } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
-    costosCache = data || [];
-    costosCacheTime = Date.now();
-  }
+  const flatRows = await getCostosFlat(tenantId);
   const flat = {};
-  costosCache.forEach(c => { flat[c.item_id] = c; });
+  flatRows.forEach(c => { flat[c.item_id] = c; });
   return (itemId, _fecha) => {
     const f = flat[itemId];
     return f ? { costo: f.costo_total } : null;
@@ -2821,7 +2823,7 @@ async function getFinancialPeriod(from, to) {
 
   // costosMap para retrocompatibilidad (callers que lo usan del return)
   const costosMap = {};
-  costosCache && costosCache.forEach(c => { costosMap[c.item_id] = c; });
+  (costosFlatCache.get(tenantId4)?.rows || []).forEach(c => { costosMap[c.item_id] = c; });
   return { items, totals, total_ordenes: orders.length, costosMap };
 }
 
@@ -2843,9 +2845,16 @@ app.get('/api/rentabilidad', async (req, res) => {
         hasCostos = (count || 0) > 0;
       }
     } else {
-      hasCostos = costosCache
-        ? costosCache.length > 0
-        : ((await supabase.from('costos_productos').select('*', { count: 'exact', head: true })).count || 0) > 0;
+      const ctxRH = requestCtx.getStore();
+      const tIdRH = ctxRH?.tenant?.id || '498f9e3b-bc90-4941-aad8-305e93a240c9';
+      const cachedFlat = costosFlatCache.get(tIdRH);
+      if (cachedFlat) {
+        hasCostos = cachedFlat.rows.length > 0;
+      } else {
+        const { count } = await supabase.from('costos_productos')
+          .select('*', { count: 'exact', head: true }).eq('tenant_id', tIdRH);
+        hasCostos = (count || 0) > 0;
+      }
     }
     if (!hasCostos) return res.json({ sin_costos: true, from, to });
     const data = await getFinancialPeriod(from, to);
@@ -2882,12 +2891,10 @@ app.get('/api/sin-costo-historico', async (req, res) => {
       const histRows = await loadCostosHistorial(tIdSC);
       costosIds = new Set(histRows.map(r => r.item_id));
     } else {
-      if (!costosCache || Date.now() - costosCacheTime > COSTOS_TTL) {
-        const { data } = await supabase.from('costos_productos').select('item_id,costo_total,pack');
-        costosCache = data || [];
-        costosCacheTime = Date.now();
-      }
-      costosIds = new Set(costosCache.map(c => c.item_id));
+      const ctxSC2 = requestCtx.getStore();
+      const tIdSC2 = ctxSC2?.tenant?.id || '498f9e3b-bc90-4941-aad8-305e93a240c9';
+      const flatRowsSC = await getCostosFlat(tIdSC2);
+      costosIds = new Set(flatRowsSC.map(c => c.item_id));
     }
 
     // Agregar por item_id, saltando los que ya tienen costo
