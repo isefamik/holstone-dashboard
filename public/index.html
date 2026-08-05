@@ -813,6 +813,16 @@ html.dark .dev-claim-type-returns{background:rgba(239,68,68,.15)}
 html.dark .dev-claim-type-cancel{background:rgba(99,102,241,.15);color:#a5b4fc}
 .dev-claim-type-other{background:#fef3c7;color:#f59e0b}
 html.dark .dev-claim-type-other{background:rgba(245,158,11,.15);color:#fbbf24}
+/* Inicio — Publicidad card */
+.ov-ads-card{cursor:pointer;transition:box-shadow .15s}
+.ov-ads-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.12)}
+.ov-ads-period{font-size:10px;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin-left:6px;text-transform:uppercase;letter-spacing:.4px;vertical-align:middle}
+.ov-ads-row{display:flex;flex-direction:column;gap:14px;margin-top:4px}
+.ov-ads-metric{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid var(--border)}
+.ov-ads-metric:last-child{border-bottom:none;padding-bottom:0}
+.ov-ads-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.ov-ads-val{font-size:20px;font-weight:800;color:var(--text);line-height:1.2}
+.ov-ads-hint{font-size:11px;color:var(--muted);margin-top:2px}
 </style>
 <script>if(localStorage.getItem('hk-dark')==='1')document.documentElement.classList.add('dark')</script>
 </head>
@@ -1141,7 +1151,7 @@ html.dark .dev-claim-type-other{background:rgba(245,158,11,.15);color:#fbbf24}
           <div class="metric-delta" id="ov-rep-delta"></div>
         </div>
       </div>
-      <div class="grid-3">
+      <div class="grid-4">
         <div class="card">
           <div class="card-title">🛡️ Salud de la cuenta</div>
           <div id="ov-salud"><div class="loading"><div class="spin"></div></div></div>
@@ -1153,6 +1163,10 @@ html.dark .dev-claim-type-other{background:rgba(245,158,11,.15);color:#fbbf24}
         <div class="card">
           <div class="card-title">📈 Performance — 7 días</div>
           <div id="perf-stats"><div class="loading"><div class="spin"></div></div></div>
+        </div>
+        <div class="card ov-ads-card" onclick="showSection('publicidad',null);initPublicidadSection()">
+          <div class="card-title">📢 Publicidad <span class="ov-ads-period">7 días</span></div>
+          <div id="ov-ads-content"><div class="loading"><div class="spin"></div></div></div>
         </div>
       </div>
       <div class="grid-2">
@@ -4300,6 +4314,39 @@ async function loadPerformance(){
   }
 }
 
+// ── Publicidad overview (Inicio) ──────────────────
+async function loadAdsOverview(){
+  const el=document.getElementById('ov-ads-content');
+  if(!el)return;
+  try{
+    const r=await fetch('/api/ads');
+    const d=await r.json();
+    if(d.available===false){
+      el.innerHTML='<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin cuenta de publicidad</div>';
+      return;
+    }
+    if(d.error)throw new Error(errStr(d.error));
+    const campaigns=d.campaigns||[];
+    const totDirect=campaigns.reduce((s,c)=>s+(c.metrics?.direct_amount||0),0);
+    const totClicks=campaigns.reduce((s,c)=>s+(c.metrics?.clicks||0),0);
+    el.innerHTML=`
+      <div class="ov-ads-row">
+        <div class="ov-ads-metric">
+          <div class="ov-ads-label">Ventas por publicidad</div>
+          <div class="ov-ads-val" style="color:var(--accent)">${fmtMXN(totDirect)}</div>
+          <div class="ov-ads-hint">ventas atribuidas directamente</div>
+        </div>
+        <div class="ov-ads-metric">
+          <div class="ov-ads-label">Clics recibidos</div>
+          <div class="ov-ads-val">${fmt(totClicks)}</div>
+          <div class="ov-ads-hint">en tus anuncios</div>
+        </div>
+      </div>`;
+  }catch(e){
+    el.innerHTML=`<div class="error" style="font-size:12px">${e.message}</div>`;
+  }
+}
+
 // ── Stock Inteligente ─────────────────────────────
 let siLoaded=false,siData=null,siActiveFilter='all',siSearchTerm='',siLogisticFilter=null;
 
@@ -5028,7 +5075,7 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/\n/g,' '); }
 
 const SECTION_RELOADERS = {
-  inicio:       () => { loadVentas(); loadStock(); loadReputacion(); loadPublicaciones(); loadPerformance(); loadEnvios('today'); loadTendencia('7days'); },
+  inicio:       () => { loadVentas(); loadStock(); loadReputacion(); loadPublicaciones(); loadPerformance(); loadEnvios('today'); loadTendencia('7days'); loadAdsOverview(); },
   'ventas-live':() => loadLiveData(),
   ventas:       () => loadVentasResumen(),
   stock:        () => siReload(),
@@ -5064,6 +5111,7 @@ function loadAll(){
   loadPerformance();
   loadEnvios('today');
   loadTendencia('7days');
+  loadAdsOverview();
   loadPreguntasBadge();
 }
 
