@@ -2263,7 +2263,7 @@ function renderRepDetail(d,container){
       </div>
       <div class="rep-stat-card">
         <div class="rep-stat-val" style="color:${rateColor(d.enviosDemorados,5,10)}">${fmtPct(d.enviosDemorados)}</div>
-        <div class="rep-stat-lbl">Envíos demorados</div>
+        <div class="rep-stat-lbl">Prep. tardía</div>
       </div>
       <div class="rep-stat-card">
         <div class="rep-stat-val" style="color:var(--muted)">${fmt(d.cancelacionesNum||0)}</div>
@@ -3778,9 +3778,15 @@ async function loadStock(){
 
 async function loadReputacion(){
   try{
-    const r=await fetch('/api/reputacion');
-    const d=await r.json();
+    const [repR,devR]=await Promise.all([
+      fetch('/api/reputacion'),
+      fetch('/api/devoluciones?status=opened&limit=50').catch(()=>null),
+    ]);
+    const d=await repR.json();
     if(d.error)throw new Error(d.error);
+    const devData=devR?await devR.json().catch(()=>null):null;
+    const openClaims=devData?.claims||null;
+    const mediacionesAbiertas=openClaims?openClaims.filter(c=>c.type==='mediations').length:null;
     const lbl=repLabel(d.reputacion,d.powerSeller);
     const c=repColor(d.reputacion);
     const levelNum=repLevelNum(d.reputacion);
@@ -3797,12 +3803,13 @@ async function loadReputacion(){
       </div>
       <div class="ic-stat-row"><span class="ic-stat-label">Cancelaciones</span><span class="ic-stat-val" style="color:${rateColor(d.cancelaciones,2,5)}">${fmtPct(d.cancelaciones)}</span></div>
       <div class="ic-stat-row"><span class="ic-stat-label">Reclamos</span><span class="ic-stat-val" style="color:${rateColor(d.reclamos,2,5)}">${fmtPct(d.reclamos)}</span></div>
-      <div class="ic-stat-row"><span class="ic-stat-label">Envíos demorados</span><span class="ic-stat-val" style="color:${rateColor(d.enviosDemorados,5,10)}">${fmtPct(d.enviosDemorados)}</span></div>
+      <div class="ic-stat-row"><span class="ic-stat-label" title="Pedidos no entregados al carrier dentro del tiempo de preparación declarado">Prep. tardía</span><span class="ic-stat-val" style="color:${rateColor(d.enviosDemorados,5,10)}">${fmtPct(d.enviosDemorados)}</span></div>
       <div class="ic-stat-row"><span class="ic-stat-label" style="color:var(--muted)">Período evaluado</span><span class="ic-stat-val" style="color:var(--muted)">${d.tiempoRespuesta?.periodo||'—'}</span></div>
       <div class="ic-stat-row"><span class="ic-stat-label" style="color:var(--muted)">Transacciones totales</span><span class="ic-stat-val" style="color:var(--green)">${fmt(d.transacciones)}</span></div>`;
 
     // — computed values for full section —
-    const recOk=d.reclamos<1, canOk=d.cancelaciones<0.5, envOk=d.enviosDemorados<8, medOk=d.reclamos<0.5;
+    const recOk=d.reclamos<1, canOk=d.cancelaciones<0.5, envOk=d.enviosDemorados<8;
+    const medOk=mediacionesAbiertas===0;
     const recColor=recOk?'var(--green)':'var(--red)';
     const canColor=canOk?'var(--green)':'var(--red)';
     const envColor=envOk?'var(--green)':'var(--red)';
@@ -3816,6 +3823,13 @@ async function loadReputacion(){
       ?'<div class="rep-check-dot rep-check-ok">✓</div>'
       :'<div class="rep-check-dot rep-check-fail">✗</div>';
     const pill=(ok,txt)=>`<span class="rep-status-pill ${ok?'rep-pill-ok':'rep-pill-bad'}">${ok?'✓':'✗'} ${txt}</span>`;
+    // Hero dynamic elements
+    const SEG_COLORS=['#ef4444','#f97316','#eab308','#84cc16','#10b981'];
+    const segBar=SEG_COLORS.map((sc,i)=>{const a=i+1<=levelNum,cur=i+1===levelNum;return`<div style="flex:1;height:10px;background:${sc};border-radius:5px;opacity:${a?1:.15}${cur?';box-shadow:0 0 10px '+sc+'88':''}"></div>`;}).join('');
+    const segLabels=[1,2,3,4,5].map(n=>{const cur=n===levelNum;return`<span style="font-size:10px;color:${cur?c:'rgba(255,255,255,.28)'};font-weight:${cur?700:400}">${n}${cur?' ✓':''}</span>`;}).join('');
+    const heroBadge=d.powerSeller==='platinum'?'⭐ PLATINUM':d.powerSeller==='gold'?'🥇 GOLD':d.powerSeller==='silver'?'🥈 SILVER':d.powerSeller?(d.powerSeller.charAt(0).toUpperCase()+d.powerSeller.slice(1)):repLabel(d.reputacion,null).toUpperCase();
+    const heroMsg=levelNum===5?'¡Estás en el nivel más alto!':levelNum===4?'Un escalón del Platinum':levelNum===3?'Nivel intermedio — sigue mejorando':levelNum>=1?'Tu reputación necesita atención':'Nivel no disponible';
+    const heroMsgColor=levelNum===5?'#10b981':levelNum>=3?'#eab308':'#f97316';
 
     document.getElementById('rep-content').innerHTML=`
       <!-- HERO HEADER -->
@@ -3823,33 +3837,25 @@ async function loadReputacion(){
         <div style="position:relative;z-index:1">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:20px">
             <div>
-              <div class="rep-plat-badge">⭐ PLATINUM</div>
+              <div class="rep-plat-badge">${heroBadge}</div>
               <div style="font-size:24px;font-weight:900;color:#fff;line-height:1.25;margin-bottom:6px">
-                Nivel ${levelNum} de 5 &nbsp;—&nbsp; <span style="color:#10b981">¡Estás en el nivel más alto!</span>
+                Nivel ${levelNum} de 5 &nbsp;—&nbsp; <span style="color:${heroMsgColor}">${heroMsg}</span>
               </div>
               <div style="font-size:13px;color:rgba(255,255,255,.5)">
                 Miembro desde ${regDate} &nbsp;·&nbsp; ${fmt(d.points||0)} puntos
               </div>
             </div>
             <div style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px 22px;text-align:right;min-width:150px;flex-shrink:0">
-              <div style="font-size:32px;font-weight:900;color:#10b981;line-height:1">${fmt(d.ventasCompletadas60d||0)}</div>
+              <div style="font-size:32px;font-weight:900;color:${c};line-height:1">${fmt(d.ventasCompletadas60d||0)}</div>
               <div style="font-size:10.5px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.8px;margin-top:4px">ventas 60 días</div>
             </div>
           </div>
-          <!-- 5-segment level bar (all filled, each color = one level) -->
+          <!-- 5-segment level bar — active segments filled, inactive dimmed -->
           <div style="display:flex;gap:5px;margin-bottom:8px">
-            <div style="flex:1;height:10px;background:#ef4444;border-radius:5px"></div>
-            <div style="flex:1;height:10px;background:#f97316;border-radius:5px"></div>
-            <div style="flex:1;height:10px;background:#eab308;border-radius:5px"></div>
-            <div style="flex:1;height:10px;background:#84cc16;border-radius:5px"></div>
-            <div style="flex:1;height:10px;background:#10b981;border-radius:5px;box-shadow:0 0 10px rgba(16,185,129,.55)"></div>
+            ${segBar}
           </div>
           <div style="display:flex;justify-content:space-between;padding:0 1px">
-            <span style="font-size:10px;color:rgba(255,255,255,.28)">1</span>
-            <span style="font-size:10px;color:rgba(255,255,255,.28)">2</span>
-            <span style="font-size:10px;color:rgba(255,255,255,.28)">3</span>
-            <span style="font-size:10px;color:rgba(255,255,255,.28)">4</span>
-            <span style="font-size:10px;color:#10b981;font-weight:700">5 ✓</span>
+            ${segLabels}
           </div>
         </div>
       </div>
@@ -3892,7 +3898,7 @@ async function loadReputacion(){
 
         <div class="rep-metric-card">
           <span class="rep-metric-icon">🚚</span>
-          <div class="rep-metric-label">Envíos demorados</div>
+          <div class="rep-metric-label" title="Pedidos no entregados al carrier dentro del tiempo de preparación declarado">Prep. tardía</div>
           <div class="rep-metric-pct" style="color:${envColor}">${fmtPct(d.enviosDemorados)}</div>
           <div class="rep-metric-sub">${fmt(envioDemoNum)} casos &nbsp;·&nbsp; límite &lt;8%</div>
           <div class="rep-limit-track">
@@ -3922,8 +3928,8 @@ async function loadReputacion(){
               <div><div style="font-size:13px;font-weight:600">Reclamos bajo límite (&lt;1%)</div><div style="font-size:11px;color:var(--muted)">${fmtPct(d.reclamos)} actual · ${fmt(d.reclamosNum||0)} casos</div></div>
             </li>
             <li class="rep-check-item">
-              ${chk(medOk)}
-              <div><div style="font-size:13px;font-weight:600">Mediaciones bajo límite (&lt;0.5%)</div><div style="font-size:11px;color:var(--muted)">${fmtPct(d.reclamos)} actual</div></div>
+              ${mediacionesAbiertas===null?'<div class="rep-check-dot" style="background:var(--muted);color:#fff;font-size:10px;line-height:1">?</div>':chk(medOk)}
+              <div><div style="font-size:13px;font-weight:600">Mediaciones abiertas</div><div style="font-size:11px;color:var(--muted)">${mediacionesAbiertas===null?'Dato no disponible':mediacionesAbiertas===0?'Sin mediaciones abiertas':fmt(mediacionesAbiertas)+' mediaciones abiertas'}</div></div>
             </li>
             <li class="rep-check-item">
               ${chk(canOk)}
@@ -3931,7 +3937,7 @@ async function loadReputacion(){
             </li>
             <li class="rep-check-item">
               ${chk(envOk)}
-              <div><div style="font-size:13px;font-weight:600">Envíos incorrectos bajo límite (&lt;8%)</div><div style="font-size:11px;color:var(--muted)">${fmtPct(d.enviosDemorados)} actual · ${fmt(envioDemoNum)} casos</div></div>
+              <div><div style="font-size:13px;font-weight:600">Preparación tardía (&lt;8%)</div><div style="font-size:11px;color:var(--muted)">${fmtPct(d.enviosDemorados)} actual · ${fmt(envioDemoNum)} entregas tardías</div></div>
             </li>
             <li class="rep-check-item">
               ${chk(true)}
@@ -3967,7 +3973,9 @@ async function loadReputacion(){
           <div class="rep-hist-cell"><div class="rep-hist-val" style="color:var(--accent)">${fmt(d.points||0)}</div><div class="rep-hist-lbl">Puntos</div></div>
         </div>
         ${d.tags?.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">${d.tags.map(t=>repTagLabel(t)).join('')}</div>`:''}
-      </div>`;
+      </div>
+      <div id="rep-top-products"></div>`;
+    if(openClaims) renderTopProducts(openClaims,'rep-top-products');
   }catch(e){
     const errHtml=`<div class="error">Error cargando reputación: ${e.message}</div>`;
     document.getElementById('rep-content').innerHTML=errHtml;
@@ -4040,7 +4048,7 @@ async function loadDevAbiertos(){
     const badge=document.getElementById('devoluciones-badge');
     if(badge){badge.textContent=urgentes.length||d.total;badge.style.display=d.total>0?'':'none';}
     renderDevInsights(d.claims, _devState.stats);
-    renderTopProducts(d.claims);
+    renderTopProducts(d.claims,'dev-top-products');
     // Render 3 secciones separadas
     let html='';
     if(urgentes.length){
@@ -4102,8 +4110,8 @@ function renderDevInsights(claims, stats){
   </div>`;
 }
 
-function renderTopProducts(claims){
-  const el=document.getElementById('dev-top-products');
+function renderTopProducts(claims,containerId){
+  const el=document.getElementById(containerId||'dev-top-products');
   const prodMap={};
   claims.filter(c=>(c.days_open||0)<=60).forEach(c=>{
     const title=c.order_items?.[0]?.title||'Sin producto';
