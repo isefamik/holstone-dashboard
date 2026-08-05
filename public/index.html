@@ -793,11 +793,26 @@ html.dark .preg-answer-text{color:#6ee7b7}
 html.dark .rep-en-proceso{background:rgba(217,119,6,.1);color:#fbbf24}
 html.dark .rep-ep-badge{background:rgba(217,119,6,.5)}
 
-/* Devoluciones — badge de tipo de reclamo */
+/* Devoluciones — badge de tipo de reclamo (tabla Top Productos) */
 .dev-type-badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;display:inline-block}
 .dev-type-badge-returns{background:#fee2e2;color:var(--red)}
 .dev-type-badge-other{background:#fef3c7;color:#f59e0b}
 html.dark .dev-type-badge-other{background:rgba(245,158,11,.15);color:#fbbf24}
+
+/* Devoluciones — cards de reclamo (tinte de prioridad) */
+.dev-claim-urgente{background:#fff5f5}
+html.dark .dev-claim-urgente{background:rgba(239,68,68,.07)}
+.dev-claim-opcional{background:#fffef0}
+html.dark .dev-claim-opcional{background:rgba(245,158,11,.05)}
+
+/* Devoluciones — badge de tipo dentro de la claim card */
+.dev-claim-type{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.dev-claim-type-returns{background:#fee2e2;color:var(--red)}
+html.dark .dev-claim-type-returns{background:rgba(239,68,68,.15)}
+.dev-claim-type-cancel{background:#ede9fe;color:#6366f1}
+html.dark .dev-claim-type-cancel{background:rgba(99,102,241,.15);color:#a5b4fc}
+.dev-claim-type-other{background:#fef3c7;color:#f59e0b}
+html.dark .dev-claim-type-other{background:rgba(245,158,11,.15);color:#fbbf24}
 </style>
 <script>if(localStorage.getItem('hk-dark')==='1')document.documentElement.classList.add('dark')</script>
 </head>
@@ -4078,9 +4093,9 @@ function renderDevInsights(claims, stats){
   }
   if(!items.length){el.style.display='none';return;}
   el.style.display='';
-  el.innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px">
+  el.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px">
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Insights</div>
-    ${items.map((i,idx)=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0${idx<items.length-1?';border-bottom:1px solid var(--bg)':''}">
+    ${items.map((i,idx)=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0${idx<items.length-1?';border-bottom:1px solid var(--border)':''}">
       <span style="font-size:14px;flex-shrink:0;margin-top:1px">${i.icon}</span>
       <span style="font-size:13px;color:var(--text);line-height:1.5">${esc(i.text)}</span>
     </div>`).join('')}
@@ -4101,7 +4116,7 @@ function renderTopProducts(claims){
   if(rows.length<2){el.style.display='none';return;}
   el.style.display='';
   const typeLabel=t=>t==='returns'?'Devolución':t==='mediations'?'Mediación':t==='cancel_purchase'?'Cancelación':t;
-  el.innerHTML=`<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:16px">
+  el.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:16px">
     <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">Top productos con reclamos</div>
     <div style="display:grid;grid-template-columns:1fr 80px 120px 100px;gap:8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--border)">
       <span>Producto</span><span style="text-align:center">Reclamos</span><span>Tipo frecuente</span><span>Días máx.</span>
@@ -4109,7 +4124,7 @@ function renderTopProducts(claims){
     ${rows.map(([title,v])=>{
       const topType=Object.entries(v.types).sort((a,b)=>b[1]-a[1])[0]?.[0];
       const urgent=v.maxDays>=7;
-      return `<div style="display:grid;grid-template-columns:1fr 80px 120px 100px;gap:8px;padding:10px 0;border-bottom:1px solid var(--bg);font-size:13px;align-items:center">
+      return `<div style="display:grid;grid-template-columns:1fr 80px 120px 100px;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:center">
         <span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(title)}">${esc(title.slice(0,45))}${title.length>45?'…':''}</span>
         <span style="text-align:center;font-weight:700;color:${v.count>2?'var(--red)':'var(--text)'}">${v.count}</span>
         <span class="dev-type-badge ${topType==='returns'?'dev-type-badge-returns':'dev-type-badge-other'}">${typeLabel(topType)}</span>
@@ -4154,17 +4169,15 @@ const _DEV_ACTION_LABELS={
 
 function renderClaimCard(c,isHistory){
   const typeColor=c.type==='returns'?'var(--red)':c.type==='cancel_purchase'?'#6366f1':'#f59e0b';
-  const typeBg=c.type==='returns'?'#fee2e2':c.type==='cancel_purchase'?'#ede9fe':'#fef3c7';
+  const typeClass=c.type==='returns'?'dev-claim-type dev-claim-type-returns':c.type==='cancel_purchase'?'dev-claim-type dev-claim-type-cancel':'dev-claim-type dev-claim-type-other';
   const items=c.order_items||[];
   const productTitle=items.length>0?items[0].title:(c.resource_id?'Orden #'+c.resource_id:'—');
   const reasonLabel=c.reason_label||c.reason_id||'Sin motivo';
   const daysOpen=c.days_open??null;
   const prioridad=c.prioridad||null;
 
-  // Card background by priority
-  let cardBg='#fff';
-  if(prioridad==='urgente')cardBg='#fff5f5';
-  else if(prioridad==='opcional')cardBg='#fffef0';
+  // Card priority class (background handled via CSS for dark mode)
+  const priorityCls=prioridad==='urgente'?' dev-claim-urgente':prioridad==='opcional'?' dev-claim-opcional':'';
 
   // Resolution (closed claims)
   let resHtml='';
@@ -4198,11 +4211,11 @@ function renderClaimCard(c,isHistory){
     actionsHtml='<div style="margin-top:8px;font-size:12px;color:var(--muted);font-style:italic">Esperando respuesta de ML o el comprador</div>';
   }
 
-  return '<div class="preg-card" style="border-left:3px solid '+typeColor+';background:'+cardBg+'">'+
+  return '<div class="preg-card'+priorityCls+'" style="border-left:3px solid '+typeColor+'">'+
     '<div class="preg-thumb-ph">'+(c.type==='returns'?'📦':c.type==='cancel_purchase'?'❌':'⚖️')+'</div>'+
     '<div class="preg-body">'+
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">'+
-    '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:'+typeBg+';color:'+typeColor+'">'+_claimTypeLabel(c.type)+'</span>'+
+    '<span class="'+typeClass+'">'+_claimTypeLabel(c.type)+'</span>'+
     '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg);color:var(--muted);font-weight:600">'+_claimStageLabel(c.stage)+'</span>'+
     daysHtml+
     (dueBadge?dueBadge:'')+
