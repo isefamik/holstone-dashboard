@@ -3251,6 +3251,71 @@ app.get('/api/tendencia-financiera', async (req, res) => {
   }
 });
 
+// ── FINANZAS: Retenciones estimadas (ISR + IVA) ──────────────────────────────
+app.get('/api/retenciones', async (req, res) => {
+  try {
+    const n = Math.min(parseInt(req.query.months) || 6, 12);
+    const now = new Date();
+    const ranges = [];
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear(), m = d.getMonth() + 1;
+      const ms = String(m).padStart(2, '0');
+      ranges.push({
+        label: d.toLocaleString('es-MX', { month: 'long', year: 'numeric' }),
+        year: y, month: m,
+        from: `${y}-${ms}-01`,
+        to:   `${y}-${ms}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`,
+        is_current: y === now.getFullYear() && m === now.getMonth() + 1,
+      });
+    }
+
+    // Solo órdenes pagadas — sin shipments, ads ni costos
+    const monthOrders = await Promise.all(ranges.map(async r => {
+      const fromISO = `${r.from}T00:00:00.000-06:00`;
+      const toISO   = `${r.to}T23:59:59.000-06:00`;
+      let orders = [], offset = 0, total = 1;
+      while (offset < total && orders.length < 2000) {
+        const page = await mlGet('https://api.mercadolibre.com/orders/search', {
+          seller: getSellerId(), 'order.status': 'paid',
+          'order.date_created.from': fromISO, 'order.date_created.to': toISO,
+          limit: 50, offset,
+        });
+        total = page.paging.total;
+        orders = orders.concat(page.results);
+        offset += 50;
+      }
+      return orders;
+    }));
+
+    // Fórmulas validadas: ISR = total_amount/1.16 × 0.025 | IVA = (unit_price×qty)/1.16 × 0.08
+    const result = ranges.map((r, i) => {
+      const orders = monthOrders[i];
+      let sum_total = 0, sum_items = 0;
+      orders.forEach(o => {
+        sum_total += o.total_amount || 0;
+        (o.order_items || []).forEach(oi => {
+          sum_items += (oi.unit_price || 0) * (oi.quantity || 1);
+        });
+      });
+      const base_isr = sum_total / 1.16;
+      const isr      = base_isr * 0.025;
+      const base_iva = sum_items / 1.16;
+      const iva      = base_iva * 0.08;
+      return {
+        label: r.label, year: r.year, month: r.month,
+        is_current: r.is_current, total_ordenes: orders.length,
+        base_isr, isr, base_iva, iva, total_retenido: isr + iva,
+      };
+    }).reverse(); // mes más reciente primero
+
+    res.json({ months: result });
+  } catch (e) {
+    if (e.name === 'TokenExpiredError') throw e;
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
+});
+
 // ── Costos Historial CRUD ────────────────────────────────────────────────────
 
 // GET /api/costos-historial — todos los items del tenant con costo activo + conteo de períodos

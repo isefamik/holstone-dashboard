@@ -1707,6 +1707,7 @@ html.dark .dev-claim-type-other{background:rgba(245,158,11,.15);color:#fbbf24}
         <button type="button" class="fin-tab" onclick="showFinTab('pyl',this)">Estado de resultados</button>
         <button type="button" class="fin-tab" onclick="showFinTab('tendencia',this)">Tendencia 6M</button>
         <button type="button" class="fin-tab" onclick="showFinTab('costos',this)">Costos</button>
+        <button type="button" class="fin-tab" onclick="showFinTab('retenciones',this)">Retenciones</button>
       </div>
 
       <!-- Tab 1: Resumen financiero -->
@@ -1865,6 +1866,14 @@ html.dark .dev-claim-type-other{background:rgba(245,158,11,.15);color:#fbbf24}
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- Tab 7: Retenciones estimadas -->
+      <div id="fin-tab-retenciones" class="fin-tab-pane" style="display:none">
+        <div class="fin-note-info">
+          <b>Estimado ±2%.</b> Cálculo basado en tus ventas del mes. El monto oficial exacto está en tu panel de MercadoLibre → Impuestos → Retenciones.
+        </div>
+        <div id="ret-content"><div class="loading"><div class="spin"></div>Calculando retenciones...</div></div>
       </div>
 
     </div>
@@ -2886,6 +2895,7 @@ let finFilter='todos';
 let finDonaChart=null;
 let finTendChart=null;
 let finPylData=null;
+let finRetInited=false;
 
 function initFinanzasSection(){
   if(finInited)return;
@@ -2910,6 +2920,7 @@ function showFinTab(tab,el){
   if(tab==='precios'&&finData.length)renderFinPrecios();
   if(tab==='tendencia'&&!finTendChart)loadTendenciaFin();
   if(tab==='costos')loadCostosTab();
+  if(tab==='retenciones')loadRetenciones();
 }
 
 async function uploadCostos(input){
@@ -6592,6 +6603,75 @@ async function deleteCostoPeriodo(id,itemId,isActivo){
     </div>
   </div>
 </div>
+<!-- ── RETENCIONES TAB ──────────────────────────────────────────────────────── -->
+<script>
+async function loadRetenciones(force=false){
+  if(finRetInited&&!force)return;
+  finRetInited=true;
+  const el=document.getElementById('ret-content');
+  el.innerHTML='<div class="loading"><div class="spin"></div>Calculando retenciones...</div>';
+  try{
+    const r=await fetch('/api/retenciones?months=6');
+    const d=await r.json();
+    if(d.error)throw new Error(errStr(d.error));
+    renderRetenciones(d.months||[]);
+  }catch(e){
+    el.innerHTML=`<div class="error">Error: ${e.message}</div>`;
+  }
+}
+
+function renderRetenciones(months){
+  const el=document.getElementById('ret-content');
+  if(!months.length){
+    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)">No hay ventas en los últimos 6 meses.</div>';
+    return;
+  }
+  const MES=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  el.innerHTML=months.map(m=>{
+    const badge=m.is_current
+      ?`<span style="background:rgba(37,99,235,.12);color:var(--blue);border:1px solid rgba(37,99,235,.3);border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;white-space:nowrap">Estimado — mes en curso</span>`
+      :`<span class="badge-gray" style="font-size:11px;font-weight:600;padding:2px 10px">Estimado</span>`;
+    return`<div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="font-size:16px;font-weight:700;color:var(--text)">${MES[m.month]} ${m.year}</div>
+        ${badge}
+        <span style="font-size:12px;color:var(--muted);margin-left:auto">${fmt(m.total_ordenes)} órdenes</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="si-table" style="min-width:520px">
+          <thead>
+            <tr>
+              <th style="padding:9px 14px;text-align:left">Retención</th>
+              <th class="si-r" style="padding:9px 14px;width:64px">%</th>
+              <th class="si-r" style="padding:9px 14px">Base gravable</th>
+              <th class="si-r" style="padding:9px 14px">Monto retenido</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="si-row">
+              <td style="padding:10px 14px;font-size:13px">Impuesto sobre la renta (ISR)</td>
+              <td class="si-r" style="padding:10px 14px;font-size:13px;color:var(--muted)">2.5%</td>
+              <td class="si-r" style="padding:10px 14px;font-size:13px">${fmtMXN(m.base_isr)}</td>
+              <td class="si-r" style="padding:10px 14px;font-size:13px;font-weight:600">${fmtMXN(m.isr)}</td>
+            </tr>
+            <tr class="si-row">
+              <td style="padding:10px 14px;font-size:13px">Impuesto al valor agregado (IVA)</td>
+              <td class="si-r" style="padding:10px 14px;font-size:13px;color:var(--muted)">8%</td>
+              <td class="si-r" style="padding:10px 14px;font-size:13px">${fmtMXN(m.base_iva)}</td>
+              <td class="si-r" style="padding:10px 14px;font-size:13px;font-weight:600">${fmtMXN(m.iva)}</td>
+            </tr>
+            <tr>
+              <td colspan="3" style="padding:11px 14px;font-size:13px;font-weight:700;border-top:2px solid var(--border)">Total retenido</td>
+              <td class="si-r" style="padding:11px 14px;font-size:15px;font-weight:800;color:var(--text);border-top:2px solid var(--border)">${fmtMXN(m.total_retenido)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+</script>
+
 <!-- Modal Costos Historial -->
 <div class="sus-modal-overlay" id="costos-modal" onclick="if(event.target===this)closeCostoModal()">
   <div class="sus-modal" style="max-width:440px">
