@@ -3288,12 +3288,12 @@ app.get('/api/retenciones', async (req, res) => {
       return orders;
     }));
 
-    // Fórmulas validadas: ISR = total_amount/1.16 × 0.025 | IVA = (unit_price×qty)/1.16 × 0.08
+    // ISR = paid_amount/1.16 × 0.025 (paid_amount cubre reembolsos parciales) | IVA = (unit_price×qty)/1.16 × 0.08
     const result = ranges.map((r, i) => {
       const orders = monthOrders[i];
       let sum_total = 0, sum_items = 0;
       orders.forEach(o => {
-        sum_total += o.total_amount || 0;
+        sum_total += o.paid_amount || o.total_amount || 0;
         (o.order_items || []).forEach(oi => {
           sum_items += (oi.unit_price || 0) * (oi.quantity || 1);
         });
